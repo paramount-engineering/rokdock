@@ -1,0 +1,677 @@
+/* ============================================================
+   RokDock Shared Component Styles
+   All values reference --rokdock-* CSS custom properties.
+   Injected into every window by the preload script.
+   ============================================================ */
+
+/* --- Base Reset --- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-base);
+    font-weight: var(--rokdock-weight-normal);
+    color: var(--rokdock-text-primary);
+    background: var(--rokdock-bg-base);
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+::selection {
+    background: var(--rokdock-selection-bg);
+    color: var(--rokdock-selection-text);
+}
+
+/* --- Platform-Specific Font Rendering --- */
+.platform-darwin {
+    -webkit-font-smoothing: antialiased;
+}
+
+.platform-linux {
+    -moz-osx-font-smoothing: auto;
+    font-smooth: always;
+}
+
+/* --- Scrollbar --- */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rokdock-scrollbar-thumb) var(--rokdock-scrollbar-track);
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--rokdock-scrollbar-track);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--rokdock-scrollbar-thumb);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--rokdock-scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* --- Typography --- */
+.rokdock-title {
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-lg);
+    font-weight: var(--rokdock-weight-semibold);
+    color: var(--rokdock-text-bright);
+}
+
+.rokdock-section-header {
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-md);
+    font-weight: var(--rokdock-weight-medium);
+    color: var(--rokdock-text-primary);
+}
+
+.rokdock-label {
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-sm);
+    font-weight: var(--rokdock-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--rokdock-text-muted);
+}
+
+.rokdock-hint {
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-sm);
+    font-weight: var(--rokdock-weight-normal);
+    color: var(--rokdock-text-muted);
+    opacity: 0.7;
+}
+
+.rokdock-badge-text {
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-xs);
+    font-weight: var(--rokdock-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.rokdock-code {
+    font-family: var(--rokdock-font-mono);
+    font-size: var(--rokdock-font-base);
+    font-weight: var(--rokdock-weight-normal);
+}
+
+/* --- Focus Ring --- */
+.rokdock-focusable:focus-visible {
+    outline: 2px solid var(--rokdock-focus-border);
+    outline-offset: 1px;
+    box-shadow: var(--rokdock-focus-shadow);
+}
+
+/* --- Accent Divider --- */
+.rokdock-divider {
+    height: 1px;
+    border: none;
+    background: linear-gradient(90deg, transparent, var(--rokdock-accent-divider), transparent);
+    margin: var(--rokdock-space-xs) 0;
+    flex-shrink: 0;
+}
+
+/* --- Button Base --- */
+.rokdock-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--rokdock-space-xs);
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-base);
+    font-weight: var(--rokdock-weight-medium);
+    padding: var(--rokdock-space-xs) var(--rokdock-space-md);
+    border-radius: var(--rokdock-radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background var(--rokdock-transition-fast),
+                border-color var(--rokdock-transition-fast),
+                box-shadow var(--rokdock-transition-fast);
+    user-select: none;
+}
+
+.rokdock-btn-primary {
+    background: linear-gradient(135deg, var(--rokdock-btn-primary), var(--rokdock-brand-primary-dark));
+    color: var(--rokdock-btn-text);
+    border-color: transparent;
+    box-shadow: var(--rokdock-btn-primary-glow);
+}
+
+.rokdock-btn-primary:hover {
+    background: linear-gradient(135deg, var(--rokdock-btn-primary-hover), var(--rokdock-btn-primary));
+    box-shadow: none;
+}
+
+.rokdock-btn-ghost {
+    background: var(--rokdock-btn-ghost);
+    color: var(--rokdock-text-primary);
+    border-color: var(--rokdock-border-light);
+}
+
+.rokdock-btn-ghost:hover {
+    background: var(--rokdock-btn-ghost-hover);
+    border-color: var(--rokdock-border);
+}
+
+.rokdock-btn-danger {
+    background: var(--rokdock-btn-danger);
+    color: var(--rokdock-btn-text);
+}
+
+.rokdock-btn-danger:hover {
+    background: var(--rokdock-btn-danger-hover);
+}
+
+.rokdock-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* --- Input Base --- */
+.rokdock-input {
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-base);
+    font-weight: var(--rokdock-weight-normal);
+    color: var(--rokdock-text-primary);
+    background: var(--rokdock-bg-input);
+    border: 1px solid var(--rokdock-border);
+    border-radius: var(--rokdock-radius-md);
+    padding: var(--rokdock-space-xs) var(--rokdock-space-sm);
+    outline: none;
+    transition: border-color var(--rokdock-transition-fast),
+                box-shadow var(--rokdock-transition-fast);
+}
+
+.rokdock-input:focus {
+    border-color: var(--rokdock-focus-border);
+    box-shadow: 0 0 0 2px var(--rokdock-focus-shadow);
+}
+
+.rokdock-input::placeholder {
+    color: var(--rokdock-text-muted);
+}
+
+.rokdock-input-hint::placeholder {
+    color: var(--rokdock-text-muted);
+    opacity: 0.45;
+}
+
+.rokdock-input-mono {
+    font-family: var(--rokdock-font-mono);
+}
+
+/* --- Overlay --- */
+.rokdock-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--rokdock-overlay-bg);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+/* --- Dialog --- */
+.rokdock-dialog {
+    background: linear-gradient(160deg, var(--rokdock-panel-gradient-start), var(--rokdock-panel-gradient-end));
+    border: 1px solid var(--rokdock-border);
+    border-radius: var(--rokdock-radius-xl);
+    box-shadow: var(--rokdock-shadow-elevated);
+    min-width: 320px;
+    max-width: 90vw;
+}
+
+.rokdock-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--rokdock-space-md) var(--rokdock-space-lg);
+    border-bottom: 1px solid var(--rokdock-border-light);
+}
+
+.rokdock-dialog-body {
+    padding: var(--rokdock-space-lg);
+}
+
+.rokdock-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--rokdock-space-sm);
+    padding: var(--rokdock-space-md) var(--rokdock-space-lg);
+    border-top: 1px solid var(--rokdock-border-light);
+}
+
+/* Briefly highlights a settings section scrolled into view via a deeplink
+   (e.g. the terminal gear opening Appearance at the Terminal section). */
+.rokdock-section-flash {
+    outline: 2px solid var(--rokdock-focus-border);
+    outline-offset: 2px;
+    border-radius: var(--rokdock-radius-sm);
+    transition: outline-color 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rokdock-section-flash {
+        transition: none;
+    }
+}
+
+/* Inline text-action reset button used in settings sections (e.g. Color, Scale). */
+.rokdock-reset-link {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    white-space: nowrap;
+    font-size: var(--rokdock-font-xs);
+    color: var(--rokdock-text-dim);
+}
+.rokdock-reset-link:hover {
+    color: var(--rokdock-text-bright);
+}
+
+/* --- Tool Window Toolbar (content styles for <rokdock-toolbar>) --- */
+/* Container styles are owned by the rokdock-toolbar web component. */
+/* These rules style slotted light-DOM content (buttons, separators). */
+
+rokdock-toolbar .toolbar-sep {
+    width: 1px;
+    height: 14px;
+    flex-shrink: 0;
+    align-self: center;
+    background: var(--rokdock-white-bright);
+    box-shadow: 0 0 0 1px var(--rokdock-black-subtle);
+    margin: 0 2px;
+}
+
+rokdock-toolbar .tb-btn {
+    width: 22px;
+    height: 18px;
+    border: none;
+    border-radius: 4px;
+    padding: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85); /* fixed white - toolbar bg is brand purple in both themes */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background .12s ease, color .12s ease, box-shadow .12s ease;
+    font-size: var(--rokdock-font-base);
+    line-height: 1;
+    outline: none;
+}
+
+rokdock-toolbar .tb-btn:hover { background: var(--rokdock-white-medium); color: rgba(255, 255, 255, 0.95) }
+rokdock-toolbar .tb-btn:active { background: var(--rokdock-white-medium) }
+rokdock-toolbar .tb-btn:disabled { opacity: .45; cursor: not-allowed }
+rokdock-toolbar .tb-btn.on { background: var(--rokdock-white-medium); color: rgba(255, 255, 255, 0.95); box-shadow: inset 0 0 0 1px var(--rokdock-white-bright) }
+rokdock-toolbar .tb-btn svg { width: 13px; height: 13px; display: block; pointer-events: none }
+
+/* --- Zoom Dock Wrapper --- */
+.zoom-dock-wrap {
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    z-index: 10;
+    transition: opacity 0.2s ease;
+    position: absolute;
+}
+
+.zoom-dock-wrap.fixed {
+    position: fixed;
+    bottom: 14px;
+}
+
+.zoom-dock-wrap.dimmed {
+    opacity: 0.3;
+}
+
+.zoom-dock-wrap.hidden {
+    display: none;
+}
+
+/* --- Toast Notification --- */
+.toast {
+    position: fixed;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--rokdock-bg-panel);
+    color: var(--rokdock-text-primary);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: var(--rokdock-font-sm);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s ease;
+    z-index: 100;
+    box-shadow: 0 4px 16px var(--rokdock-black-medium);
+}
+
+.toast.show {
+    opacity: 1;
+}
+
+/* --- Loading Overlay + Spinner --- */
+.loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    background: var(--rokdock-loading-bg);
+    backdrop-filter: blur(2px);
+}
+
+.loading-overlay.show,
+.loading-overlay.active {
+    display: flex;
+}
+
+.loading-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--rokdock-loading-spinner-border);
+    border-top-color: var(--rokdock-brand-primary);
+    border-radius: 50%;
+    animation: rokdock-spin .7s linear infinite;
+}
+
+@keyframes rokdock-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* --- Dialog --- */
+.dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--rokdock-overlay-bg);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+
+.dialog-overlay.visible {
+    display: flex;
+}
+
+.dialog {
+    background: linear-gradient(160deg, var(--rokdock-panel-gradient-start), var(--rokdock-panel-gradient-end));
+    border: 1px solid var(--rokdock-border);
+    border-radius: var(--rokdock-radius-xl);
+    padding: 20px;
+    min-width: 340px;
+    max-width: 420px;
+    box-shadow: var(--rokdock-shadow-elevated);
+}
+
+.dialog h3 {
+    font-size: var(--rokdock-font-md);
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--rokdock-text-bright);
+}
+
+.dialog p {
+    font-size: var(--rokdock-font-base);
+    color: var(--rokdock-text-muted);
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.dialog-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.dialog-btn {
+    height: 26px;
+    padding: 0 14px;
+    border: 1px solid var(--rokdock-border);
+    border-radius: var(--rokdock-radius-md);
+    background: var(--rokdock-bg-panel);
+    color: var(--rokdock-text-primary);
+    font-size: var(--rokdock-font-sm);
+    cursor: pointer;
+    transition: background var(--rokdock-transition-fast),
+                box-shadow var(--rokdock-transition-fast);
+}
+
+.dialog-btn:hover {
+    background: var(--rokdock-bg-hover);
+}
+
+.dialog-btn.primary {
+    background: linear-gradient(135deg, var(--rokdock-btn-primary), var(--rokdock-brand-primary-dark));
+    color: var(--rokdock-btn-text);
+    border-color: transparent;
+    box-shadow: var(--rokdock-btn-primary-glow);
+}
+
+.dialog-btn.primary:hover {
+    background: linear-gradient(135deg, var(--rokdock-btn-primary-hover), var(--rokdock-brand-primary));
+    box-shadow: none;
+}
+
+.dialog-btn.danger {
+    color: var(--rokdock-state-error);
+    border-color: color-mix(in srgb, var(--rokdock-state-error) 27%, transparent);
+}
+
+.dialog-btn.danger:hover {
+    background: color-mix(in srgb, var(--rokdock-state-error) 12%, transparent);
+}
+
+/* --- Empty State --- */
+.rokdock-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--rokdock-space-xl);
+    color: var(--rokdock-text-muted);
+    text-align: center;
+    gap: var(--rokdock-space-sm);
+}
+
+/* --- Document Tab Bar --- */
+/* Shared between terminal pane and tool window tab bars (e.g. JSON editor). */
+
+.rokdock-tab-bar {
+    display: flex;
+    align-items: center;
+    padding-right: 6px;
+    background: linear-gradient(180deg, var(--rokdock-tab-bg) 0%, var(--rokdock-card-gradient-end) 100%);
+    min-height: 26px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.rokdock-tab-list {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-width: 0;
+    flex: 0 1 auto;
+}
+
+.rokdock-tab-list::-webkit-scrollbar { height: 3px }
+.rokdock-tab-list::-webkit-scrollbar-track { background: transparent }
+.rokdock-tab-list::-webkit-scrollbar-thumb { background: var(--rokdock-scrollbar-thumb); border-radius: 2px }
+.rokdock-tab-list::-webkit-scrollbar-thumb:hover { background: var(--rokdock-scrollbar-thumb-hover) }
+
+.rokdock-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 6px 0 10px;
+    height: 26px;
+    min-width: 0;
+    max-width: 220px;
+    border: none;
+    border-right: 1px solid var(--rokdock-border);
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.18s ease, box-shadow 0.18s ease;
+    user-select: none;
+    flex-shrink: 0;
+    font-family: var(--rokdock-font-ui);
+    outline: none;
+    appearance: none;
+}
+
+.rokdock-tab:hover {
+    background: linear-gradient(180deg, var(--rokdock-bg-surface) 0%, var(--rokdock-tab-bg) 100%);
+}
+
+.rokdock-tab.active {
+    background: linear-gradient(180deg, var(--rokdock-bg-hover) 0%, var(--rokdock-bg-surface) 100%);
+    border-bottom: 2px solid var(--rokdock-brand-primary);
+    box-shadow: inset 0 1px 0 var(--rokdock-white-subtle), 0 2px 8px -2px var(--rokdock-tab-glow);
+}
+
+.rokdock-tab-label {
+    font-size: var(--rokdock-font-sm);
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--rokdock-text-dim);
+    flex: 1;
+    pointer-events: none;
+}
+
+.rokdock-tab.active .rokdock-tab-label {
+    color: var(--rokdock-text-bright);
+}
+
+.rokdock-tab-dirty {
+    font-size: 8px;
+    color: var(--rokdock-text-muted);
+    flex-shrink: 0;
+    line-height: 1;
+    display: none;
+    align-self: center;
+}
+
+.rokdock-tab.dirty .rokdock-tab-dirty {
+    display: inline;
+}
+
+.rokdock-tab-close {
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 4px;
+    padding: 0;
+    background: transparent;
+    color: var(--rokdock-text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+    font-size: var(--rokdock-font-sm);
+    line-height: 1;
+}
+
+.rokdock-tab:hover .rokdock-tab-close,
+.rokdock-tab.active .rokdock-tab-close {
+    opacity: 1;
+}
+
+.rokdock-tab-close:hover {
+    background: var(--rokdock-bg-hover);
+    color: var(--rokdock-text-bright);
+}
+
+.rokdock-tab-close svg {
+    width: 11px;
+    height: 11px;
+    display: block;
+    pointer-events: none;
+    fill: currentColor;
+}
+
+.rokdock-tab-add {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: var(--rokdock-radius-sm);
+    padding: 0;
+    background: transparent;
+    color: var(--rokdock-text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background var(--rokdock-transition-fast), color var(--rokdock-transition-fast);
+    flex-shrink: 0;
+    margin: 0 2px;
+}
+
+.rokdock-tab-add:hover {
+    background: var(--rokdock-bg-hover);
+    color: var(--rokdock-text-bright);
+}
+
+.rokdock-tab-add svg {
+    width: 10px;
+    height: 10px;
+    display: block;
+    pointer-events: none;
+}
+
+/* CollapsibleSection header - matches rokdock-collapsible web component */
+.rokdock-section-header {
+    position: relative;
+    background: linear-gradient(90deg, var(--rokdock-section-header-bg) 0%, transparent 80%);
+    transition: background 0.1s ease;
+}
+.rokdock-section-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--rokdock-accent-divider), transparent);
+}
+.rokdock-section-header:hover {
+    background: linear-gradient(90deg, var(--rokdock-bg-hover) 0%, transparent 80%);
+}
+
+/* TabContextMenu item hover */
+.tab-context-menu-item {
+    background: transparent;
+}
+.tab-context-menu-item:not(:disabled):hover {
+    background: var(--rokdock-bg-hover);
+}

@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TV Safe Zones Overlay - Full HD (1920x1080)
+  RokDock Dark Theme
+
+  Zone definitions:
+    Outer (unsafe):   screen edge -> Action Safe boundary
+    Action Safe:      90% of screen  (margin: 96px H, 54px V)
+    Title Safe:       80% of screen  (margin: 192px H, 108px V)
+
+  Designed as a transparent overlay for 1080p app screenshots.
+  Scale to 1280x720 for HD or 2880x1620 for 1800p.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <!-- Drop shadow for light text -->
+    <filter id="shadowLight" x="-5%" y="-20%" width="115%" height="160%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+    <!-- Subtle glow for dark text on light zones -->
+    <filter id="shadowDark" x="-5%" y="-20%" width="115%" height="160%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#ffffff" flood-opacity="0.3"/>
+    </filter>
+
+    <!-- Double-headed arrow marker (auto-start-reverse flips it for marker-start) -->
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7.5" refY="3"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L0,6 L8,3 Z" fill="#e6e9ff" fill-opacity="0.85"/>
+    </marker>
+
+    <style>
+      .zone-label {
+        font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+        text-anchor: middle;
+        dominant-baseline: central;
+        font-weight: 600;
+      }
+      .coord-label {
+        font-family: 'Consolas', 'Courier New', monospace;
+        fill: #e6e9ff;
+        fill-opacity: 0.85;
+        filter: url(#shadowLight);
+      }
+      .meas-line {
+        stroke: #e6e9ff;
+        stroke-opacity: 0.82;
+        stroke-width: 2;
+      }
+      .meas-label {
+        font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+        font-size: 18px;
+        text-anchor: middle;
+        dominant-baseline: central;
+        fill: #e6e9ff;
+        filter: url(#shadowLight);
+      }
+    </style>
+  </defs>
+
+  <!-- ============================================ -->
+  <!-- ZONE FILLS                                   -->
+  <!-- ============================================ -->
+
+  <!-- Outer unsafe zone (#6dd3ff cyan) -->
+  <path d="M0,0 H1920 V1080 H0 Z M96,54 H1824 V1026 H96 Z"
+        fill="#6dd3ff" fill-opacity="0.28" fill-rule="evenodd"/>
+
+  <!-- Action safe -> title safe zone (#b59aff purple) -->
+  <path d="M96,54 H1824 V1026 H96 Z M192,108 H1728 V972 H192 Z"
+        fill="#b59aff" fill-opacity="0.25" fill-rule="evenodd"/>
+
+  <!-- Title safe interior (#ffbd6f amber, very light) -->
+  <rect x="192" y="108" width="1536" height="864"
+        fill="#ffbd6f" fill-opacity="0.05"/>
+
+  <!-- ============================================ -->
+  <!-- ZONE BOUNDARY LINES                          -->
+  <!-- ============================================ -->
+
+  <rect x="1" y="1" width="1918" height="1078"
+        fill="none" stroke="#6dd3ff" stroke-width="2.75" stroke-opacity="0.62"/>
+  <rect x="96" y="54" width="1728" height="972"
+        fill="none" stroke="#b59aff" stroke-width="2.75" stroke-opacity="0.85"/>
+  <rect x="192" y="108" width="1536" height="864"
+        fill="none" stroke="#ffbd6f" stroke-width="2.75" stroke-opacity="0.85"/>
+
+  <!-- ============================================ -->
+  <!-- ZONE LABELS                                  -->
+  <!-- Cyan band top:   y  0-54  center ~27         -->
+  <!-- Purple band top: y 54-108 center ~81         -->
+  <!-- Amber zone:      y 108+                      -->
+  <!-- ============================================ -->
+
+  <text x="960" y="27" class="zone-label" fill="white" font-size="28"
+        filter="url(#shadowLight)">Full HD (FHD)</text>
+
+  <text x="960" y="81" class="zone-label" fill="white" font-size="22"
+        filter="url(#shadowLight)">Full HD &#x2013; Action Safe Zone (90% of UI)</text>
+
+  <text x="960" y="135" class="zone-label" fill="white" font-size="22"
+        filter="url(#shadowLight)">Full HD &#x2013; Title Safe Zone (80% of UI)</text>
+
+  <!-- ============================================ -->
+  <!-- COORDINATE LABELS - top-left zone corners    -->
+  <!-- ============================================ -->
+
+  <circle cx="4" cy="4" r="3" fill="#6dd3ff" fill-opacity="0.9"/>
+  <text class="coord-label" font-size="16">
+    <tspan x="10" y="14">x: 0</tspan>
+    <tspan x="10" y="32">y: 0</tspan>
+  </text>
+
+  <circle cx="96" cy="54" r="3" fill="#b59aff" fill-opacity="0.9"/>
+  <text class="coord-label" font-size="16">
+    <tspan x="102" y="67">x: 96</tspan>
+    <tspan x="102" y="85">y: 54</tspan>
+  </text>
+
+  <circle cx="192" cy="108" r="3" fill="#ffbd6f" fill-opacity="0.9"/>
+  <text class="coord-label" font-size="16">
+    <tspan x="198" y="122">x: 192</tspan>
+    <tspan x="198" y="140">y: 108</tspan>
+  </text>
+
+  <!-- ============================================ -->
+  <!-- WIDTH MEASUREMENTS (horizontal arrows)       -->
+  <!-- Each arrow lives inside its own zone band    -->
+  <!-- Center x=960, gap x: 910-1010               -->
+  <!-- ============================================ -->
+
+  <!-- Title safe: 1536px, inside amber zone y=940 -->
+  <line x1="192" y1="940" x2="910" y2="940" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1010" y1="940" x2="1728" y2="940" class="meas-line" marker-end="url(#arrow)"/>
+  <text x="960" y="937" class="meas-label">1536 px</text>
+
+  <!-- Action safe: 1728px, in bottom purple band y=999 -->
+  <line x1="96" y1="999" x2="910" y2="999" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1010" y1="999" x2="1824" y2="999" class="meas-line" marker-end="url(#arrow)"/>
+  <text x="960" y="996" class="meas-label">1728 px</text>
+
+  <!-- Full screen: 1920px, in bottom cyan band y=1053 -->
+  <line x1="2" y1="1053" x2="910" y2="1053" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1010" y1="1053" x2="1918" y2="1053" class="meas-line" marker-end="url(#arrow)"/>
+  <text x="960" y="1050" class="meas-label">1920 px</text>
+
+  <!-- ============================================ -->
+  <!-- HEIGHT MEASUREMENTS (vertical arrows)        -->
+  <!-- Each arrow lives inside its own zone band    -->
+  <!-- Center y=540, gap y: 490-590                -->
+  <!-- ============================================ -->
+
+  <!-- Title safe: 864px, inside amber zone x=1680 (48px from orange border) -->
+  <line x1="1680" y1="108" x2="1680" y2="490" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1680" y1="590" x2="1680" y2="972" class="meas-line" marker-end="url(#arrow)"/>
+  <g transform="rotate(-90,1680,540)">
+    <text x="1680" y="539" class="meas-label" letter-spacing="1.5">864 px</text>
+  </g>
+
+  <!-- Action safe: 972px, in right purple band x=1776 -->
+  <line x1="1776" y1="54" x2="1776" y2="490" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1776" y1="590" x2="1776" y2="1026" class="meas-line" marker-end="url(#arrow)"/>
+  <g transform="rotate(-90,1776,540)">
+    <text x="1776" y="539" class="meas-label" letter-spacing="1.5">972 px</text>
+  </g>
+
+  <!-- Full screen: 1080px, in right cyan band x=1872 -->
+  <line x1="1872" y1="2" x2="1872" y2="490" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1872" y1="590" x2="1872" y2="1078" class="meas-line" marker-end="url(#arrow)"/>
+  <g transform="rotate(-90,1872,540)">
+    <text x="1872" y="539" class="meas-label" letter-spacing="1.5">1080 px</text>
+  </g>
+
+  <!-- ============================================ -->
+  <!-- CENTER CROSSHAIR                             -->
+  <!-- ============================================ -->
+
+  <line x1="948" y1="540" x2="972" y2="540"
+        stroke="#8e97b8" stroke-opacity="0.55" stroke-width="2"/>
+  <line x1="960" y1="528" x2="960" y2="552"
+        stroke="#8e97b8" stroke-opacity="0.55" stroke-width="2"/>
+  <circle cx="960" cy="540" r="2"
+          fill="none" stroke="#8e97b8" stroke-opacity="0.55" stroke-width="2"/>
+
+</svg>

@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Rule of Thirds Overlay - Full HD (1920x1080)
+  RokDock Dark Theme
+
+  Grid:
+    Columns:  3 x 640 px   (lines at x=640, x=1280)
+    Rows:     3 x 360 px   (lines at y=360, y=720)
+    Power points:  (640,360)  (1280,360)  (640,720)  (1280,720)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <filter id="shadowLight" x="-10%" y="-30%" width="130%" height="200%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7.5" refY="3"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L0,6 L8,3 Z" fill="#e6e9ff" fill-opacity="0.78"/>
+    </marker>
+
+    <style>
+      .title-label {
+        font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+        text-anchor: middle;
+        dominant-baseline: central;
+        font-weight: 600;
+      }
+      .grid-label {
+        font-family: 'Consolas', 'Courier New', monospace;
+        dominant-baseline: central;
+        fill: #b59aff;
+        fill-opacity: 0.85;
+        filter: url(#shadowLight);
+      }
+      .meas-line {
+        stroke: #e6e9ff;
+        stroke-opacity: 0.82;
+        stroke-width: 2;
+      }
+      .meas-label {
+        font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+        font-size: 18px;
+        text-anchor: middle;
+        dominant-baseline: central;
+        fill: #e6e9ff;
+        filter: url(#shadowLight);
+      }
+      .power-ring {
+        fill: none;
+        stroke: #ffbd6f;
+        stroke-width: 1.5;
+        stroke-opacity: 0.8;
+      }
+      .power-cross {
+        stroke: #ffbd6f;
+        stroke-width: 1;
+        stroke-opacity: 0.7;
+      }
+    </style>
+  </defs>
+
+  <!-- ============================================ -->
+  <!-- SCREEN BOUNDARY                              -->
+  <!-- ============================================ -->
+
+  <rect x="1" y="1" width="1918" height="1078"
+        fill="none" stroke="#6dd3ff" stroke-width="2.75" stroke-opacity="0.55"/>
+
+  <!-- ============================================ -->
+  <!-- GRID LINES                                   -->
+  <!-- ============================================ -->
+
+  <!-- Vertical thirds -->
+  <line x1="640" y1="0" x2="640" y2="1080"
+        stroke="#b59aff" stroke-width="2" stroke-opacity="0.72"/>
+  <line x1="1280" y1="0" x2="1280" y2="1080"
+        stroke="#b59aff" stroke-width="2" stroke-opacity="0.72"/>
+
+  <!-- Horizontal thirds -->
+  <line x1="0" y1="360" x2="1920" y2="360"
+        stroke="#b59aff" stroke-width="2" stroke-opacity="0.72"/>
+  <line x1="0" y1="720" x2="1920" y2="720"
+        stroke="#b59aff" stroke-width="2" stroke-opacity="0.72"/>
+
+  <!-- ============================================ -->
+  <!-- POWER POINT MARKERS (grid intersections)     -->
+  <!-- ============================================ -->
+
+  <!-- (640, 360) -->
+  <circle cx="640" cy="360" r="10" class="power-ring"/>
+  <line x1="630" y1="360" x2="650" y2="360" class="power-cross"/>
+  <line x1="640" y1="350" x2="640" y2="370" class="power-cross"/>
+  <circle cx="640" cy="360" r="2.5" fill="#ffbd6f" fill-opacity="0.78"/>
+
+  <!-- (1280, 360) -->
+  <circle cx="1280" cy="360" r="10" class="power-ring"/>
+  <line x1="1270" y1="360" x2="1290" y2="360" class="power-cross"/>
+  <line x1="1280" y1="350" x2="1280" y2="370" class="power-cross"/>
+  <circle cx="1280" cy="360" r="2.5" fill="#ffbd6f" fill-opacity="0.78"/>
+
+  <!-- (640, 720) -->
+  <circle cx="640" cy="720" r="10" class="power-ring"/>
+  <line x1="630" y1="720" x2="650" y2="720" class="power-cross"/>
+  <line x1="640" y1="710" x2="640" y2="730" class="power-cross"/>
+  <circle cx="640" cy="720" r="2.5" fill="#ffbd6f" fill-opacity="0.78"/>
+
+  <!-- (1280, 720) -->
+  <circle cx="1280" cy="720" r="10" class="power-ring"/>
+  <line x1="1270" y1="720" x2="1290" y2="720" class="power-cross"/>
+  <line x1="1280" y1="710" x2="1280" y2="730" class="power-cross"/>
+  <circle cx="1280" cy="720" r="2.5" fill="#ffbd6f" fill-opacity="0.78"/>
+
+  <!-- ============================================ -->
+  <!-- CENTER REFERENCE MARK                        -->
+  <!-- ============================================ -->
+
+  <line x1="948" y1="540" x2="972" y2="540"
+        stroke="#8e97b8" stroke-opacity="0.52" stroke-width="2"/>
+  <line x1="960" y1="528" x2="960" y2="552"
+        stroke="#8e97b8" stroke-opacity="0.52" stroke-width="2"/>
+  <circle cx="960" cy="540" r="6"
+          fill="none" stroke="#8e97b8" stroke-opacity="0.42" stroke-width="2"/>
+
+  <!-- ============================================ -->
+  <!-- TITLE                                        -->
+  <!-- ============================================ -->
+
+  <text x="960" y="28" class="title-label" fill="white" font-size="28"
+        filter="url(#shadowLight)">Rule of Thirds</text>
+
+  <!-- ============================================ -->
+  <!-- GRID LINE POSITION LABELS                    -->
+  <!-- ============================================ -->
+
+  <!-- Vertical line positions (top edge, labels sit just right of each line) -->
+  <text x="648" y="16" class="grid-label" font-size="16" text-anchor="start">x: 640</text>
+  <text x="1288" y="16" class="grid-label" font-size="16" text-anchor="start">x: 1280</text>
+
+  <!-- Horizontal line positions (left edge) -->
+  <text x="5" y="352" class="grid-label" font-size="16" text-anchor="start">y: 360</text>
+  <text x="5" y="712" class="grid-label" font-size="16" text-anchor="start">y: 720</text>
+
+  <!-- ============================================ -->
+  <!-- COLUMN WIDTH MEASUREMENTS (bottom)           -->
+  <!-- All columns: 640 px  -  y=1060              -->
+  <!-- ============================================ -->
+
+  <!-- Column 1: x 0-640 -->
+  <line x1="2"   y1="1060" x2="275" y2="1060" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="365" y1="1060" x2="638" y2="1060" class="meas-line" marker-end="url(#arrow)"/>
+  <text x="320" y="1060" class="meas-label">640 px</text>
+
+  <!-- Column 2: x 640-1280 -->
+  <line x1="642"  y1="1060" x2="915"  y2="1060" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1005" y1="1060" x2="1278" y2="1060" class="meas-line" marker-end="url(#arrow)"/>
+  <text x="960" y="1060" class="meas-label">640 px</text>
+
+  <!-- Column 3: x 1280-1920 -->
+  <line x1="1282" y1="1060" x2="1555" y2="1060" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1645" y1="1060" x2="1918" y2="1060" class="meas-line" marker-end="url(#arrow)"/>
+  <text x="1600" y="1060" class="meas-label">640 px</text>
+
+  <!-- ============================================ -->
+  <!-- ROW HEIGHT MEASUREMENTS (right side)         -->
+  <!-- All rows: 360 px  -  x=1895                 -->
+  <!-- ============================================ -->
+
+  <!-- Row 1: y 0-360 -->
+  <line x1="1895" y1="2"   x2="1895" y2="135" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1895" y1="225" x2="1895" y2="358" class="meas-line" marker-end="url(#arrow)"/>
+  <g transform="rotate(-90,1895,180)">
+    <text x="1895" y="179" class="meas-label" letter-spacing="1.5">360 px</text>
+  </g>
+
+  <!-- Row 2: y 360-720 -->
+  <line x1="1895" y1="362" x2="1895" y2="495" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1895" y1="585" x2="1895" y2="718" class="meas-line" marker-end="url(#arrow)"/>
+  <g transform="rotate(-90,1895,540)">
+    <text x="1895" y="539" class="meas-label" letter-spacing="1.5">360 px</text>
+  </g>
+
+  <!-- Row 3: y 720-1080 -->
+  <line x1="1895" y1="722" x2="1895" y2="855" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1895" y1="945" x2="1895" y2="1078" class="meas-line" marker-end="url(#arrow)"/>
+  <g transform="rotate(-90,1895,900)">
+    <text x="1895" y="899" class="meas-label" letter-spacing="1.5">360 px</text>
+  </g>
+
+</svg>

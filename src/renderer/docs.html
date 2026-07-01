@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en" data-rokdock-bundled class="rokdock-theme-pending">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- img-src/media-src allow any https host: the docs reference images and inline
+         videos across several Roku/CDN hosts (image.roku.com, devtools.web.roku.com,
+         roku-sdk-docs.s3.amazonaws.com, files.readme.io, ...). Images and video are
+         passive and the window is sandboxed with script-src/connect-src locked to
+         'self', so a broad img-src/media-src is low risk. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; connect-src 'self';">
+    <title>Developer Docs</title>
+    <!-- The critical FOUC guard (rokdock-theme-pending rules) is injected at the top of
+         this head by bundledEntryFoucPlugin in electron.vite.config.ts, keyed off the
+         data-rokdock-bundled attribute on <html>. It is kept out of the bundled stylesheet
+         on purpose: that loads after first paint in dev and could not prevent the flash. -->
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="./docs.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en" data-rokdock-bundled class="rokdock-theme-pending">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:;">
+    <title>Capture Preview</title>
+    <!-- FOUC guard injected by bundledEntryFoucPlugin in electron.vite.config.ts -->
+</head>
+<body>
+
+<rokdock-toolbar>
+    <span class="toolbar-label" slot="left"></span>
+    <div class="toolbar-actions" slot="right">
+        <rokdock-settings-gear title="Appearance settings"></rokdock-settings-gear>
+        <div class="vol-anchor">
+            <button class="tb-btn" id="volumeButton" title="Volume"></button>
+            <div class="vol-flyout" id="volumeFlyout">
+                <span class="vol-label" id="volumeLabel">80</span>
+                <div class="vol-track-wrap" id="volumeTrack">
+                    <div class="vol-track-bg"></div>
+                    <div class="vol-track-fill" id="volumeFill"></div>
+                    <div class="vol-thumb" id="volumeThumb"></div>
+                </div>
+                <button class="tool-btn" id="muteBtn" title="Toggle mute"></button>
+            </div>
+        </div>
+        <div class="vol-anchor">
+            <button class="tb-btn" id="opacityBtn" title="Window opacity"></button>
+            <div class="vol-flyout" id="opacityFlyout">
+                <span class="vol-label" id="opacityLabel">100</span>
+                <div class="vol-track-wrap" id="opacityTrack">
+                    <div class="vol-track-bg"></div>
+                    <div class="vol-track-fill" id="opacityFill"></div>
+                    <div class="vol-thumb" id="opacityThumb"></div>
+                </div>
+            </div>
+        </div>
+        <button class="tb-btn" id="screenshotBtn" title="Save screenshot"></button>
+        <button class="tb-btn" id="pinBtn" title="Always on top"></button>
+        <button class="tb-btn" id="fullscreenBtn" title="Enter fullscreen"></button>
+        <button class="tb-btn" id="closeBtn" title="Close"></button>
+    </div>
+</rokdock-toolbar>
+
+<div class="video-wrap">
+    <video id="video" autoplay playsinline></video>
+    <div class="placeholder" id="placeholder">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M2 9h20" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <span>Capture device unavailable</span>
+    </div>
+</div>
+
+<script type="module" src="./capturePreview.ts"></script>
+</body>
+</html>

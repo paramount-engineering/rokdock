@@ -1,0 +1,1672 @@
+.docs-root {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    color: var(--rokdock-text-primary);
+    background: var(--rokdock-bg-base);
+    font-family: var(--rokdock-font-ui);
+}
+
+/* ---------------------------------------------------------------------------
+   Two-pane layout
+--------------------------------------------------------------------------- */
+
+.docs-layout {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+.docs-layout-sidebar {
+    flex-shrink: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Draggable divider between the nav sidebar and the reading pane. */
+.docs-resizer {
+    width: 5px;
+    flex-shrink: 0;
+    cursor: col-resize;
+    background: var(--rokdock-border);
+    transition: background 0.12s;
+}
+
+.docs-resizer:hover {
+    background: var(--rokdock-brand-primary);
+}
+
+.docs-layout-reading {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+/* ---------------------------------------------------------------------------
+   Reading pane layout
+--------------------------------------------------------------------------- */
+
+.docs-reading-pane {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    /* Positioning context for the floating table-of-contents. */
+    position: relative;
+}
+
+.docs-pane-header {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    box-sizing: border-box;
+    /* Nav and page controls live in the window toolbar; only the per-page TOC
+       toggle sits here, right-aligned and bottom-aligned so it keeps a constant
+       gap from the header's bottom border regardless of breadcrumb/excerpt. */
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--rokdock-border);
+    background: var(--rokdock-bg-panel);
+    flex-shrink: 0;
+}
+
+/* Breadcrumb + title + excerpt column; takes the row's free width so the TOC
+   toggle is pushed to the right edge. */
+.docs-pane-header-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.docs-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 6px;
+    margin-bottom: 6px;
+    font-size: var(--rokdock-font-sm);
+    color: var(--rokdock-text-dim);
+}
+
+.docs-breadcrumb-sep {
+    color: var(--rokdock-text-muted);
+    opacity: 0.8;
+}
+
+.docs-breadcrumb-link {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--rokdock-link);
+    cursor: pointer;
+}
+
+.docs-breadcrumb-link:hover {
+    text-decoration: underline;
+}
+
+.docs-pane-title {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--rokdock-text-bright);
+}
+
+.docs-pane-excerpt {
+    margin: 6px 0 0;
+    font-size: var(--rokdock-font-md);
+    color: var(--rokdock-text-dim);
+    line-height: 1.45;
+}
+
+.docs-pane-updated {
+    font-size: var(--rokdock-font-xs);
+    color: var(--rokdock-text-muted);
+    margin: 6px 0 0;
+}
+
+.docs-pane-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px 24px;
+}
+
+/* ---------------------------------------------------------------------------
+   Status states
+--------------------------------------------------------------------------- */
+
+.docs-pane-empty-state,
+.docs-pane-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--rokdock-text-dim);
+    font-size: var(--rokdock-font-sm);
+    font-style: italic;
+}
+
+.docs-pane-message {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding-top: 16px;
+}
+
+.docs-pane-message-text {
+    color: var(--rokdock-text-muted);
+    font-size: var(--rokdock-font-sm);
+    margin: 0;
+}
+
+.docs-external-btn {
+    background: var(--rokdock-bg-panel);
+    border: 1px solid var(--rokdock-border);
+    border-radius: 4px;
+    color: var(--rokdock-brand-primary);
+    cursor: pointer;
+    font-size: var(--rokdock-font-sm);
+    padding: 5px 10px;
+    transition: background 0.15s;
+}
+
+.docs-external-btn:hover {
+    background: var(--rokdock-bg-hover);
+}
+
+/* ---------------------------------------------------------------------------
+   Prose typography
+--------------------------------------------------------------------------- */
+
+.docs-prose {
+    color: var(--rokdock-text-primary);
+    /* Reading-pane text zoom (Ctrl+=/-/0) scales this base. Every heading and
+       code size is relative (em), so they scale with it. */
+    font-size: calc(var(--rokdock-font-md) * var(--docs-reading-scale, 1));
+    line-height: 1.65;
+}
+
+.docs-prose h1,
+.docs-prose h2,
+.docs-prose h3,
+.docs-prose h4,
+.docs-prose h5,
+.docs-prose h6 {
+    color: var(--rokdock-text-primary);
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 1.4em;
+    margin-bottom: 0.5em;
+}
+
+.docs-prose h1 {
+    font-size: 1.5em;
+}
+
+.docs-prose h2 {
+    font-size: 1.25em;
+    border-bottom: 1px solid var(--rokdock-border);
+    padding-bottom: 0.25em;
+}
+
+.docs-prose h3 {
+    font-size: 1.1em;
+}
+
+.docs-prose h4,
+.docs-prose h5,
+.docs-prose h6 {
+    font-size: 1em;
+}
+
+.docs-prose p {
+    margin: 0 0 0.9em;
+}
+
+.docs-prose ul,
+.docs-prose ol {
+    margin: 0 0 0.9em;
+    padding-left: 1.6em;
+}
+
+.docs-prose li {
+    margin-bottom: 0.25em;
+}
+
+.docs-prose blockquote {
+    margin: 0.8em 0;
+    padding: 0.4em 0 0.4em 1em;
+    border-left: 3px solid var(--rokdock-border);
+    color: var(--rokdock-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+   Links
+--------------------------------------------------------------------------- */
+
+.docs-link {
+    color: var(--rokdock-link);
+    text-decoration: none;
+}
+
+.docs-link:hover {
+    text-decoration: underline;
+}
+
+.docs-dead-link {
+    color: var(--rokdock-text-dim);
+    text-decoration: line-through;
+}
+
+/* ---------------------------------------------------------------------------
+   Inline code
+--------------------------------------------------------------------------- */
+
+.docs-inline-code {
+    background: var(--rokdock-bg-code, var(--rokdock-bg-terminal));
+    border: 1px solid var(--rokdock-border);
+    border-radius: 3px;
+    font-family: var(--rokdock-font-mono);
+    /* 1px smaller than 0.875em at the 15px prose base. */
+    font-size: 0.808em;
+    padding: 0.1em 0.35em;
+    color: var(--rokdock-text-primary);
+}
+
+/* ---------------------------------------------------------------------------
+   Code blocks
+--------------------------------------------------------------------------- */
+
+/* Wraps the scrolling <pre> so the hover copy button can pin to the top-right
+   without scrolling away when wide code overflows horizontally. */
+.docs-code-wrap {
+    position: relative;
+    margin: 0.8em 0;
+}
+
+.docs-code {
+    background: var(--rokdock-bg-code, var(--rokdock-bg-terminal));
+    border: 1px solid var(--rokdock-border);
+    border-radius: 5px;
+    font-family: var(--rokdock-font-mono);
+    /* 1px smaller than 0.85em at the 15px prose base. */
+    font-size: 0.783em;
+    line-height: 1.55;
+    margin: 0;
+    overflow-x: auto;
+    padding: 12px 14px;
+}
+
+.docs-code code {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0;
+}
+
+/* Hover affordance to copy the snippet. Hidden until the block is hovered or the
+   button is keyboard-focused. The copied state stays visible briefly. */
+.docs-code-copy {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border: 1px solid var(--rokdock-border);
+    border-radius: 5px;
+    background: var(--rokdock-bg-panel);
+    color: var(--rokdock-text-dim);
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-xs);
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+
+.docs-code-wrap:hover .docs-code-copy,
+.docs-code-copy:focus-visible {
+    opacity: 1;
+}
+
+.docs-code-copy:hover {
+    color: var(--rokdock-text-bright);
+    background: var(--rokdock-bg-hover);
+}
+
+.docs-code-copy--done {
+    opacity: 1;
+    color: var(--rokdock-link);
+    border-color: var(--rokdock-link);
+}
+
+.docs-code-copy svg {
+    display: block;
+}
+
+/* ---------------------------------------------------------------------------
+   Tables
+--------------------------------------------------------------------------- */
+
+/* Tables are wrapped in this scroll container (see the table component override)
+   so a table wider than the pane scrolls horizontally instead of being clipped. */
+.docs-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0.8em 0;
+}
+
+/* A nested table's wrapper sits inside a cell and must not add the block margin. */
+.docs-prose td .docs-table-wrap,
+.docs-prose th .docs-table-wrap {
+    margin: 0;
+}
+
+/* When a table genuinely overflows horizontally (flagged by the reading pane),
+   bound its height so it becomes a self-contained scroll box: both scrollbars
+   land on the box edges and the horizontal one stays reachable instead of sitting
+   at the bottom of a very tall table. */
+.docs-table-wrap--overflow {
+    max-height: 70vh;
+    overflow: auto;
+}
+
+.docs-prose table {
+    border-collapse: collapse;
+    width: 100%;
+    /* max-width (unlike width) is a hard cap that table-layout: auto respects, so
+       the table wraps to fit the pane instead of expanding to max-content. A table
+       whose min-content genuinely exceeds the pane still overflows, and the
+       .docs-table-wrap scroll container catches that. */
+    max-width: 100%;
+    font-size: var(--rokdock-font-sm);
+    line-height: 1.5;
+}
+
+.docs-prose th,
+.docs-prose td {
+    border: 1px solid var(--rokdock-border);
+    padding: 9px 12px;
+    text-align: left;
+    /* Top-align so content does not float in the middle of tall rows (common
+       when one cell holds a long description or a nested table). */
+    vertical-align: top;
+    /* Break only genuinely long tokens (URLs) when they would overflow. Unlike
+       "anywhere", this does NOT shrink a column's min-content to one character,
+       so short identifiers never break vertically letter-by-letter. */
+    overflow-wrap: break-word;
+}
+
+.docs-prose th {
+    background: var(--rokdock-bg-panel);
+    color: var(--rokdock-text-primary);
+    font-weight: 600;
+    /* Anchor for the column-resize handle. */
+    position: relative;
+}
+
+/* Drag handle straddling a header's right border, for resizing the column. */
+.docs-col-resize {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    z-index: 1;
+}
+
+.docs-col-resize::after {
+    content: '';
+    position: absolute;
+    top: 25%;
+    left: 50%;
+    width: 2px;
+    height: 50%;
+    transform: translateX(-50%);
+    background: transparent;
+    border-radius: 1px;
+}
+
+.docs-col-resize:hover::after {
+    background: var(--rokdock-link);
+}
+
+/* Sortable native-table headers. Every sortable header shows a faint up/down
+   affordance; the active column shows a bright directional arrow. */
+.docs-sortable-th {
+    cursor: pointer;
+    user-select: none;
+}
+
+.docs-sortable-th::after {
+    content: ' \2195';
+    font-size: 0.78em;
+    color: var(--rokdock-text-dim);
+    opacity: 0.4;
+}
+
+.docs-sortable-th:hover {
+    color: var(--rokdock-text-bright);
+}
+
+.docs-sortable-th:hover::after {
+    opacity: 0.85;
+}
+
+.docs-sortable-th[data-docs-sort='asc']::after {
+    content: ' \25B2';
+    color: var(--rokdock-link);
+    opacity: 1;
+}
+
+.docs-sortable-th[data-docs-sort='desc']::after {
+    content: ' \25BC';
+    color: var(--rokdock-link);
+    opacity: 1;
+}
+
+/* Zebra striping on TOP-LEVEL table rows only. The child-combinator chain stops
+   at the outer table so nested tables (matched as descendants) are excluded and
+   get the flat treatment below instead of a confusing second set of stripes. */
+.docs-prose>table>tbody>tr:nth-child(even)>td,
+.docs-prose>table>tr:nth-child(even)>td {
+    background: var(--rokdock-bg-surface, var(--rokdock-bg-panel));
+}
+
+/* Nested tables (a table inside a cell): flat, visually distinct, and no
+   compounding font shrink, so the inner grid stays legible. */
+.docs-prose table table {
+    margin: 0;
+    font-size: 1em;
+    background: var(--rokdock-bg-base);
+}
+
+.docs-prose table table th {
+    background: var(--rokdock-bg-surface);
+}
+
+/* Lists inside table cells: tighten the default prose list spacing so a bullet
+   list (e.g. a codec list) sits cleanly in its cell. */
+.docs-prose td ul,
+.docs-prose td ol,
+.docs-prose th ul,
+.docs-prose th ol {
+    margin: 0.15em 0;
+    padding-left: 1.25em;
+}
+
+.docs-prose td li,
+.docs-prose th li {
+    margin-bottom: 0.1em;
+}
+
+/* ---------------------------------------------------------------------------
+   Images
+--------------------------------------------------------------------------- */
+
+.docs-img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    display: block;
+    margin: 0.8em 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Inline video (::video directive from preprocessCustomBlocks)
+--------------------------------------------------------------------------- */
+
+.docs-video {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    display: block;
+    margin: 0.8em 0;
+    background: #000;
+}
+
+/* ---------------------------------------------------------------------------
+   Field-reference records (rehypeFieldTable turns multi-column tables into these)
+
+   Each record is a title plus a labeled key/value list, so every value is
+   identified by its column (no column is assumed to be a description). The four
+   layout modes all restyle this one structure.
+--------------------------------------------------------------------------- */
+
+.docs-rec-list {
+    margin: 1em 0;
+    border-top: 1px solid var(--rokdock-border);
+}
+
+.docs-rec {
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--rokdock-border);
+}
+
+/* Record name: the scannable anchor. Mono + accent. */
+.docs-rec-name {
+    font-family: var(--rokdock-font-mono);
+    font-weight: 700;
+    color: var(--rokdock-link);
+    overflow-wrap: break-word;
+}
+
+/* Key/value list: a 2-column grid; each row is a subgrid so labels align across
+   rows AND each row can carry a continuous bottom border (a real table feel). */
+.docs-rec-kv {
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+}
+
+.docs-rec-row {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    column-gap: 16px;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--rokdock-border);
+}
+
+.docs-rec-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.docs-rec-key {
+    color: var(--rokdock-text-dim);
+    font-size: 0.78em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.docs-rec-val {
+    min-width: 0;
+}
+
+.docs-rec-val> :first-child {
+    margin-top: 0;
+}
+
+.docs-rec-val> :last-child {
+    margin-bottom: 0;
+}
+
+/* Two-pane: name pinned in a left rail, the key/value table in a wide right column.
+   (Explicit mode, or Auto's per-table choice for description-heavy tables.) */
+.docs-layout-twopane .docs-rec,
+.docs-layout-auto .docs-rec-list--twopane .docs-rec {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+}
+
+.docs-layout-twopane .docs-rec-kv,
+.docs-layout-auto .docs-rec-list--twopane .docs-rec-kv {
+    margin-top: 0;
+}
+
+/* Cards: each record boxed, name on top, key/value below. */
+.docs-layout-cards .docs-rec-list {
+    border: 1px solid var(--rokdock-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.docs-layout-cards .docs-rec {
+    padding: 14px 18px;
+}
+
+.docs-layout-cards .docs-rec:last-child {
+    border-bottom: none;
+}
+
+/* Compact: a dense, bordered two-column table.
+   (Explicit mode, or Auto's per-table choice for short-value matrices.) */
+.docs-layout-compact .docs-rec-list,
+.docs-layout-auto .docs-rec-list--compact {
+    border: 1px solid var(--rokdock-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.docs-layout-compact .docs-rec,
+.docs-layout-auto .docs-rec-list--compact .docs-rec {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
+}
+
+.docs-layout-compact .docs-rec:nth-child(even),
+.docs-layout-auto .docs-rec-list--compact .docs-rec:nth-child(even) {
+    background: var(--rokdock-bg-surface, var(--rokdock-bg-panel));
+}
+
+.docs-layout-compact .docs-rec:last-child,
+.docs-layout-auto .docs-rec-list--compact .docs-rec:last-child {
+    border-bottom: none;
+}
+
+.docs-layout-compact .docs-rec-name,
+.docs-layout-auto .docs-rec-list--compact .docs-rec-name {
+    padding: 8px 14px;
+    border-right: 1px solid var(--rokdock-border);
+}
+
+.docs-layout-compact .docs-rec-kv,
+.docs-layout-auto .docs-rec-list--compact .docs-rec-kv {
+    margin-top: 0;
+    padding: 8px 14px;
+}
+
+/* ---------------------------------------------------------------------------
+   Per-page table of contents (floating, no permanent column)
+--------------------------------------------------------------------------- */
+
+/* Stacks below the page-controls pill, right-aligned. */
+/* Anchored in the page header (right edge, level with the title). The toggle is
+   in flow; the panel drops below it as an absolute overlay so opening the TOC
+   never grows the header. */
+.docs-toc {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.docs-toc-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: var(--rokdock-bg-panel);
+    border: 1px solid var(--rokdock-border);
+    border-radius: 7px;
+    box-shadow: 0 2px 6px var(--rokdock-black-subtle, rgba(0, 0, 0, 0.25));
+    color: var(--rokdock-text-muted);
+    cursor: pointer;
+}
+
+.docs-toc-toggle svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.docs-toc-toggle:hover {
+    color: var(--rokdock-text-bright);
+    background: var(--rokdock-bg-hover);
+}
+
+.docs-toc--open .docs-toc-toggle {
+    color: var(--rokdock-link);
+    border-color: var(--rokdock-link);
+}
+
+.docs-toc-panel {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 0;
+    z-index: 20;
+    width: 256px;
+    max-height: 62vh;
+    overflow-y: auto;
+    padding: 11px 5px 12px;
+    background: var(--rokdock-bg-panel);
+    border: 1px solid var(--rokdock-border);
+    border-radius: 9px;
+    box-shadow: 0 12px 32px var(--rokdock-black-subtle, rgba(0, 0, 0, 0.4));
+}
+
+.docs-toc-title {
+    padding: 0 12px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rokdock-text-dim);
+}
+
+.docs-toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.docs-toc-link {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-left: 2px solid transparent;
+    padding: 5px 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--rokdock-text-dim);
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.docs-toc-link--h3 {
+    padding-left: 26px;
+    font-size: 13.5px;
+}
+
+.docs-toc-link--h4 {
+    padding-left: 40px;
+    font-size: 13px;
+}
+
+.docs-toc-link:hover {
+    color: var(--rokdock-text-bright);
+    background: var(--rokdock-bg-hover);
+}
+
+.docs-toc-link--active {
+    color: var(--rokdock-link);
+    border-left-color: var(--rokdock-link);
+    background: var(--rokdock-bg-active);
+}
+
+/* ---------------------------------------------------------------------------
+   What's New (sidebar entry + feed view)
+--------------------------------------------------------------------------- */
+
+.docs-whatsnew-entry {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--rokdock-border);
+    border-radius: 5px;
+    background: var(--rokdock-bg-base);
+    color: var(--rokdock-text-primary);
+    font-size: var(--rokdock-font-sm);
+    cursor: pointer;
+    text-align: left;
+}
+
+.docs-whatsnew-entry:hover {
+    background: var(--rokdock-bg-hover);
+    color: var(--rokdock-text-bright);
+}
+
+.docs-whatsnew-entry--active,
+.docs-whatsnew-entry--active:hover {
+    border-color: var(--rokdock-link);
+    color: var(--rokdock-link);
+    background: var(--rokdock-bg-active);
+}
+
+.docs-whatsnew-entry-icon {
+    color: var(--rokdock-link);
+    font-size: 0.95em;
+}
+
+.docs-whatsnew {
+    max-width: 760px;
+}
+
+.docs-whatsnew-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.docs-whatsnew-controls {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    background: var(--rokdock-bg-panel);
+    border: 1px solid var(--rokdock-border);
+    border-radius: 7px;
+}
+
+.docs-whatsnew-window {
+    padding: 4px 12px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--rokdock-text-muted);
+    font-size: var(--rokdock-font-sm);
+    cursor: pointer;
+}
+
+.docs-whatsnew-window:hover {
+    color: var(--rokdock-text-bright);
+    background: var(--rokdock-bg-hover);
+}
+
+.docs-whatsnew-window--active,
+.docs-whatsnew-window--active:hover {
+    color: var(--rokdock-link);
+    background: var(--rokdock-bg-active);
+}
+
+.docs-whatsnew-message {
+    color: var(--rokdock-text-muted);
+    font-size: var(--rokdock-font-md);
+    padding: 8px 0;
+}
+
+.docs-whatsnew-group {
+    margin-bottom: 18px;
+}
+
+.docs-whatsnew-date {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rokdock-text-dim);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--rokdock-border);
+    margin-bottom: 6px;
+}
+
+.docs-whatsnew-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.docs-whatsnew-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 4px;
+}
+
+.docs-whatsnew-row:hover {
+    background: var(--rokdock-bg-hover);
+}
+
+.docs-whatsnew-caret {
+    flex: none;
+    width: 26px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--rokdock-text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: transform 0.12s ease, color 0.12s ease;
+}
+
+.docs-whatsnew-caret:hover {
+    color: var(--rokdock-text-bright);
+}
+
+.docs-whatsnew-caret--open {
+    transform: rotate(90deg);
+    color: var(--rokdock-text-bright);
+}
+
+.docs-whatsnew-link {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 6px 4px;
+    font-size: var(--rokdock-font-md);
+    color: var(--rokdock-link);
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.docs-whatsnew-stat {
+    flex: none;
+    display: inline-flex;
+    gap: 8px;
+    padding-right: 10px;
+    font-family: var(--rokdock-font-mono);
+    font-size: 12px;
+}
+
+.docs-whatsnew-add {
+    color: var(--rokdock-json-string);
+}
+
+.docs-whatsnew-del {
+    color: var(--rokdock-json-boolean);
+}
+
+.docs-whatsnew-tag {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: var(--rokdock-bg-active);
+    color: var(--rokdock-json-string);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.docs-whatsnew-changes {
+    margin: 4px 0 12px 22px;
+    border: 1px solid var(--rokdock-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.docs-diff {
+    margin: 0;
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 6px 0;
+    background: var(--rokdock-bg-base);
+    font-family: var(--rokdock-font-ui);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+/* Source-view lines only (NOT the rendered markdown blocks, which must not inherit
+   pre-wrap or their structural newlines render as blank lines). Each aligns on a
+   transparent accent border so changed lines do not shift. */
+.docs-diff-add,
+.docs-diff-del,
+.docs-diff-ctx {
+    padding: 1px 14px 1px 11px;
+    border-left: 3px solid transparent;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.docs-diff-add {
+    background: color-mix(in srgb, var(--rokdock-json-string) 14%, transparent);
+    border-left-color: var(--rokdock-json-string);
+    color: var(--rokdock-text-primary);
+}
+
+.docs-diff-del {
+    background: color-mix(in srgb, var(--rokdock-json-boolean) 12%, transparent);
+    border-left-color: var(--rokdock-json-boolean);
+    color: var(--rokdock-text-dim);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--rokdock-json-boolean) 70%, transparent);
+}
+
+.docs-diff-ctx {
+    color: var(--rokdock-text-muted);
+}
+
+/* Word-level emphasis within a paired del/add line: the specific words that
+   changed get a stronger tint so a one-word edit is obvious at a glance. */
+.docs-diff-word {
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.docs-diff-add .docs-diff-word {
+    background: color-mix(in srgb, var(--rokdock-json-string) 32%, transparent);
+    color: var(--rokdock-text-bright);
+}
+
+.docs-diff-del .docs-diff-word {
+    background: color-mix(in srgb, var(--rokdock-json-boolean) 30%, transparent);
+}
+
+/* A change-region boundary: a subtle gap instead of an @@ hunk header. */
+.docs-diff-gap {
+    height: 0;
+    margin: 7px 14px;
+    border-top: 1px dashed var(--rokdock-border);
+}
+
+/* Rendered view: each run is formatted markdown, tinted by change kind. */
+.docs-diff--rendered {
+    padding: 4px 0;
+}
+
+.docs-diff-block {
+    border-left: 3px solid transparent;
+    padding: 7px 14px 7px 11px;
+}
+
+/* Stacked before/after of the same hunk sit flush (one boundary between them). */
+.docs-diff-block--del+.docs-diff-block--add {
+    padding-top: 0;
+}
+
+.docs-diff-block--add {
+    background: color-mix(in srgb, var(--rokdock-json-string) 12%, transparent);
+    border-left-color: var(--rokdock-json-string);
+}
+
+.docs-diff-block--del {
+    background: color-mix(in srgb, var(--rokdock-json-boolean) 11%, transparent);
+    border-left-color: var(--rokdock-json-boolean);
+    opacity: 0.7;
+}
+
+.docs-diff-block--context {
+    color: var(--rokdock-text-muted);
+}
+
+/* A change whose rendered output is unchanged (markup-only): neutral, no tint. */
+.docs-diff-block--same {
+    border-left-color: var(--rokdock-border);
+}
+
+.docs-diff-note {
+    padding: 4px 14px 2px 11px;
+    color: var(--rokdock-text-dim);
+    font-size: var(--rokdock-font-sm);
+    font-style: italic;
+}
+
+/* Compact prose inside a rendered diff block: trim the page-scale margins so the
+   change reads tightly instead of with document-sized vertical gaps. */
+.docs-diff-prose {
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.docs-diff-prose p,
+.docs-diff-prose ul,
+.docs-diff-prose ol,
+.docs-diff-prose blockquote,
+.docs-diff-prose table {
+    margin: 0.3em 0;
+}
+
+.docs-diff-prose li {
+    margin: 0.1em 0;
+}
+
+.docs-diff-prose h1,
+.docs-diff-prose h2,
+.docs-diff-prose h3,
+.docs-diff-prose h4,
+.docs-diff-prose h5,
+.docs-diff-prose h6 {
+    margin: 0.4em 0 0.2em;
+}
+
+.docs-diff-prose h2 {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.docs-diff-prose> :first-child {
+    margin-top: 0;
+}
+
+.docs-diff-prose> :last-child {
+    margin-bottom: 0;
+}
+
+.docs-diff-prose pre {
+    margin: 0.3em 0;
+    padding: 8px 10px;
+    border-radius: 5px;
+    background: var(--rokdock-bg-code, var(--rokdock-bg-terminal));
+    border: 1px solid var(--rokdock-border);
+    overflow-x: auto;
+    font-size: 12px;
+}
+
+/* Inert link/image placeholders in a rendered diff (no navigation/loading). */
+.docs-diff-link {
+    color: var(--rokdock-link);
+}
+
+.docs-diff-img {
+    color: var(--rokdock-text-dim);
+    font-style: italic;
+}
+
+.docs-whatsnew-open {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 12px;
+    border: none;
+    border-top: 1px solid var(--rokdock-border);
+    background: var(--rokdock-bg-panel);
+    color: var(--rokdock-link);
+    font-size: var(--rokdock-font-sm);
+    cursor: pointer;
+}
+
+.docs-whatsnew-open:hover {
+    background: var(--rokdock-bg-hover);
+}
+
+.docs-whatsnew-subtle {
+    margin-top: 12px;
+    color: var(--rokdock-text-dim);
+    font-size: var(--rokdock-font-sm);
+    font-style: italic;
+}
+
+.docs-whatsnew-inline-toggle {
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--rokdock-link);
+    font-size: inherit;
+    font-style: normal;
+    cursor: pointer;
+}
+
+.docs-whatsnew-inline-toggle:hover {
+    text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+   Navigation tree (docsTree.tsx)
+--------------------------------------------------------------------------- */
+
+.docs-nav-tree {
+    padding: 4px 0;
+}
+
+.docs-nav-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 4px 8px 4px 0;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 4px;
+    color: var(--rokdock-text-primary);
+}
+
+.docs-nav-row:hover {
+    background: var(--rokdock-bg-hover);
+}
+
+.docs-nav-row--active {
+    background: var(--rokdock-bg-active);
+    color: var(--rokdock-text-bright);
+}
+
+/* Caret and bullet share a fixed column so directory and page labels align.
+   The row is centered, but a line's visible glyphs (caps and x-height) sit
+   above its geometric center, so the markers are nudged up the same small
+   amount to line up with the text rather than the line box. */
+.docs-nav-caret {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 17px;
+    flex-shrink: 0;
+    transform: translateY(-1.5px);
+}
+
+.docs-nav-bullet {
+    position: relative;
+    width: 16px;
+    height: 17px;
+    flex-shrink: 0;
+    transform: translateY(-1.5px);
+}
+
+.docs-nav-bullet::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: var(--rokdock-text-dim);
+    opacity: 0.5;
+}
+
+.docs-nav-label {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--rokdock-font-sm);
+    /* Tight line height so the text's optical center sits at its box center,
+       which align-items:center then lines up with the bullet/caret. */
+    line-height: 1.2;
+}
+
+/* ---------------------------------------------------------------------------
+   Sidebar container, search box, and favorites rows (docsSidebar.tsx)
+--------------------------------------------------------------------------- */
+
+.docs-sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--rokdock-bg-panel);
+    border-right: 1px solid var(--rokdock-border);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.docs-sidebar-search-wrap {
+    padding: 8px 8px 4px;
+}
+
+.docs-sidebar-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--rokdock-border);
+    background: var(--rokdock-bg-base);
+    color: var(--rokdock-text-primary);
+    font-size: var(--rokdock-font-sm);
+}
+
+.docs-sidebar-search:focus {
+    outline: none;
+    border-color: var(--rokdock-link);
+}
+
+.docs-sidebar-search::placeholder {
+    color: var(--rokdock-text-dim);
+}
+
+.docs-sidebar-whatsnew {
+    padding: 0 8px 4px;
+}
+
+/* Favorites rows reuse .docs-nav-row (hover/active) with a flat left indent,
+   since they have no caret/bullet column. */
+.docs-fav-row {
+    align-items: center;
+    min-height: 28px;
+    padding: 0 8px 0 20px;
+}
+
+.docs-fav-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--rokdock-font-sm);
+}
+
+.docs-sidebar-empty {
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 8px 0 20px;
+    font-size: var(--rokdock-font-sm);
+    color: var(--rokdock-text-dim);
+    font-style: italic;
+}
+
+/* Full-text search results (replace the tree while a query is present).
+   Full-width rows with hairline separators, left-aligned with the search box. */
+.docs-search-results {
+    list-style: none;
+    margin: 0;
+    padding: 2px 0;
+    overflow-y: auto;
+}
+
+.docs-search-results li+li {
+    border-top: 1px solid var(--rokdock-border);
+}
+
+.docs-search-result {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    text-align: left;
+    padding: 10px 14px;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.docs-search-result:hover {
+    background: var(--rokdock-bg-hover);
+}
+
+.docs-search-result-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.docs-search-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--rokdock-font-sm);
+    font-weight: 600;
+    color: var(--rokdock-text-primary);
+}
+
+.docs-search-section {
+    flex: none;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--rokdock-text-dim);
+}
+
+.docs-search-snippet {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--rokdock-text-muted);
+    /* Two-line clamp so long snippets stay tidy. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.docs-search-mark {
+    background: none;
+    color: var(--rokdock-link);
+    font-weight: 700;
+}
+
+/* Matched text highlighted on the opened page (CSS Custom Highlight API). All hits
+   get the base tint; the one the find bar is parked on gets a stronger tint. */
+::highlight(docs-search-hit) {
+    background-color: color-mix(in srgb, var(--rokdock-link) 24%, transparent);
+    color: var(--rokdock-text-bright);
+}
+
+::highlight(docs-search-hit-current) {
+    background-color: color-mix(in srgb, var(--rokdock-link) 55%, transparent);
+    color: var(--rokdock-text-bright);
+}
+
+/* ---------------------------------------------------------------------------
+   Find bar: cycles between the on-page search matches (top-right of the pane)
+--------------------------------------------------------------------------- */
+
+/* Centered along the top so it never collides with the page controls (top-right)
+   or the nav controls (top-left). */
+/* Match navigator, shown in the window toolbar while cycling search hits. The
+   prev/next/close buttons are shared .tb-btn controls; only the count needs
+   toolbar-specific (fixed-white on the brand gradient) styling. */
+.docs-find-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-left: 4px;
+}
+
+.docs-find-count {
+    margin-right: 2px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: var(--rokdock-font-sm);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   Callout blocks (:::callout from preprocessCustomBlocks)
+--------------------------------------------------------------------------- */
+
+.docs-callout {
+    background: var(--rokdock-bg-panel);
+    border-left: 3px solid var(--rokdock-brand-primary);
+    border-radius: 0 5px 5px 0;
+    margin: 0.9em 0;
+    padding: 10px 14px;
+    color: var(--rokdock-text-muted);
+    font-size: 0.95em;
+}
+
+.docs-callout p:last-child {
+    margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Quick-open command palette (Ctrl+K)
+--------------------------------------------------------------------------- */
+
+.docs-quickopen-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    justify-content: center;
+    /* Sit in the upper third of the window. */
+    align-items: flex-start;
+    padding-top: 80px;
+}
+
+.docs-quickopen {
+    background: var(--rokdock-bg-panel);
+    border: 1px solid var(--rokdock-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    width: min(560px, 90vw);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.docs-quickopen-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 16px;
+    border: none;
+    border-bottom: 1px solid var(--rokdock-border);
+    background: transparent;
+    color: var(--rokdock-text-primary);
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-md);
+    outline: none;
+}
+
+.docs-quickopen-input::placeholder {
+    color: var(--rokdock-text-muted);
+}
+
+.docs-quickopen-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.docs-quickopen-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: var(--rokdock-font-sm);
+    color: var(--rokdock-text-primary);
+}
+
+.docs-quickopen-item--active {
+    background: var(--rokdock-bg-hover);
+}
+
+.docs-quickopen-item-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.docs-quickopen-item-section {
+    flex-shrink: 0;
+    font-size: var(--rokdock-font-xs, 11px);
+    color: var(--rokdock-text-muted);
+    text-align: right;
+}
+
+.docs-quickopen-empty {
+    padding: 12px 16px;
+    font-size: var(--rokdock-font-sm);
+    color: var(--rokdock-text-dim);
+    font-style: italic;
+}
+
+/* ---------------------------------------------------------------------------
+   Per-page sticky note overlay
+--------------------------------------------------------------------------- */
+
+/* The note floats above the reading content in the bottom-right corner.
+   Colors are intentionally theme-invariant: warm yellow with dark ink so the
+   note always reads as a physical sticky note regardless of app theme. */
+.docs-note {
+    position: absolute;
+    bottom: 18px;
+    right: 18px;
+    z-index: 30;
+    width: 256px;
+    min-height: 196px;
+    padding: 8px 11px 9px;
+    display: flex;
+    flex-direction: column;
+    /* Warm paper, lit from above: lighter yellow at the top, deepening toward
+       the bottom. */
+    background: linear-gradient(168deg, #fdf3a3 0%, #fdf0a6 48%, #fbe78a 100%);
+    color: #3f3a23;
+    border-radius: 2px 2px 3px 3px;
+    transform: rotate(-1.4deg);
+    /* Pivot from the stuck-down top edge when it straightens on focus. */
+    transform-origin: 50% 0;
+    box-shadow:
+        0 1px 1px rgba(60, 50, 10, 0.18),
+        0 10px 22px -8px rgba(40, 33, 5, 0.4);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* Soft sheen near the top edge: light from above, plus a hint of the adhesive
+   band that holds a real sticky note down. */
+.docs-note::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 30px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
+    border-radius: 2px 2px 0 0;
+    pointer-events: none;
+}
+
+/* Focusing the note lifts it with a larger shadow while keeping its tilt. The
+   lift is the focus cue. */
+.docs-note:focus-within {
+    box-shadow:
+        0 2px 4px rgba(60, 50, 10, 0.2),
+        0 24px 44px -10px rgba(40, 33, 5, 0.5);
+}
+
+/* Peeled bottom-right corner: a clipped triangle of the page's underside,
+   gradient-shaded so the crease sits in shadow and the lifted tip catches the
+   light, with a soft drop-shadow along the crease so it reads as raised. */
+.docs-note::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 34px;
+    height: 34px;
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    background: linear-gradient(135deg, #fffae0 38%, #d8c463 70%, #a8902f 100%);
+    filter: drop-shadow(-3px -3px 3px rgba(45, 36, 6, 0.45));
+}
+
+.docs-note-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    padding: 2px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #3f3a23;
+    opacity: 0.55;
+    line-height: 1;
+}
+
+.docs-note-close:hover {
+    opacity: 1;
+}
+
+.docs-note-text {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    width: 100%;
+    color: #3f3a23;
+    font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", "Marker Felt", cursive;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-top: 3px;
+}
+
+.docs-note-text::placeholder {
+    color: rgba(63, 58, 35, 0.45);
+}
+
+/* Sticky-note glyph beside a nav-tree page that has a personal note. */
+.docs-nav-note {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    flex-shrink: 0;
+    line-height: 0;
+    opacity: 0.92;
+    /* Match the caret/bullet optical nudge so all three line up with the text. */
+    transform: translateY(-1.5px);
+}
+
+/* Dot indicator on the toolbar Notes button: signals a note exists for this
+   page. Scoped to that button so the shared .tb-btn rule is not broadened. */
+.docs-note-toggle {
+    position: relative;
+}
+
+.tb-btn-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--rokdock-link);
+    pointer-events: none;
+}

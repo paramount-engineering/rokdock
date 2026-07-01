@@ -1,0 +1,77 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+release/
+release-single/
+build/*
+!build/entitlements.mac.plist
+!build/afterPack.cjs
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Coverage and temp artifacts
+coverage/
+.nyc_output/
+tmp/
+temp/
+*.tsbuildinfo
+
+# Doc screenshot scratch dir (raw captures + intermediates; final images live in docs/user/images/)
+.docshots/
+
+# Playwright output
+test-results/
+playwright-report/
+tests/e2e/screenshots/
+
+# Generated icons (source of truth is resources/icons/icon.svg)
+resources/icons/icon.ico
+resources/icons/icon.png
+resources/icons/icon-*.png
+.superpowers/
+docs/superpowers/
+docs/BACKLOG.md
+docs/adding-a-tool-window.md
+.claude/
+openspec/
+tasks/
+CLAUDE.md
+graphify-out/
+
+# Generated launcher artifacts
+/build/tool-icons/
+/build/tool-shortcuts.nsh
+/build/linux/
+
+# Code-signing material: never commit. keys/ is the intended home, the extension
+# patterns are a backstop so a cert or key dropped anywhere is still ignored.
+keys/
+*.p12
+*.p8
+*.pem
+*.key
+*.cer
+*.mobileprovision
+demo-video/

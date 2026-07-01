@@ -1,0 +1,211 @@
+/* AI Chat panel polish */
+
+/* Tighten up message bubble padding and line height, and keep content from
+   overrunning the bubble in a narrow panel: long unbreakable tokens (file paths,
+   identifiers) wrap, and the flex bubble is allowed to shrink (min-width: 0) so
+   code blocks scroll within it instead of forcing it wider. */
+[data-testid="ai-chat-message"],
+[data-testid="ai-chat-streaming"] {
+    padding: 10px 12px;
+    line-height: 1.6;
+    font-size: var(--rokdock-font-sm);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    /* The dock disables text selection globally. Re-enable it here so users can
+       select and copy answer text (and their own messages). */
+    user-select: text;
+}
+
+/* Markdown content inside chat bubbles */
+.ai-chat-markdown {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    /* Render code operators literally: do not let a ligature font collapse
+       <=, ->, >=, != into single glyphs. */
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+}
+.ai-chat-markdown p {
+    margin: 0 0 10px;
+}
+.ai-chat-markdown p:last-child {
+    margin: 0;
+}
+
+/* Quoted doc excerpts the assistant cites: a left rule and dimmed text set them
+   apart from the surrounding answer. */
+.ai-chat-markdown blockquote {
+    margin: 10px 0;
+    padding: 2px 0 2px 12px;
+    border-left: 3px solid var(--rokdock-border);
+    color: var(--rokdock-text-dim);
+}
+.ai-chat-markdown blockquote p:last-child {
+    margin: 0;
+}
+
+.ai-chat-markdown h1,
+.ai-chat-markdown h2,
+.ai-chat-markdown h3,
+.ai-chat-markdown h4 {
+    font-weight: 600;
+    margin: 16px 0 6px;
+    line-height: 1.3;
+}
+/* The first block in a bubble should not add a top gap. */
+.ai-chat-markdown > :first-child {
+    margin-top: 0;
+}
+.ai-chat-markdown h1 { font-size: 1.3em; }
+.ai-chat-markdown h2 { font-size: 1.18em; }
+.ai-chat-markdown h3 { font-size: 1.08em; }
+.ai-chat-markdown h4 { font-size: 1em; }
+
+/* Horizontal rule: a thin divider with breathing room above and below, instead
+   of the cramped browser default. */
+.ai-chat-markdown hr {
+    margin: 16px 0;
+    border: none;
+    border-top: 1px solid var(--rokdock-border);
+}
+
+.ai-chat-markdown code {
+    font-family: var(--rokdock-font-mono);
+    font-size: calc(0.9em - 1px);
+    background: var(--rokdock-bg-terminal);
+    padding: 1px 4px;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+}
+
+/* Code blocks keep their formatting and scroll horizontally rather than wrap,
+   but never force the bubble wider than the panel. */
+.ai-chat-markdown pre {
+    background: var(--rokdock-bg-terminal);
+    border: 1px solid var(--rokdock-border);
+    border-radius: 6px;
+    padding: 8px;
+    overflow-x: auto;
+    max-width: 100%;
+    margin: 8px 0;
+}
+.ai-chat-markdown pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+
+/* Code block wrapper: the Copy button pins to the top-right on the non-scrolling
+   wrapper so it stays put while wide code scrolls underneath. It fades in on
+   hover (and stays visible once focused for keyboard users). */
+.ai-chat-code-wrap {
+    position: relative;
+}
+.ai-chat-code-copy {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 2px 8px;
+    font-size: var(--rokdock-font-xs, 11px);
+    color: var(--rokdock-text-dim);
+    background: var(--rokdock-bg-elevated, var(--rokdock-bg-base));
+    border: 1px solid var(--rokdock-border);
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+.ai-chat-code-wrap:hover .ai-chat-code-copy,
+.ai-chat-code-copy:focus-visible {
+    opacity: 1;
+}
+.ai-chat-code-copy:hover {
+    color: var(--rokdock-text-primary);
+}
+.ai-chat-code-copy--done {
+    opacity: 1;
+    color: var(--rokdock-success, var(--rokdock-text-primary));
+}
+
+.ai-chat-markdown ul,
+.ai-chat-markdown ol {
+    margin: 6px 0 10px;
+    padding-left: 18px;
+}
+.ai-chat-markdown li {
+    margin: 3px 0;
+}
+
+.ai-chat-markdown a {
+    color: var(--rokdock-link, var(--rokdock-brand-primary-light));
+    text-decoration: underline;
+}
+
+.ai-chat-markdown table {
+    border-collapse: collapse;
+    margin: 10px 0;
+}
+.ai-chat-markdown th,
+.ai-chat-markdown td {
+    border: 1px solid var(--rokdock-border);
+    padding: 5px 9px;
+    font-size: 0.95em;
+}
+
+/* "Thinking" indicator: three pulsing dots shown while a reply is requested
+   but no text has streamed back yet, so the bubble reads as working, not stuck. */
+.ai-chat-typing {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 0;
+}
+.ai-chat-typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--rokdock-text-dim);
+    animation: ai-chat-typing-bounce 1.2s infinite ease-in-out;
+}
+.ai-chat-typing span:nth-child(2) { animation-delay: 0.15s; }
+.ai-chat-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes ai-chat-typing-bounce {
+    0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ai-chat-typing span { animation: ai-chat-typing-fade 1.2s infinite ease-in-out; }
+    @keyframes ai-chat-typing-fade {
+        0%, 80%, 100% { opacity: 0.3; }
+        40% { opacity: 1; }
+    }
+}
+
+/* Tool-activity line shown in the streaming bubble before the answer text arrives. */
+.ai-chat-activity {
+    color: var(--rokdock-text-dim);
+    font-size: var(--rokdock-font-sm);
+    font-style: italic;
+}
+
+/* "Used docs (N)" collapsible chip shown below assistant messages that consulted pages. */
+.ai-chat-sources { margin-top: 6px; }
+.ai-chat-sources-toggle {
+    background: none; border: none; padding: 0; cursor: pointer;
+    color: var(--rokdock-text-dim); font-size: var(--rokdock-font-sm);
+}
+.ai-chat-sources-list { margin: 4px 0 0; padding-left: 14px; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.ai-chat-source-link {
+    background: none; border: none; padding: 0; cursor: pointer; text-align: left;
+    color: var(--rokdock-link, var(--rokdock-brand-primary)); font-size: var(--rokdock-font-sm);
+}
+.ai-chat-source-link:hover { text-decoration: underline; }
+
+.ai-chat-symbol-link {
+    background: none; border: none; padding: 0; cursor: pointer; font: inherit;
+    color: var(--rokdock-link, var(--rokdock-brand-primary));
+}
+.ai-chat-symbol-link:hover { text-decoration: underline; }

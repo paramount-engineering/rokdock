@@ -1,0 +1,178 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+    background: #000;
+    color: var(--rokdock-text-primary);
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-sm);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Toolbar: container is <rokdock-toolbar> component. Local overrides for frameless drag. */
+rokdock-toolbar {
+    -webkit-app-region: drag;
+    z-index: 10;
+}
+.toolbar-label {
+    font-size: var(--rokdock-font-xs);
+    font-weight: var(--rokdock-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.65);
+    -webkit-app-region: drag;
+}
+.toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    -webkit-app-region: no-drag;
+}
+
+/* Toolbar buttons use shared .tb-btn from rokdock-components.css */
+.tb-btn.muted {
+    color: var(--rokdock-state-error);
+}
+
+/* Flyout buttons (on theme-aware backgrounds, not purple) */
+.vol-flyout .tool-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 18px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--rokdock-text-dim);
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.vol-flyout .tool-btn:hover {
+    background: var(--rokdock-bg-hover);
+    color: var(--rokdock-text-bright);
+}
+.vol-flyout .tool-btn svg {
+    width: 13px;
+    height: 13px;
+    display: block;
+    pointer-events: none;
+}
+
+/* Volume flyout */
+.vol-anchor { position: relative; display: flex; align-items: center; }
+.vol-flyout {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 4px;
+    background: var(--rokdock-bg-surface);
+    border: 1px solid var(--rokdock-border);
+    border-radius: var(--rokdock-radius-md);
+    box-shadow: var(--rokdock-shadow-elevated);
+    padding: 8px 6px;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    z-index: 1100;
+}
+.vol-flyout.open { display: flex; }
+.vol-label {
+    font-size: var(--rokdock-font-xs);
+    font-family: var(--rokdock-font-mono);
+    color: var(--rokdock-text-dim);
+    user-select: none;
+    line-height: 1;
+}
+.vol-track-wrap {
+    position: relative;
+    width: 20px;
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: none;
+}
+.vol-track-bg {
+    position: absolute;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--rokdock-border);
+}
+.vol-track-fill {
+    position: absolute;
+    bottom: 0;
+    width: 4px;
+    border-radius: 2px;
+    background: var(--rokdock-brand-primary);
+}
+.vol-thumb {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--rokdock-text-bright);
+    border: 2px solid var(--rokdock-brand-primary);
+}
+
+/* Video */
+.video-wrap {
+    flex: 1;
+    position: relative;
+    background: #000;
+    overflow: hidden;
+}
+video {
+    display: block;
+}
+.placeholder {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--rokdock-text-muted);
+    font-size: var(--rokdock-font-sm);
+    text-align: center;
+    padding: 24px;
+    position: absolute;
+    inset: 0;
+}
+.placeholder svg { width: 40px; height: 40px; opacity: 0.35; }
+.placeholder.visible { display: flex; }
+
+/* Fullscreen mode */
+body.fullscreen rokdock-toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.6); /* cinematic overlay - intentionally theme-invariant */
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+    -webkit-app-region: no-drag;
+}
+body.fullscreen.toolbar-visible rokdock-toolbar {
+    opacity: 1;
+    pointer-events: auto;
+}
+body.fullscreen {
+    cursor: none;
+}
+body.fullscreen.toolbar-visible {
+    cursor: auto;
+}
+body.fullscreen video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+}

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en" data-rokdock-bundled class="rokdock-theme-pending">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';">
+    <title>JSON Editor</title>
+    <!-- The critical FOUC guard (rokdock-theme-pending rules) is injected at the top of
+         this head by bundledEntryFoucPlugin in electron.vite.config.ts, keyed off the
+         data-rokdock-bundled attribute on <html>. It is kept out of the bundled stylesheet
+         on purpose: that loads after first paint in dev and could not prevent the flash. -->
+</head>
+<body>
+
+<div class="rokdock-tab-bar">
+    <div class="rokdock-tab-list" id="tabList"></div>
+    <button class="rokdock-tab-add" id="btnAddTab" title="New tab"></button>
+</div>
+<rokdock-toolbar>
+    <button class="tb-btn" id="btnNew" title="New"></button>
+    <button class="tb-btn" id="btnOpen" title="Open"></button>
+    <div class="toolbar-sep"></div>
+    <button class="tb-btn" id="btnSave" title="Save"></button>
+    <button class="tb-btn" id="btnSaveAs" title="Save As"></button>
+    <div class="toolbar-sep"></div>
+    <button class="tb-btn" id="btnFormat" title="Format JSON"></button>
+    <button class="tb-btn" id="btnMinify" title="Minify JSON"></button>
+    <div class="toolbar-sep"></div>
+    <button class="tb-btn" id="btnExpandAll" title="Expand all"></button>
+    <button class="tb-btn" id="btnCollapseAll" title="Collapse all"></button>
+    <div class="toolbar-sep"></div>
+    <button class="tb-btn" id="btnSort" title="Sort keys at cursor"></button>
+    <rokdock-settings-gear slot="right" title="Appearance settings"></rokdock-settings-gear>
+</rokdock-toolbar>
+<div class="editor-area">
+    <div class="placeholder-overlay" id="placeholder">
+        <div class="placeholder-icon">{ }</div>
+        <div class="placeholder-text">Open a file or paste JSON</div>
+        <div class="placeholder-hint">Ctrl+O to open - Ctrl+V to paste</div>
+    </div>
+    <div id="editor"></div>
+</div>
+<div class="status-bar">
+    <span id="statusPos">Ln 1, Col 1</span>
+    <span class="status-sep"></span>
+    <span id="statusSize">0 B</span>
+    <span class="status-sep"></span>
+    <span>UTF-8</span>
+    <span class="status-sep"></span>
+    <span id="statusParse" class="status-parse">JSON</span>
+</div>
+<div class="toast" id="toast"></div>
+<div class="dialog-overlay" id="dialogOverlay">
+    <div class="dialog">
+        <h3 id="dialogTitle">Unsaved Changes</h3>
+        <p id="dialogMessage">Do you want to save changes before closing?</p>
+        <div class="dialog-buttons">
+            <button class="dialog-btn danger" id="dialogDiscard">Don't Save</button>
+            <button class="dialog-btn" id="dialogCancel">Cancel</button>
+            <button class="dialog-btn primary" id="dialogSave">Save</button>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="./jsonEditor.ts"></script>
+</body>
+</html>

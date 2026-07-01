@@ -1,0 +1,44 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "jsx": "react-jsx",
+        "outDir": "./out",
+        "paths": {
+            "@main/*": [
+                "./src/main/*"
+            ],
+            "@renderer/*": [
+                "./src/renderer/*"
+            ],
+            "@preload/*": [
+                "./src/preload/*"
+            ],
+            "@shared/*": [
+                "./src/shared/*"
+            ],
+            "@ai-core/*": [
+                "./src/ai-core/*"
+            ]
+        }
+    },
+    "include": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "src/**/*.d.ts",
+        "tests/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "out",
+        "**/*.test.ts",
+        "tests/e2e"
+    ]
+}

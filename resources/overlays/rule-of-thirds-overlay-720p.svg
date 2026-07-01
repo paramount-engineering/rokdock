@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Rule of Thirds Overlay - HD (1280x720)
+  RokDock Dark Theme
+
+  Grid:
+    Columns:  3 x 426.67 px  (lines at x=426.67, x=853.33)
+    Rows:     3 x 240 px     (lines at y=240, y=480)
+    Power points:  (426.67,240)  (853.33,240)  (426.67,480)  (853.33,480)
+
+  Note: column width 1280/3 ~ 426.67 px (displayed as 427 px)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <filter id="shadowLight" x="-10%" y="-30%" width="130%" height="200%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+
+    <marker id="arrow" markerWidth="7" markerHeight="5" refX="6.5" refY="2.5"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L0,5 L7,2.5 Z" fill="#e6e9ff" fill-opacity="0.78"/>
+    </marker>
+
+    <style>
+      .title-label {
+        font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+        text-anchor: middle;
+        dominant-baseline: central;
+        font-weight: 600;
+      }
+      .grid-label {
+        font-family: 'Consolas', 'Courier New', monospace;
+        dominant-baseline: central;
+        fill: #b59aff;
+        fill-opacity: 0.85;
+        filter: url(#shadowLight);
+      }
+      .meas-line {
+        stroke: #e6e9ff;
+        stroke-opacity: 0.82;
+        stroke-width: 2;
+      }
+      .meas-label {
+        font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+        font-size: 13px;
+        text-anchor: middle;
+        dominant-baseline: central;
+        fill: #e6e9ff;
+        filter: url(#shadowLight);
+      }
+      .power-ring {
+        fill: none;
+        stroke: #ffbd6f;
+        stroke-width: 2.5;
+        stroke-opacity: 0.85;
+      }
+      .power-cross {
+        stroke: #ffbd6f;
+        stroke-width: 2;
+        stroke-opacity: 0.82;
+      }
+    </style>
+  </defs>
+
+  <!-- ============================================ -->
+  <!-- SCREEN BOUNDARY                              -->
+  <!-- ============================================ -->
+
+  <rect x="1" y="1" width="1278" height="718"
+        fill="none" stroke="#6dd3ff" stroke-width="2.75" stroke-opacity="0.55"/>
+
+  <!-- ============================================ -->
+  <!-- GRID LINES                                   -->
+  <!-- ============================================ -->
+
+  <!-- Vertical thirds -->
+  <line x1="426.67" y1="0" x2="426.67" y2="720"
+        stroke="#b59aff" stroke-width="2" stroke-opacity="0.72"/>
+  <line x1="853.33" y1="0" x2="853.33" y2="720"
+        stroke="#b59aff" stroke-width="2" stroke-opacity="0.72"/>
+
+  <!-- Horizontal thirds -->
+  <line x1="0" y1="240" x2="1280" y2="240"
+        stroke="#b59aff" stroke-width="2" stroke-opacity="0.72"/>
+  <line x1="0" y1="480" x2="1280" y2="480"
+        stroke="#b59aff" stroke-width="2" stroke-opacity="0.72"/>
+
+  <!-- ============================================ -->
+  <!-- POWER POINT MARKERS (grid intersections)     -->
+  <!-- ============================================ -->
+
+  <!-- (426.67, 240) -->
+  <circle cx="426.67" cy="240" r="7" class="power-ring"/>
+  <line x1="418.67" y1="240" x2="434.67" y2="240" class="power-cross"/>
+  <line x1="426.67" y1="232" x2="426.67" y2="248" class="power-cross"/>
+  <circle cx="426.67" cy="240" r="2" fill="#ffbd6f" fill-opacity="0.78"/>
+
+  <!-- (853.33, 240) -->
+  <circle cx="853.33" cy="240" r="7" class="power-ring"/>
+  <line x1="845.33" y1="240" x2="861.33" y2="240" class="power-cross"/>
+  <line x1="853.33" y1="232" x2="853.33" y2="248" class="power-cross"/>
+  <circle cx="853.33" cy="240" r="2" fill="#ffbd6f" fill-opacity="0.78"/>
+
+  <!-- (426.67, 480) -->
+  <circle cx="426.67" cy="480" r="7" class="power-ring"/>
+  <line x1="418.67" y1="480" x2="434.67" y2="480" class="power-cross"/>
+  <line x1="426.67" y1="472" x2="426.67" y2="488" class="power-cross"/>
+  <circle cx="426.67" cy="480" r="2" fill="#ffbd6f" fill-opacity="0.78"/>
+
+  <!-- (853.33, 480) -->
+  <circle cx="853.33" cy="480" r="7" class="power-ring"/>
+  <line x1="845.33" y1="480" x2="861.33" y2="480" class="power-cross"/>
+  <line x1="853.33" y1="472" x2="853.33" y2="488" class="power-cross"/>
+  <circle cx="853.33" cy="480" r="2" fill="#ffbd6f" fill-opacity="0.78"/>
+
+  <!-- ============================================ -->
+  <!-- CENTER REFERENCE MARK                        -->
+  <!-- ============================================ -->
+
+  <line x1="632" y1="360" x2="648" y2="360"
+        stroke="#8e97b8" stroke-opacity="0.52" stroke-width="2"/>
+  <line x1="640" y1="352" x2="640" y2="368"
+        stroke="#8e97b8" stroke-opacity="0.52" stroke-width="2"/>
+  <circle cx="640" cy="360" r="4"
+          fill="none" stroke="#8e97b8" stroke-opacity="0.42" stroke-width="2"/>
+
+  <!-- ============================================ -->
+  <!-- TITLE                                        -->
+  <!-- ============================================ -->
+
+  <text x="640" y="18" class="title-label" fill="white" font-size="19"
+        filter="url(#shadowLight)">Rule of Thirds</text>
+
+  <!-- ============================================ -->
+  <!-- GRID LINE POSITION LABELS                    -->
+  <!-- ============================================ -->
+
+  <!-- Vertical line positions (top edge, labels sit just right of each line) -->
+  <text x="434.67" y="13" class="grid-label" font-size="12" text-anchor="start">x: 427</text>
+  <text x="861.33" y="13" class="grid-label" font-size="12" text-anchor="start">x: 853</text>
+
+  <!-- Horizontal line positions (left edge) -->
+  <text x="5" y="234" class="grid-label" font-size="12" text-anchor="start">y: 240</text>
+  <text x="5" y="474" class="grid-label" font-size="12" text-anchor="start">y: 480</text>
+
+  <!-- ============================================ -->
+  <!-- COLUMN WIDTH MEASUREMENTS (bottom)           -->
+  <!-- Columns: 427 px / 427 px / 426 px  -  y=700 -->
+  <!-- ============================================ -->
+
+  <!-- Column 1: x 0-426.67 -->
+  <line x1="2"      y1="700" x2="178"    y2="700" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="248"    y1="700" x2="424.67" y2="700" class="meas-line" marker-end="url(#arrow)"/>
+  <text x="213.33" y="700" class="meas-label">427 px</text>
+
+  <!-- Column 2: x 426.67-853.33 -->
+  <line x1="428.67" y1="700" x2="605"    y2="700" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="675"    y1="700" x2="851.33" y2="700" class="meas-line" marker-end="url(#arrow)"/>
+  <text x="640" y="700" class="meas-label">427 px</text>
+
+  <!-- Column 3: x 853.33-1280 -->
+  <line x1="855.33" y1="700" x2="1032"   y2="700" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1102"   y1="700" x2="1278"   y2="700" class="meas-line" marker-end="url(#arrow)"/>
+  <text x="1066.67" y="700" class="meas-label">426 px</text>
+
+  <!-- ============================================ -->
+  <!-- ROW HEIGHT MEASUREMENTS (right side)         -->
+  <!-- All rows: 240 px  -  x=1255                 -->
+  <!-- ============================================ -->
+
+  <!-- Row 1: y 0-240 -->
+  <line x1="1255" y1="2"   x2="1255" y2="85"  class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1255" y1="155" x2="1255" y2="238" class="meas-line" marker-end="url(#arrow)"/>
+  <g transform="rotate(-90,1255,120)">
+    <text x="1255" y="119" class="meas-label" letter-spacing="1.2">240 px</text>
+  </g>
+
+  <!-- Row 2: y 240-480 -->
+  <line x1="1255" y1="242" x2="1255" y2="325" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1255" y1="395" x2="1255" y2="478" class="meas-line" marker-end="url(#arrow)"/>
+  <g transform="rotate(-90,1255,360)">
+    <text x="1255" y="359" class="meas-label" letter-spacing="1.2">240 px</text>
+  </g>
+
+  <!-- Row 3: y 480-720 -->
+  <line x1="1255" y1="482" x2="1255" y2="565" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1255" y1="635" x2="1255" y2="718" class="meas-line" marker-end="url(#arrow)"/>
+  <g transform="rotate(-90,1255,600)">
+    <text x="1255" y="599" class="meas-label" letter-spacing="1.2">240 px</text>
+  </g>
+
+</svg>

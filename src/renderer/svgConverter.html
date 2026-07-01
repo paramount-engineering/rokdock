@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en" data-rokdock-bundled class="rokdock-theme-pending">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';">
+    <title>SVG Converter</title>
+    <!-- The critical FOUC guard (rokdock-theme-pending rules) is injected at the top of
+         this head by bundledEntryFoucPlugin in electron.vite.config.ts, keyed off the
+         data-rokdock-bundled attribute on <html>. It is kept out of the bundled stylesheet
+         on purpose: that loads after first paint in dev and could not prevent the flash. -->
+</head>
+<body>
+
+<!-- Toolbar -->
+<rokdock-toolbar>
+    <button class="tb-btn" id="importBtn" title="Import SVG..."></button>
+    <div class="toolbar-sep"></div>
+    <button class="tb-btn" id="exportBtn" title="Export PNG..." disabled></button>
+    <span class="toolbar-filename" id="toolbarFilename" slot="right"></span>
+    <rokdock-settings-gear slot="right" title="Appearance settings"></rokdock-settings-gear>
+</rokdock-toolbar>
+
+<!-- Main layout -->
+<div class="main">
+    <!-- Preview area -->
+    <div class="preview-area">
+        <div class="preview-viewport-wrap">
+        <div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div></div>
+        <rokdock-checkerboard class="preview-viewport empty" id="previewViewport">
+            <div class="drop-zone" id="dropZone">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 16V4m0 0l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+                </svg>
+                <span class="label">Drop an SVG file here</span>
+                <span class="sublabel">or click to browse</span>
+            </div>
+            <div class="canvas-zoom-sizer" id="canvasZoomSizer">
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="previewCanvas"></canvas>
+                </div>
+            </div>
+        </rokdock-checkerboard>
+        <div class="zoom-dock-wrap hidden" id="zoomDockWrap">
+            <rokdock-zoom-dock id="zoomDock" min="10" max="1000" value="100" show-fit show-actual></rokdock-zoom-dock>
+        </div>
+        </div>
+        <div class="preview-footer" id="previewFooter" style="display:none">
+            <div class="source-info" id="sourceInfo"></div>
+            <div class="source-dims" id="sourceDims"></div>
+        </div>
+    </div>
+
+    <!-- Config panel -->
+    <div class="config-panel">
+        <div class="sections">
+            <rokdock-collapsible label="Output Size" open>
+                <div class="ps-body disabled" id="sizeSection">
+                    <div class="pill-row" id="pillRow">
+                        <button class="pill" data-preset="4k">4K</button>
+                        <button class="pill" data-preset="fhd">FHD</button>
+                        <button class="pill" data-preset="hd">HD</button>
+                        <button class="pill" data-preset="sd">SD</button>
+                    </div>
+                    <div class="size-row">
+                        <span class="lbl">W</span>
+                        <input type="number" class="inp" id="inpW" min="1" max="7680" value="1920">
+                        <span class="lbl-sep">&times;</span>
+                        <span class="lbl">H</span>
+                        <input type="number" class="inp" id="inpH" min="1" max="4320" value="1080">
+                    </div>
+                </div>
+            </rokdock-collapsible>
+
+            <rokdock-collapsible label="Colors" open id="colorCollapsible" style="display:none">
+                <div class="ps-body" id="colorSection">
+                    <div id="colorList"></div>
+                    <button class="reset-all-btn" id="resetColorsBtn">Reset all</button>
+                </div>
+            </rokdock-collapsible>
+
+            <rokdock-collapsible label="Export Options" open>
+                <div class="ps-body disabled" id="optsSection">
+                    <div class="opt-row">
+                        <span class="opt-label">Colors</span>
+                        <div class="pill-row" id="colorPillRow">
+                            <button class="pill" data-colors="64">64</button>
+                            <button class="pill" data-colors="128">128</button>
+                            <button class="pill" data-colors="256">256</button>
+                        </div>
+                    </div>
+                    <div class="opt-hint">Palette size - fewer colors = smaller file</div>
+                    <div class="opt-row">
+                        <span class="opt-label">FS Dithering</span>
+                        <rokdock-toggle id="togDither" checked></rokdock-toggle>
+                    </div>
+                    <div class="opt-hint">Floyd-Steinberg dithering reduces visible banding</div>
+                    <div class="opt-row">
+                        <span class="opt-label">Light background</span>
+                        <rokdock-toggle id="togLightBg"></rokdock-toggle>
+                    </div>
+                    <div class="opt-hint">Preview on a light checkerboard surface</div>
+                </div>
+            </rokdock-collapsible>
+        </div>
+
+        <!-- Export footer -->
+        <div class="export-footer">
+            <div class="est-size" id="estSize"></div>
+            <button class="export-btn" id="panelExportBtn" disabled><svg viewBox="0 0 384 512" fill="currentColor"><path d="M64 0C28.7 0 0 28.7 0 64v384c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zm192 0v128h128L256 0zM216 232v102.1l31-31c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-72 72c-9.4 9.4-24.6 9.4-33.9 0l-72-72c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l31 31V232c0-13.3 10.7-24 24-24s24 10.7 24 24z"/></svg> Export PNG...</button>
+        </div>
+    </div>
+</div>
+
+<!-- Context menu -->
+<div class="ctx-menu" id="ctxMenu">
+    <div class="ctx-item" id="ctxImport">Import SVG...<span class="ctx-shortcut">Ctrl+O</span></div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item disabled" id="ctxExport">Export PNG...<span class="ctx-shortcut">Ctrl+S</span></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="./svgConverter.ts"></script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+/*
+ * Bundled font-face declarations for standalone Vite renderer entries.
+ *
+ * Import this file in a bundled entry to get fonts as bundled assets.
+ * Vite resolves the relative urls and copies the woff2 files into the
+ * output directory, so no runtime injection or data-URI encoding is needed.
+ *
+ * This mirrors the font list in src/main/ipc/handlers/theme.ts buildFontFacesCSS,
+ * which serves the same fonts as base64 data URIs for the preload-injected path.
+ */
+
+@font-face {
+    font-family: 'Source Sans 3';
+    src: url('../../resources/fonts/SourceSans3.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('../../resources/fonts/Inter-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('../../resources/fonts/Inter-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('../../resources/fonts/Inter-SemiBold.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'JetBrains Mono';
+    src: url('../../resources/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'JetBrains Mono';
+    src: url('../../resources/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}

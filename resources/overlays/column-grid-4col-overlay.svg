@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  4-Column Grid Overlay - Full HD (1920x1080)
+  RokDock Dark Theme
+  Column width: 480 px  |  4 x 480 = 1920
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+
+  <defs>
+    <filter id="shadowLight" x="-10%" y="-30%" width="130%" height="200%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7.5" refY="3"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L0,6 L8,3 Z" fill="#e6e9ff" fill-opacity="0.85"/>
+    </marker>
+    <style>
+      .title-label { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; text-anchor: middle; dominant-baseline: central; font-weight: 600; }
+      .col-num { font-family: 'Consolas', 'Courier New', monospace; text-anchor: middle; dominant-baseline: central; fill: #b59aff; filter: url(#shadowLight); }
+      .grid-label { font-family: 'Consolas', 'Courier New', monospace; dominant-baseline: central; fill: #b59aff; fill-opacity: 0.85; filter: url(#shadowLight); }
+      .meas-line { stroke: #e6e9ff; stroke-opacity: 0.9; stroke-width: 2.75; }
+      .meas-label { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 18px; text-anchor: middle; dominant-baseline: central; fill: #e6e9ff; filter: url(#shadowLight); }
+    </style>
+  </defs>
+
+  <!-- Screen border -->
+  <rect x="1" y="1" width="1918" height="1078" fill="none" stroke="#6dd3ff" stroke-width="3.5" stroke-opacity="0.68"/>
+
+  <!-- Action safe zone reference lines -->
+  <line x1="96"   y1="0"    x2="96"   y2="1080" stroke="#49507a" stroke-opacity="0.62" stroke-width="1.85" stroke-dasharray="6,4"/>
+  <line x1="1824" y1="0"    x2="1824" y2="1080" stroke="#49507a" stroke-opacity="0.62" stroke-width="1.85" stroke-dasharray="6,4"/>
+  <line x1="0"    y1="54"   x2="1920" y2="54"   stroke="#49507a" stroke-opacity="0.62" stroke-width="1.85" stroke-dasharray="6,4"/>
+  <line x1="0"    y1="1026" x2="1920" y2="1026" stroke="#49507a" stroke-opacity="0.62" stroke-width="1.85" stroke-dasharray="6,4"/>
+
+  <!-- Alternating column fills (even columns: 2,4) -->
+  <rect x="480"  y="0" width="480" height="1080" fill="#b59aff" fill-opacity="0.026"/>
+  <rect x="1440" y="0" width="480" height="1080" fill="#b59aff" fill-opacity="0.026"/>
+
+  <!-- Column dividers -->
+  <line x1="480"  y1="0" x2="480"  y2="1080" stroke="#b59aff" stroke-width="3.5" stroke-opacity="0.78"/>
+  <line x1="960"  y1="0" x2="960"  y2="1080" stroke="#b59aff" stroke-width="3.5" stroke-opacity="0.78"/>
+  <line x1="1440" y1="0" x2="1440" y2="1080" stroke="#b59aff" stroke-width="3.5" stroke-opacity="0.78"/>
+
+  <!-- Column numbers 1-4 -->
+  <text x="240"  y="28" class="col-num" font-size="24">1</text>
+  <text x="720"  y="28" class="col-num" font-size="24">2</text>
+  <text x="1200" y="28" class="col-num" font-size="24">3</text>
+  <text x="1680" y="28" class="col-num" font-size="24">4</text>
+
+  <!-- Subtitle label (bottom-right for consistency) -->
+  <text x="1912" y="1070" class="grid-label" font-size="16" text-anchor="end">4-col | 480 px each</text>
+
+  <!-- Measurement arrow: one column width (480 px) at y=1060 -->
+  <!-- Left segment: x=2 to x=204, marker-start (arrow points right toward center) -->
+  <line x1="2" y1="1060" x2="196" y2="1060" class="meas-line" marker-start="url(#arrow)"/>
+  <!-- Right segment: x=284 to x=478, marker-end -->
+  <line x1="284" y1="1060" x2="478" y2="1060" class="meas-line" marker-end="url(#arrow)"/>
+  <!-- Label -->
+  <text x="240" y="1060" class="meas-label">480 px</text>
+
+</svg>

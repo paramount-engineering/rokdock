@@ -1,0 +1,47 @@
+name: CI
+
+# Runs the verify gate (typecheck + lint + prose check + unit tests) on pull
+# requests into main and on direct pushes to main. This is the same `npm run
+# verify` that gates a local push, so a regression is caught in CI even when it
+# slips past a local run.
+#
+# The Playwright end-to-end suite (verify:full) is intentionally NOT run here: it
+# drives a real Electron window and needs a display, which would make every PR
+# slower and flakier. Run `npm run verify:full` locally before a release instead.
+#
+# Third-party actions are pinned to a commit SHA (the trailing comment records the
+# tag) so a moved tag cannot change what runs.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+
+      # The unit suite includes an integration test that spawns the compiled MCP
+      # bridge from out/, so the gate needs a build first (the same reason
+      # test:e2e builds before Playwright). predist is skipped: it renders icons
+      # via offscreen Electron and is only needed for packaging.
+      - run: npm run build
+
+      - run: npm run verify

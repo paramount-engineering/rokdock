@@ -1,0 +1,60 @@
+/* Hover styling is CSS-only so huge terminals don't re-render on every mousemove/hover. */
+.rokdock-terminal-url-link {
+    cursor: pointer;
+    text-decoration: none;
+}
+.rokdock-terminal-url-link:hover {
+    text-decoration: underline;
+}
+.rokdock-terminal-json-link {
+    cursor: pointer;
+    text-decoration: none;
+}
+.rokdock-terminal-json-link:hover,
+.rokdock-terminal-json-link.rokdock-terminal-json-link-active {
+    text-decoration: underline dotted;
+}
+
+/* Resize handles / splitters - styled like the old edge collapse bar: a faint
+   centered grip so it is obvious a splitter is there, brighter and longer on hover. */
+.rokdock-resize-handle {
+    position: relative;
+    background: transparent;
+    transition: background 0.15s ease;
+}
+.rokdock-resize-handle:hover {
+    background: var(--rokdock-brand-primary-faded);
+}
+.rokdock-resize-handle::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 32px;
+    border-radius: 1px;
+    background: linear-gradient(180deg, transparent 0%, var(--rokdock-brand-primary-light) 30%, var(--rokdock-brand-primary-light) 70%, transparent 100%);
+    opacity: 0.5;
+    transition: opacity 0.15s ease, height 0.15s ease, width 0.15s ease;
+    pointer-events: none;
+}
+.rokdock-resize-handle:hover::before {
+    opacity: 1;
+    height: 48px;
+}
+/* Horizontal splitter (the middle AI-chat drawer divider): rotate the grip. */
+.rokdock-resize-handle--row::before {
+    width: 32px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, var(--rokdock-brand-primary-light) 30%, var(--rokdock-brand-primary-light) 70%, transparent 100%);
+}
+.rokdock-resize-handle--row:hover::before {
+    width: 48px;
+    height: 2px;
+    opacity: 1;
+}
+
+/* Selection toolbar button background (transparent default + hover highlight). */
+.terminal-selection-toolbar button { background: transparent; }
+.terminal-selection-toolbar button:hover { background: var(--rokdock-bg-hover); }

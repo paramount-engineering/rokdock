@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  12-Column Grid Overlay - HD (1280x720)
+  RokDock Dark Theme
+  Column width: 106.67 px  |  12 x 106.67 ~ 1280
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+
+  <defs>
+    <filter id="shadowLight" x="-10%" y="-30%" width="130%" height="200%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+    <marker id="arrow" markerWidth="7" markerHeight="5" refX="6.5" refY="2.5"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L0,5 L7,2.5 Z" fill="#e6e9ff" fill-opacity="0.85"/>
+    </marker>
+    <style>
+      .title-label { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; text-anchor: middle; dominant-baseline: central; font-weight: 600; }
+      .col-num { font-family: 'Consolas', 'Courier New', monospace; text-anchor: middle; dominant-baseline: central; fill: #b59aff; filter: url(#shadowLight); }
+      .grid-label { font-family: 'Consolas', 'Courier New', monospace; dominant-baseline: central; fill: #b59aff; fill-opacity: 0.85; filter: url(#shadowLight); }
+      .meas-line { stroke: #e6e9ff; stroke-opacity: 0.9; stroke-width: 2.75; }
+      .meas-label { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 13px; text-anchor: middle; dominant-baseline: central; fill: #e6e9ff; filter: url(#shadowLight); }
+    </style>
+  </defs>
+
+  <!-- Screen border -->
+  <rect x="1" y="1" width="1278" height="718" fill="none" stroke="#6dd3ff" stroke-width="3.5" stroke-opacity="0.68"/>
+
+  <!-- Action safe zone reference lines -->
+  <line x1="64"   y1="0"   x2="64"   y2="720" stroke="#49507a" stroke-opacity="0.72" stroke-width="2.35" stroke-dasharray="6,4"/>
+  <line x1="1216" y1="0"   x2="1216" y2="720" stroke="#49507a" stroke-opacity="0.72" stroke-width="2.35" stroke-dasharray="6,4"/>
+  <line x1="0"    y1="36"  x2="1280" y2="36"  stroke="#49507a" stroke-opacity="0.72" stroke-width="2.35" stroke-dasharray="6,4"/>
+  <line x1="0"    y1="684" x2="1280" y2="684" stroke="#49507a" stroke-opacity="0.72" stroke-width="2.35" stroke-dasharray="6,4"/>
+
+  <!-- Alternating column fills (even columns: 2,4,6,8,10,12) -->
+  <rect x="106.67"  y="0" width="106.67" height="720" fill="#b59aff" fill-opacity="0.02"/>
+  <rect x="320"     y="0" width="106.67" height="720" fill="#b59aff" fill-opacity="0.02"/>
+  <rect x="533.33"  y="0" width="106.67" height="720" fill="#b59aff" fill-opacity="0.02"/>
+  <rect x="746.67"  y="0" width="106.67" height="720" fill="#b59aff" fill-opacity="0.02"/>
+  <rect x="960"     y="0" width="106.67" height="720" fill="#b59aff" fill-opacity="0.02"/>
+  <rect x="1173.33" y="0" width="106.67" height="720" fill="#b59aff" fill-opacity="0.02"/>
+
+  <!-- Column dividers -->
+  <line x1="106.67"  y1="0" x2="106.67"  y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="213.33"  y1="0" x2="213.33"  y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="320"     y1="0" x2="320"     y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="426.67"  y1="0" x2="426.67"  y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="533.33"  y1="0" x2="533.33"  y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="640"     y1="0" x2="640"     y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="746.67"  y1="0" x2="746.67"  y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="853.33"  y1="0" x2="853.33"  y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="960"     y1="0" x2="960"     y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="1066.67" y1="0" x2="1066.67" y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+  <line x1="1173.33" y1="0" x2="1173.33" y2="720" stroke="#b59aff" stroke-width="2.65" stroke-opacity="0.74"/>
+
+  <!-- Column numbers 1-12 -->
+  <text x="53.33"   y="18" class="col-num" font-size="12">1</text>
+  <text x="160"     y="18" class="col-num" font-size="12">2</text>
+  <text x="266.67"  y="18" class="col-num" font-size="12">3</text>
+  <text x="373.33"  y="18" class="col-num" font-size="12">4</text>
+  <text x="480"     y="18" class="col-num" font-size="12">5</text>
+  <text x="586.67"  y="18" class="col-num" font-size="12">6</text>
+  <text x="693.33"  y="18" class="col-num" font-size="12">7</text>
+  <text x="800"     y="18" class="col-num" font-size="12">8</text>
+  <text x="906.67"  y="18" class="col-num" font-size="12">9</text>
+  <text x="1013.33" y="18" class="col-num" font-size="12">10</text>
+  <text x="1120"    y="18" class="col-num" font-size="12">11</text>
+  <text x="1226.67" y="18" class="col-num" font-size="12">12</text>
+
+  <!-- Subtitle label (bottom-right to avoid overlapping column numbers) -->
+  <text x="1275" y="712" class="grid-label" font-size="12" text-anchor="end">12-col | 107 px each</text>
+
+  <!-- Measurement arrow: one column width (~107 px) at y=700 -->
+  <!-- Left segment: x=2->25, marker-start reverses (points left, outward) -->
+  <line x1="2" y1="700" x2="25" y2="700" class="meas-line" marker-start="url(#arrow)"/>
+  <!-- Right segment: x=81->104.67, marker-end (points right, outward) -->
+  <line x1="81" y1="700" x2="104.67" y2="700" class="meas-line" marker-end="url(#arrow)"/>
+  <!-- Label -->
+  <text x="53.33" y="700" class="meas-label">107 px</text>
+
+</svg>
