@@ -1,6 +1,6 @@
 {
   "name": "rokdock",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Cross-platform desktop app for Roku development - device discovery, terminal sessions, remote control, sideloading, screenshot capture, and automation scripting",
   "main": "./out/main/main.js",
   "scripts": {
