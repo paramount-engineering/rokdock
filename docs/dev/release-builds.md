@@ -93,7 +93,7 @@ The packaging itself is manual-verify per platform (installer, DMG, deb), consis
 
 Installers are built on GitHub runners, not on a developer machine. `.github/workflows/release.yml` builds every platform on its native runner (macOS, Windows, Linux), and electron-builder uploads each platform's installers plus the electron-updater manifests (`latest-mac.yml`, `latest.yml`, `latest-linux.yml`) to the GitHub Release.
 
-The workflow triggers when a GitHub Release is **published** (not on a bare tag push). Each runner matches the release by its `v${version}` tag and attaches its assets to it, so there is no race to create the release. A published release is briefly live with no binaries during the roughly ten-minute build. If that matters, publish it as a prerelease, let the assets attach, then promote it.
+The workflow triggers on a `v*` tag push. `npm run release` creates a **draft** release for that tag (`electron-builder.json` sets `publish.releaseType: draft` to match), each runner attaches its assets to that draft, and a final `publish` job publishes it once every platform succeeds. This is required, not just cautious: GitHub's immutable releases feature, enabled on some repos, permanently locks a release's assets the moment it is published, so uploading to an already-published release fails outright there. Publishing last, after every asset is already attached, works regardless of whether that feature is on.
 
 ### Required repository secrets
 
@@ -128,8 +128,8 @@ The script performs:
 1. Prompts for version bump: `patch`, `minor`, `major`, `custom`, or `skip`
 2. Updates `package.json` version (unless `skip` is used) and creates a release commit
 3. Creates the release tag in format `v<major>.<minor>.<patch>`
-4. Pushes the commit and tag to `origin`
-5. Creates the **published** GitHub release with generated notes (via `gh`)
+4. Pushes the commit and tag to `origin`, which triggers the build workflow
+5. Creates a **draft** GitHub release with generated notes (via `gh`), for the workflow to attach installers to and publish once every platform succeeds
 
 It does **not** build locally. Publishing the release in step 5 triggers the CI workflow, which builds the installers and attaches them. Track progress with `gh run watch` or the Actions tab. `gh` CLI must be installed and authenticated.
 

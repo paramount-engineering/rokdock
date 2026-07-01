@@ -159,13 +159,18 @@ function createGhRelease(releaseTag, version, distFiles, existingReleaseBody) {
     if (appImageScripts.length > 0) {
         console.log(`Including ${appImageScripts.length} AppImage install script(s) as release assets.`)
     }
-    const ghCreateArgs = ['release', 'create', releaseTag, '--title', version, ...allAssets]
+    // Create as a draft, then publish once every asset is attached: on repos with
+    // GitHub's immutable releases enabled, a published release can never receive
+    // more assets, even ones passed to the same `gh release create` call, since
+    // the release is marked published before the upload requests land.
+    const ghCreateArgs = ['release', 'create', releaseTag, '--draft', '--title', version, ...allAssets]
     if (existingReleaseBody) {
         ghCreateArgs.push('--notes', existingReleaseBody)
     } else {
         ghCreateArgs.push('--generate-notes')
     }
     runCommand('gh', ghCreateArgs)
+    runCommand('gh', ['release', 'edit', releaseTag, '--draft=false'])
 }
 
 async function releaseOnly() {
@@ -324,13 +329,15 @@ async function main() {
             console.log(`Using existing package.json version -> ${nextVersion}`)
         }
 
-        // Installers are built on GitHub runners, not here. Publishing the release is
-        // the trigger for the build workflow, so this script only bumps the version,
-        // tags it, pushes, and creates the published release. The workflow then builds
-        // every platform and attaches the installers (and the electron-updater
-        // manifests) to this release.
-        console.log(`\nThis will tag, push, and publish release ${releaseTag}.`)
-        console.log('Publishing triggers the GitHub Actions build that attaches the installers.')
+        // Installers are built on GitHub runners, not here. Pushing the tag is the
+        // trigger for the build workflow, so this script bumps the version, tags it,
+        // pushes, and creates a draft release for the workflow to attach installers
+        // to. The workflow publishes the release itself once every platform succeeds:
+        // on repos with GitHub's immutable releases feature enabled, a published
+        // release can never receive more assets, so nothing may attach to it until
+        // publishing happens last.
+        console.log(`\nThis will tag, push, and create a draft release for ${releaseTag}.`)
+        console.log('Pushing the tag triggers the GitHub Actions build, which attaches the installers and publishes the release once every platform succeeds.')
         if (!(await askYesNo(rl, 'Proceed?', false))) {
             throw new Error('Release aborted by user.')
         }
@@ -343,7 +350,7 @@ async function main() {
         runCommand('git', ['push'])
         runCommand('git', ['push', 'origin', releaseTag])
 
-        const ghCreateArgs = ['release', 'create', releaseTag, '--title', nextVersion]
+        const ghCreateArgs = ['release', 'create', releaseTag, '--draft', '--title', nextVersion]
         if (existingReleaseBody) {
             ghCreateArgs.push('--notes', existingReleaseBody)
         } else {
@@ -351,9 +358,9 @@ async function main() {
         }
         runCommand('gh', ghCreateArgs)
 
-        console.log('\nRelease published.')
+        console.log('\nDraft release created.')
         console.log(`Tag: ${releaseTag}`)
-        console.log('GitHub Actions is now building the installers and attaching them to the release.')
+        console.log('GitHub Actions is now building the installers and will publish the release once every platform succeeds.')
         console.log('Track it from the Actions tab or with: gh run watch')
     } finally {
         rl.close()
