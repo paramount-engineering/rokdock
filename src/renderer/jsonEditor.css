@@ -1,0 +1,58 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+    display: flex;
+    flex-direction: column;
+    background: var(--rokdock-bg-base);
+    color: var(--rokdock-text-primary);
+    font-family: var(--rokdock-font-ui);
+    font-size: var(--rokdock-font-sm);
+    min-height: 0;
+    user-select: none;
+}
+
+/* Tab bar: base rules in rokdock-components.css */
+
+/* Toolbar: base rules in rokdock-components.css */
+
+/* Editor area */
+.editor-area { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+#editor { flex: 1; min-height: 0; }
+
+/* Placeholder overlay */
+.placeholder-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 5;
+    gap: 8px;
+    opacity: .45;
+}
+.placeholder-overlay.hidden { display: none; }
+.placeholder-icon { font-size: 32px; color: var(--rokdock-text-muted); }
+.placeholder-text { font-size: var(--rokdock-font-base); color: var(--rokdock-text-muted); font-weight: 500; }
+.placeholder-hint { font-size: var(--rokdock-font-xs); color: var(--rokdock-text-muted); }
+
+/* Status bar */
+.status-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 10px;
+    background: var(--rokdock-bg-base);
+    border-top: 1px solid var(--rokdock-border);
+    font-size: var(--rokdock-font-xxs);
+    color: var(--rokdock-text-muted);
+    gap: 12px;
+    font-family: var(--rokdock-font-mono);
+}
+.status-sep { width: 1px; height: 10px; background: var(--rokdock-border); flex-shrink: 0; }
+
+.status-parse.has-error { color: var(--rokdock-error-text); cursor: pointer; }
+
+/* Toast + Dialog: base rules in rokdock-components.css */

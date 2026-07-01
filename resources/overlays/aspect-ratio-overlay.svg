@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+
+  <defs>
+    <filter id="shadowLight" x="-10%" y="-30%" width="130%" height="200%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7.5" refY="3"
+            orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L0,6 L8,3 Z" fill="#e6e9ff" fill-opacity="0.85"/>
+    </marker>
+    <style>
+      .title-label { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; text-anchor: middle; dominant-baseline: central; font-weight: 600; }
+      .zone-label  { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; text-anchor: middle; dominant-baseline: central; font-weight: 500; }
+      .mono-label  { font-family: 'Consolas', 'Courier New', monospace; dominant-baseline: central; fill: #e6e9ff; fill-opacity: 0.85; filter: url(#shadowLight); }
+      .meas-line   { stroke: #e6e9ff; stroke-opacity: 0.82; stroke-width: 2; }
+      .meas-label  { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 18px; text-anchor: middle; dominant-baseline: central; fill: #e6e9ff; filter: url(#shadowLight); }
+    </style>
+  </defs>
+
+  <!-- LETTERBOX / PILLARBOX FILLS (dark overlay on excluded areas) -->
+
+  <!-- 4:3 pillarboxes -->
+  <rect x="0"    y="0" width="240"  height="1080" fill="#111326" fill-opacity="0.35"/>
+  <rect x="1680" y="0" width="240"  height="1080" fill="#111326" fill-opacity="0.35"/>
+
+  <!-- 2.39:1 letterbox bars (top y=0-139, bottom y=942-1080) -->
+  <rect x="0" y="0"   width="1920" height="139" fill="#111326" fill-opacity="0.16"/>
+  <rect x="0" y="942" width="1920" height="138" fill="#111326" fill-opacity="0.16"/>
+
+  <!-- 1:1 pillarboxes -->
+  <rect x="0"    y="0" width="420"  height="1080" fill="#111326" fill-opacity="0.30"/>
+  <rect x="1500" y="0" width="420"  height="1080" fill="#111326" fill-opacity="0.30"/>
+
+  <!-- CONTENT BOUNDARY OUTLINES -->
+
+  <!-- 16:9 - full screen border (cyan) -->
+  <rect x="1" y="1" width="1918" height="1078"
+        fill="none" stroke="#6dd3ff" stroke-width="2.75" stroke-opacity="0.88"/>
+
+  <!-- 4:3 - 1440x1080 (purple) -->
+  <rect x="240" y="0" width="1440" height="1080"
+        fill="none" stroke="#b59aff" stroke-width="2.75" stroke-opacity="0.88"/>
+
+  <!-- 1.85:1 - 1920x1038 (green) -->
+  <rect x="0" y="21" width="1920" height="1038"
+        fill="none" stroke="#78e6a8" stroke-width="2.75" stroke-opacity="0.88"/>
+
+  <!-- 2.39:1 - 1920x803 (amber), y=139, h=802 (139+802=941, bottom bar=942-1080=138px) -->
+  <!-- 1080-803=277, 277/2=138.5 -> top bar=139, bottom bar=138; content h=803 but top=139, 139+803=942 OK -->
+  <rect x="0" y="139" width="1920" height="803"
+        fill="none" stroke="#ffbd6f" stroke-width="2.75" stroke-opacity="0.88"/>
+
+  <!-- 1:1 - 1080x1080 (pink), pillarboxes x=420 to x=1500 -->
+  <rect x="420" y="0" width="1080" height="1080"
+        fill="none" stroke="#ff6f91" stroke-width="2.75" stroke-opacity="0.88"/>
+
+  <!-- RATIO LABELS -->
+
+  <text x="8"   y="11"  class="mono-label" font-size="16" fill="#6dd3ff"  text-anchor="start">16:9 - 1920x1080</text>
+  <text x="255" y="11"  class="mono-label" font-size="16" fill="#b59aff"  text-anchor="start">4:3 - 1440x1080</text>
+  <text x="8"   y="44"  class="mono-label" font-size="16" fill="#78e6a8"  text-anchor="start">1.85:1 - 1920x1038</text>
+  <text x="8"   y="154" class="mono-label" font-size="16" fill="#ffbd6f"  text-anchor="start">2.39:1 - 1920x803</text>
+  <text x="435" y="11"  class="mono-label" font-size="16" fill="#ff6f91"  text-anchor="start">1:1 - 1080x1080</text>
+
+  <!-- Central title (subtle, centred in frame) -->
+  <text x="960" y="540" class="title-label" fill="white" font-size="28" fill-opacity="0.28" filter="url(#shadowLight)">Aspect Ratio Reference - 1920x1080</text>
+
+  <!-- MEASUREMENT ARROWS -->
+
+  <!-- Horizontal: 4:3 content width (1440px) at y=1067 -->
+  <!-- Gap: center x=960, +/-100px -> left x=240->860, right x=1060->1680 -->
+  <line x1="240" y1="1068" x2="860"  y2="1068" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1060" y1="1068" x2="1680" y2="1068" class="meas-line" marker-end="url(#arrow)"/>
+  <line x1="240"  y1="1061" x2="240"  y2="1075" class="meas-line"/>
+  <line x1="1680" y1="1061" x2="1680" y2="1075" class="meas-line"/>
+  <text x="960" y="1068" class="meas-label" fill="#b59aff">1440 px (4:3)</text>
+
+  <!-- Vertical: 2.39:1 content height (803px) at x=1895 -->
+  <!-- Gap: center y=540, +/-100px -> top y=139->440, bottom y=640->942 -->
+  <line x1="1895" y1="139" x2="1895" y2="440" class="meas-line" marker-start="url(#arrow)"/>
+  <line x1="1895" y1="640" x2="1895" y2="942" class="meas-line" marker-end="url(#arrow)"/>
+  <line x1="1888" y1="139" x2="1902" y2="139" class="meas-line"/>
+  <line x1="1888" y1="942" x2="1902" y2="942" class="meas-line"/>
+  <!-- Rotated label -->
+  <g transform="rotate(-90,1895,540)">
+    <text x="1895" y="540" class="meas-label" fill="#ffbd6f" letter-spacing="1.5">803 px (2.39:1)</text>
+  </g>
+
+</svg>

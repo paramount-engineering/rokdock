@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self';" />
+    <title>RokDock</title>
+    <style>
+        :root {
+            --body-bg: #121427;
+            --body-text: #f4f6ff;
+            --bg-gradient-a: rgba(90, 58, 176, 0.18);
+            --bg-gradient-b: rgba(79, 195, 247, 0.07);
+            --selection-bg: rgba(58, 28, 135, 0.45);
+            --selection-text: #fff;
+            --focus-border: rgba(90, 58, 176, 0.6);
+            --focus-shadow: rgba(58, 28, 135, 0.2);
+            --scrollbar-thumb: rgba(58, 74, 112, 0.58);
+            --scrollbar-thumb-hover: rgba(82, 105, 160, 0.92);
+            --brand-purple-base: #3A1C87;
+            --brand-purple-light: #8A6FE0;
+            --splash-card-start: #26243d;
+            --splash-card-end: #302d4a;
+            --splash-card-border: #686492;
+            --splash-subtitle: #dde2f7;
+            --splash-overlay-bg: #121427;
+            --range-fill: #8A6FE0;
+            --range-track: rgba(255, 255, 255, 0.18);
+            --range-border: rgba(255, 255, 255, 0.14);
+            --range-thumb-ring: rgba(12, 14, 24, 0.74);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body,
+        #root {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', 'Ubuntu', system-ui, sans-serif;
+            background: var(--body-bg);
+            color: var(--body-text);
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+            user-select: none;
+        }
+
+        /* Prevent accidental drag-selection in chrome UI, but keep text selection
+           where users intentionally type/select text (terminal + text-entry controls). */
+        input,
+        textarea,
+        [contenteditable="true"],
+        [contenteditable=""],
+        [data-line],
+        .allow-text-select {
+            user-select: text;
+        }
+
+        ::selection {
+            background: var(--selection-bg);
+            color: var(--selection-text);
+        }
+
+        /* Ensure highlighted text in terminal search input stays legible */
+        .terminal-search-input::selection {
+            background: var(--rokdock-search-highlight-color);
+            color: var(--rokdock-bg-base);
+        }
+
+        .terminal-search-input::-moz-selection {
+            background: var(--rokdock-search-highlight-color);
+            color: var(--rokdock-bg-base);
+        }
+
+        /* Kill Chromium UA focus/active styling on all interactive elements */
+        *:focus,
+        *:focus-visible,
+        *:focus-within {
+            outline: none !important;
+            outline-offset: 0 !important;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--focus-border) !important;
+            box-shadow: 0 0 0 2px var(--focus-shadow) !important;
+        }
+
+        button {
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        select option {
+            background: var(--rokdock-bg-panel);
+            color: var(--rokdock-text-primary);
+        }
+
+        /* Hide number-input spinners cross-platform */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            appearance: textfield;
+            -moz-appearance: textfield;
+        }
+
+        .settings-range {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 16px;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .settings-range::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 999px;
+            border: 1px solid var(--range-border);
+            background: linear-gradient(90deg,
+                    var(--range-fill) 0%,
+                    var(--range-fill) var(--range-pct, 50%),
+                    var(--range-track) var(--range-pct, 50%),
+                    var(--range-track) 100%);
+        }
+
+        .settings-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--range-fill);
+            border: 1px solid var(--rokdock-range-thumb-border);
+            margin-top: -5px;
+            box-shadow: 0 0 0 2px var(--range-thumb-ring), 0 1px 4px var(--rokdock-black-medium);
+        }
+
+        .settings-range::-moz-range-track {
+            height: 6px;
+            border-radius: 999px;
+            border: 1px solid var(--range-border);
+            background: var(--range-track);
+        }
+
+        .settings-range::-moz-range-progress {
+            height: 6px;
+            border-radius: 999px;
+            border: 1px solid var(--range-border);
+            background: var(--range-fill);
+        }
+
+        .settings-range::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--range-fill);
+            border: 1px solid var(--rokdock-range-thumb-border);
+            box-shadow: 0 0 0 2px var(--range-thumb-ring), 0 1px 4px var(--rokdock-black-medium);
+        }
+
+        .settings-range:focus-visible::-webkit-slider-thumb {
+            box-shadow: 0 0 0 2px var(--range-thumb-ring), 0 0 0 4px var(--focus-shadow), 0 1px 4px var(--rokdock-black-medium);
+        }
+
+        .settings-range:focus-visible::-moz-range-thumb {
+            box-shadow: 0 0 0 2px var(--range-thumb-ring), 0 0 0 4px var(--focus-shadow), 0 1px 4px var(--rokdock-black-medium);
+        }
+
+        button:hover:not(:disabled) {
+            filter: brightness(1.08);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0.5px);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+        }
+
+        ::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+
+        /* Hide scrollbar until hover */
+        *:not(:hover)::-webkit-scrollbar-thumb {
+            background: transparent;
+        }
+
+        /* Keep terminal scrollbar visible when overflow exists */
+        .terminal-viewport-scroll::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb) !important;
+        }
+
+        .terminal-viewport-scroll::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover) !important;
+        }
+
+        .terminal-viewport-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        @keyframes tabPulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        #boot-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(1200px 700px at 68% -30%, var(--bg-gradient-a) 0%, transparent 55%),
+                radial-gradient(900px 520px at -12% 95%, var(--bg-gradient-b) 0%, transparent 52%),
+                var(--splash-overlay-bg);
+        }
+
+        #boot-splash-card {
+            box-sizing: border-box;
+            /* Fixed footprint so first paint (before JS fills text) matches populated splash */
+            width: min(360px, calc(100vw - 48px));
+            min-width: 280px;
+            min-height: 304px;
+            overflow: hidden;
+            border-radius: 8px;
+            border: 1px solid var(--splash-card-border);
+            background: linear-gradient(180deg, var(--splash-card-start) 0%, var(--splash-card-end) 100%);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+        }
+
+        #boot-splash-strip {
+            height: 3px;
+            background: linear-gradient(90deg, #3A1C87, #5A3AB0, #4fc3f7, #81c784, #ffb74d, #5A3AB0, #3A1C87);
+            background-size: 200% 100%;
+            animation: bootGradient 4s ease infinite;
+        }
+
+        #boot-splash-body {
+            box-sizing: border-box;
+            min-height: 301px;
+            padding: 20px 24px 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #boot-splash-logo-wrap {
+            width: 72px;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #boot-splash-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.3px;
+        }
+
+        #boot-splash-version {
+            margin-top: 4px;
+            font-size: 12px;
+            line-height: 1.25;
+            color: var(--brand-purple-light);
+            font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, Menlo, Monaco, 'Ubuntu Mono', ui-monospace, monospace;
+            min-height: 18px;
+            width: 100%;
+            text-align: center;
+        }
+
+        #boot-splash-subtitle {
+            margin-top: 2px;
+            /* ~2 lines at 11px / 1.35 (matches "Preparing workspace..." at this card width) */
+            min-height: 2.7em;
+            color: var(--splash-subtitle);
+            font-size: 11px;
+            opacity: 0.95;
+            text-align: center;
+            max-width: 320px;
+            line-height: 1.35;
+            width: 100%;
+        }
+
+        #boot-splash-chips {
+            margin-top: 4px;
+            /* Room for platform + Electron + Node line, or two short lines if narrow */
+            min-height: 32px;
+            color: #cbd5ff;
+            font-size: 10px;
+            line-height: 1.45;
+            letter-spacing: 0.2px;
+            text-align: center;
+            font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, Menlo, Monaco, 'Ubuntu Mono', ui-monospace, monospace;
+            opacity: 0.9;
+            width: 100%;
+        }
+
+        #boot-splash-status {
+            margin-top: 8px;
+            min-height: 22px;
+            line-height: 1.3;
+            color: #e8ecff;
+            font-size: 10px;
+            letter-spacing: 1.1px;
+            text-transform: uppercase;
+            font-weight: 600;
+            animation: bootStatusPulse 1.6s ease-in-out infinite;
+            width: 100%;
+            text-align: center;
+        }
+
+        #boot-splash-status::after {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            text-align: left;
+            animation: bootDots 1.2s steps(4, end) infinite;
+        }
+
+        #boot-splash-logo-wrap svg {
+            animation: bootLogoFloat 2.6s ease-in-out infinite;
+        }
+
+        @keyframes bootGradient {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes bootLogoFloat {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-2px);
+            }
+        }
+
+        @keyframes bootStatusPulse {
+            0%,
+            100% {
+                opacity: 0.7;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        @keyframes bootDots {
+            0% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75%,
+            100% {
+                content: '...';
+            }
+        }
+
+        body.app-ready #boot-splash {
+            transition: opacity 0.2s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="boot-splash">
+        <div id="boot-splash-card">
+            <div id="boot-splash-strip"></div>
+            <div id="boot-splash-body">
+                <div id="boot-splash-logo-wrap">
+                    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                        <defs>
+                            <linearGradient id="bootHexGrad" x1="0" y1="0" x2="64" y2="64">
+                                <stop offset="0%" stop-color="var(--brand-purple-light)" />
+                                <stop offset="100%" stop-color="var(--brand-purple-base)" />
+                            </linearGradient>
+                            <filter id="bootGlow">
+                                <feGaussianBlur stdDeviation="3" result="blur" />
+                                <feMerge>
+                                    <feMergeNode in="blur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <path d="M32 4 L56 18 L56 46 L32 60 L8 46 L8 18 Z" fill="url(#bootHexGrad)"
+                            stroke="var(--brand-purple-light)" stroke-width="1.5" filter="url(#bootGlow)" />
+                        <text x="32" y="38" text-anchor="middle" font-size="22"
+                            font-family="'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, Menlo, Monaco, 'Ubuntu Mono', ui-monospace, monospace" font-weight="bold"
+                            fill="#fff">&gt;_</text>
+                    </svg>
+                </div>
+                <div id="boot-splash-title">RokDock</div>
+                <!-- Version string below: token replaced from package.json at dev/build; keep in sync with populateBootSplash in index.tsx -->
+                <div id="boot-splash-version">__BOOT_SPLASH_VER__</div>
+                <div id="boot-splash-subtitle">Preparing workspace, terminals, and device services...</div>
+                <div id="boot-splash-chips">Loading...</div>
+                <div id="boot-splash-status">Launching</div>
+            </div>
+        </div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+</body>
+
+</html>

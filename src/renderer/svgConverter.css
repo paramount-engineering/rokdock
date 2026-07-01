@@ -1,0 +1,108 @@
+/* The .rokdock-theme-pending body visibility guard lives inline in svgConverter.html
+   (critical CSS, present at parse time) rather than here, since this bundled stylesheet
+   loads after first paint in dev and would not prevent the flash. */
+html,body{height:100%;overflow:hidden}
+body{display:flex;flex-direction:column;min-height:0;user-select:none}
+input,select{user-select:text}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+
+/* Toolbar: base rules in rokdock-components.css */
+.toolbar-filename{margin-left:auto;font-size:var(--rokdock-font-xxs);color:rgba(255, 255, 255, 0.65);font-family:var(--rokdock-font-mono);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;display:none}
+
+/* Main layout */
+.main{flex:1;display:flex;min-height:0;overflow:hidden}
+
+/* Preview area */
+.preview-area{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.preview-viewport-wrap{flex:1;position:relative;min-height:0;overflow:hidden}
+.preview-viewport{width:100%;height:100%;overflow:auto;position:relative;cursor:grab}
+.preview-viewport{box-shadow:var(--rokdock-viewport-shadow)}
+.preview-viewport.dragging{cursor:grabbing}
+.preview-viewport.empty{display:flex;align-items:center;justify-content:center;cursor:default}
+.preview-viewport.light-bg{--rokdock-checker-a:#e0e0e0;--rokdock-checker-b:#f0f0f0}
+.preview-footer{padding:6px 12px;border-top:1px solid var(--rokdock-border);background:var(--rokdock-bg-base);min-height:0;flex-shrink:0}
+.source-info{font-size:var(--rokdock-font-xs);color:var(--rokdock-text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.source-dims{font-size:var(--rokdock-font-xxs);color:var(--rokdock-text-muted);font-family:var(--rokdock-font-mono);margin-top:1px}
+
+/* Drop zone */
+.drop-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed var(--rokdock-border);border-radius:8px;margin:12px;flex:1;cursor:pointer;transition:border-color .12s ease,background .12s ease,box-shadow .12s ease}
+.drop-zone:hover{border-color:var(--rokdock-brand-primary);background:var(--rokdock-brand-primary-faded)}
+.drop-zone.drag-over{border-color:var(--rokdock-brand-primary);background:var(--rokdock-brand-primary-faded);box-shadow:0 0 0 3px var(--rokdock-brand-primary-faded)}
+.drop-zone .icon{width:32px;height:32px;color:var(--rokdock-text-dim);opacity:.5}
+.drop-zone .label{font-size:var(--rokdock-font-base);color:var(--rokdock-text-primary)}
+.drop-zone .sublabel{font-size:var(--rokdock-font-xs);color:var(--rokdock-text-muted)}
+
+/* Canvas zoom sizer */
+.canvas-zoom-sizer{display:none;line-height:0;vertical-align:top;margin:200px}
+.canvas-container{position:relative;display:inline-block;line-height:0;transform-origin:0 0;margin:0}
+#previewCanvas{display:block;box-shadow:0 0 0 1px var(--rokdock-canvas-border)}
+
+/* Zoom dock wrapper */
+.zoom-dock-wrap{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:10;transition:opacity .2s ease}
+.zoom-dock-wrap.dimmed{opacity:.3}
+.zoom-dock-wrap.hidden{display:none}
+
+/* Config panel */
+.config-panel{width:220px;flex-shrink:0;border-left:1px solid var(--rokdock-border);background:linear-gradient(180deg,var(--rokdock-bg-input) 0%,var(--rokdock-bg-surface) 100%);box-shadow:var(--rokdock-shadow-panel-right);overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;position:relative;z-index:1}
+.config-panel .sections{flex:1;overflow-y:auto}
+.ps-body{padding:8px 12px 14px}
+
+/* Preset pills */
+.pill-row{display:flex;gap:4px;margin-bottom:10px}
+.opt-row .pill-row{margin-bottom:0}
+.pill{height:22px;border-radius:999px;border:1px solid var(--rokdock-border);background:var(--rokdock-bg-input);color:var(--rokdock-text-dim);font-size:var(--rokdock-font-xxs);font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:0 10px;cursor:pointer;transition:all .12s ease;display:inline-flex;align-items:center;justify-content:center}
+.pill:hover{border-color:var(--rokdock-brand-primary);color:var(--rokdock-text-primary)}
+.pill.active{background:var(--rokdock-brand-primary);border-color:var(--rokdock-brand-primary);color:var(--rokdock-text-bright)}
+
+/* Size inputs */
+.size-row{display:flex;align-items:center;gap:6px}
+.size-row .lbl{font-size:var(--rokdock-font-xs);color:var(--rokdock-text-dim);flex-shrink:0}
+.inp{height:20px;flex:1;width:0;border:1px solid var(--rokdock-border);border-radius:4px;background:var(--rokdock-bg-input);color:var(--rokdock-text-primary);font-size:var(--rokdock-font-xs);padding:0 5px;outline:none;font-family:var(--rokdock-font-mono);text-align:center;min-width:0;transition:border-color .1s ease,box-shadow .1s ease}
+.inp:focus{border-color:var(--rokdock-brand-primary);box-shadow:0 0 0 2px var(--rokdock-brand-primary-faded)}
+.lbl-sep{font-size:var(--rokdock-font-xs);color:var(--rokdock-text-muted);flex-shrink:0}
+
+/* Row layout for toggle options */
+.opt-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.opt-row:last-child{margin-bottom:0}
+.opt-label{font-size:var(--rokdock-font-xs);color:var(--rokdock-text-dim);flex:1}
+.opt-state{font-size:var(--rokdock-font-xxs);color:var(--rokdock-text-muted);min-width:18px}
+.opt-hint{font-size:var(--rokdock-font-xxs);color:var(--rokdock-text-muted);font-style:italic;margin-top:2px;margin-bottom:6px}
+
+/* Export footer */
+.export-footer{padding:10px 12px;border-top:1px solid var(--rokdock-border-light);flex-shrink:0}
+.est-size{font-size:var(--rokdock-font-xxs);color:var(--rokdock-text-muted);margin-bottom:6px;font-family:var(--rokdock-font-mono)}
+.export-btn{width:100%;height:24px;border-radius:5px;border:1px solid var(--rokdock-border-light);background:var(--rokdock-bg-input);color:var(--rokdock-brand-primary-light);font-size:var(--rokdock-font-xxs);font-weight:700;cursor:pointer;transition:all .12s ease;display:flex;align-items:center;justify-content:center;gap:4px}
+.export-btn:hover{background:var(--rokdock-bg-hover);color:var(--rokdock-text-bright);border-color:var(--rokdock-brand-primary-light)}
+.export-btn:disabled{opacity:.35;cursor:not-allowed}
+.export-btn svg{width:11px;height:11px}
+
+.disabled{opacity:.3;pointer-events:none}
+
+/* Loading overlay: base rules in rokdock-components.css */
+.loading-overlay{background:var(--rokdock-overlay-bg)}
+
+/* Context menu */
+.ctx-menu{position:fixed;z-index:100;min-width:160px;padding:4px 0;border-radius:6px;background:var(--rokdock-bg-panel);border:1px solid var(--rokdock-border-light);box-shadow:var(--rokdock-shadow-elevated);font-size:12px;display:none}
+.ctx-menu.show{display:block}
+.ctx-item{display:flex;align-items:center;gap:8px;padding:4px 14px;cursor:pointer;color:var(--rokdock-text-primary);transition:background .08s ease}
+.ctx-item:hover{background:var(--rokdock-bg-hover)}
+.ctx-item.disabled{opacity:.35;pointer-events:none}
+.ctx-item svg{width:12px;height:12px;flex-shrink:0;opacity:.6}
+.ctx-sep{height:1px;margin:4px 8px;background:var(--rokdock-border-light)}
+.ctx-shortcut{margin-left:auto;font-size:var(--rokdock-font-xxs);color:var(--rokdock-text-muted);font-family:var(--rokdock-font-mono)}
+
+/* Recolor section */
+.color-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.color-row:last-child{margin-bottom:0}
+.color-swatch{width:18px;height:18px;border-radius:4px;border:1px solid var(--rokdock-border);flex-shrink:0}
+.color-input{width:26px;height:20px;flex-shrink:0;padding:0;border:1px solid var(--rokdock-border);border-radius:4px;background:var(--rokdock-bg-input);cursor:pointer}
+.color-input::-webkit-color-swatch-wrapper{padding:2px}
+.color-input::-webkit-color-swatch{border:none;border-radius:2px}
+.color-hex{flex:1;min-width:0;font-size:var(--rokdock-font-xxs);font-family:var(--rokdock-font-mono);color:var(--rokdock-text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.color-hex.overridden{color:var(--rokdock-brand-primary-light)}
+.color-reset{flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:1px solid var(--rokdock-border);border-radius:4px;background:var(--rokdock-bg-input);color:var(--rokdock-text-dim);cursor:pointer;padding:0;transition:border-color .12s ease,color .12s ease}
+.color-reset:hover{border-color:var(--rokdock-brand-primary);color:var(--rokdock-text-primary)}
+.color-reset svg{width:11px;height:11px}
+.reset-all-btn{margin-top:8px;width:100%;height:22px;border-radius:5px;border:1px solid var(--rokdock-border);background:var(--rokdock-bg-input);color:var(--rokdock-text-dim);font-size:var(--rokdock-font-xxs);font-weight:700;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;transition:border-color .12s ease,color .12s ease}
+.reset-all-btn:hover{border-color:var(--rokdock-brand-primary);color:var(--rokdock-text-primary)}

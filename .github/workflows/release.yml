@@ -1,0 +1,124 @@
+name: Release
+
+# Builds RokDock installers for every desktop platform on native GitHub runners
+# and attaches them, plus the electron-updater manifests (latest-mac.yml,
+# latest.yml, latest-linux.yml), to the GitHub Release that triggered the run.
+# macOS must build on a macOS runner so it can code-sign and notarize.
+#
+# Trigger: PUBLISHING a GitHub Release. A tag on its own does nothing. The flow is
+# `npm run release`, which bumps the version, pushes a flat `v1.2.3` tag, and
+# creates the published release. Publishing fires this workflow, each runner builds
+# its platform, and electron-builder uploads the artifacts to the same release
+# (it matches the release by the `v${version}` tag). Draft releases do not trigger
+# workflows, so a published release is briefly live with no binaries during the
+# build. If that matters, publish as a prerelease, let the assets attach, then
+# promote it.
+#
+# macOS signing and notarization are OPTIONAL. When the signing secrets are absent,
+# electron-builder skips signing and produces an unsigned build, exactly like a
+# local `npm run dist:mac`. Add the secrets below and the same workflow starts
+# signing and notarizing with no further changes.
+#
+# Required repository secrets for signed/notarized macOS builds
+# (Settings -> Secrets and variables -> Actions):
+#   CSC_LINK            base64 of the Developer ID Application certificate (.p12)
+#   CSC_KEY_PASSWORD    the password used when exporting that .p12
+#   APPLE_API_KEY_B64   base64 of the App Store Connect API key file (.p8)
+#   APPLE_API_KEY_ID    the API key's Key ID
+#   APPLE_API_ISSUER    the API key's Issuer ID
+# GITHUB_TOKEN is provided automatically and is used to publish the artifacts.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14        # Apple Silicon runner; builds both arm64 and x64
+            platform: mac
+          - os: windows-latest
+            platform: win
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install Linux packaging dependencies
+        if: matrix.platform == 'linux'
+        # xvfb gives the offscreen-Electron icon render a virtual display; fakeroot
+        # is used by the deb target.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb fakeroot
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build app and packaging artifacts (predist)
+        # predist renders icons via offscreen Electron, so Linux runs it under a
+        # virtual display.
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "linux" ]; then
+            xvfb-run -a npm run predist
+          else
+            npm run predist
+          fi
+
+      - name: Stage the App Store Connect API key
+        if: matrix.platform == 'mac'
+        shell: bash
+        env:
+          APPLE_API_KEY_B64: ${{ secrets.APPLE_API_KEY_B64 }}
+        run: |
+          if [ -n "$APPLE_API_KEY_B64" ]; then
+            echo "$APPLE_API_KEY_B64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+            echo "APPLE_API_KEY=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+          fi
+
+      - name: Package and publish
+        shell: bash
+        run: npx electron-builder --${{ matrix.platform }} --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+
+      - name: Checkpoint installers as a workflow artifact
+        # electron-builder builds and uploads to the release in one step. If the
+        # release upload fails or gets skipped (e.g. a releaseType mismatch), the
+        # runner and its dist/ output are gone once the job ends, so a retry means
+        # rebuilding from scratch. This keeps a copy so a failed upload can be
+        # retried with `gh release upload` instead of a full rebuild.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: installers-${{ matrix.platform }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.blockmap
+            dist/latest*.yml
+          if-no-files-found: warn
+          retention-days: 14

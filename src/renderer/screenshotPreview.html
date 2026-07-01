@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en" data-rokdock-bundled class="rokdock-theme-pending">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' mediastream:; connect-src 'self';">
+    <title>Screenshot</title>
+    <!-- The critical FOUC guard (rokdock-theme-pending rules) is injected at the top of
+         this head by bundledEntryFoucPlugin in electron.vite.config.ts, keyed off the
+         data-rokdock-bundled attribute on <html>. Do not add an inline FOUC <style> here. -->
+</head>
+<body>
+    <span id="captureIconStore" style="display:none"></span>
+    <rokdock-toolbar><div class="left-actions">
+      <button class="tb-btn" id="refreshBtn" title="Refresh screenshot" aria-label="Refresh screenshot"></button>
+      <button class="toggle-btn" id="autoRefreshBtn" title="Auto refresh"><span class="switch-track"><span class="switch-thumb"></span></span></button>
+      <select class="interval" id="autoRefreshInterval" title="Auto-refresh interval"></select>
+      <span class="toolbar-sep" role="presentation" aria-hidden="true"></span>
+      <button class="tb-btn" id="saveBtn" title="Save As..." aria-label="Save As"></button>
+      <button class="tb-btn" id="saveWithOverlayBtn" title="Save screenshot with comparison overlay baked in" aria-label="Save screenshot with overlay" disabled></button>
+      <button class="tb-btn" id="copyBtn" title="Copy screenshot only (no overlay) - Ctrl+C" aria-label="Copy screenshot without overlay"></button>
+      <button class="tb-btn" id="copyWithOverlayBtn" title="Copy screenshot with comparison overlay baked in - Ctrl+Shift+C" aria-label="Copy screenshot with overlay" disabled></button>
+      <span class="toolbar-sep" role="presentation" aria-hidden="true"></span>
+      <button class="tb-btn" id="measureBtn" title="Measure pixels: drag on the image (Shift = axis-only; ticks every 20 image px). Esc clears / exits." aria-label="Measure pixels" aria-pressed="false"></button>
+      <span class="toolbar-sep" role="presentation" aria-hidden="true"></span>
+      <button class="tb-btn" id="onionLoadToolbarBtn" title="Load comparison image (onion skin)" aria-label="Load comparison overlay"></button>
+    <span class="toolbar-sep" role="presentation" aria-hidden="true"></span><button class="tb-btn" id="captureToggleBtn" title="Switch to capture device feed" disabled></button></div><div class="history-wrap" slot="right"><button class="history-btn" id="historyBtn" title="Screenshot history" aria-label="Screenshot history" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm2 2v8h8V4H4zm2 2h4v1H6V6zm0 2h4v1H6V8zm0 2h3v1H6v-1z"/></svg>History</button><div class="history-panel" id="historyPanel" role="menu"></div></div><rokdock-settings-gear slot="right" title="Appearance settings"></rokdock-settings-gear></rokdock-toolbar>
+    <div class="wrap"><div class="viewport" id="viewport"><div class="screenshot-placeholder" id="screenshotPlaceholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M22 16l-5-5L6 20"/></svg><span>Click refresh to take a screenshot</span></div><div class="preview-scroll-sizer"><div class="image-stack" id="imageStack"><img id="shot" alt="Roku screenshot" /><video id="captureVideo" autoplay playsinline></video><img id="onionSkin" class="onion-skin" alt="" aria-hidden="true" decoding="async" /><svg id="measureSvg" class="measure-layer" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg><div id="measureLabel" class="measure-label" aria-live="polite"></div></div></div></div></div>
+    <div class="zoom-dock-wrap fixed" id="zoomDockWrap">
+      <rokdock-zoom-dock id="zoomDock" min="10" max="300" value="100" show-fit show-actual>
+        <div class="onion-row zoom-grid-row" slot="extra">
+          <span class="onion-row-label">Compare</span>
+          <div class="onion-pill" id="onionOpacityLabel">50%</div>
+          <input class="onion-range" id="onionOpacity" type="range" min="0" max="100" step="1" value="50" disabled title="Overlay opacity" aria-label="Comparison overlay opacity" />
+          <div class="onion-row-actions">
+            <div class="onion-presets-wrap"><button type="button" class="onion-presets-btn" id="onionPresetsBtn" aria-haspopup="true" aria-expanded="false">Overlays <span id="onionPresetsChevron"></span></button><div class="onion-presets-panel" id="onionPresetsPanel" role="menu"></div></div>
+            <button class="onion-btn" id="onionClearBtn" type="button" title="Clear comparison overlay" aria-label="Clear overlay" style="display:none"></button>
+          </div>
+        </div>
+      </rokdock-zoom-dock>
+    </div>
+    <div class="countdown" id="countdown">Auto-refresh off</div><div class="toast" id="toast"></div>
+    <div class="onion-flyout-panel" id="onionHistoryFlyout" role="menu"></div>
+    <script type="module" src="./screenshotPreview.ts"></script>
+</body>
+</html>

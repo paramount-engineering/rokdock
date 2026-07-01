@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en" data-rokdock-bundled class="rokdock-theme-pending">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';">
+    <title>Script Editor</title>
+    <!-- FOUC guard injected by bundledEntryFoucPlugin in electron.vite.config.ts -->
+</head>
+<body>
+
+  <!-- Toolbar -->
+  <rokdock-toolbar>
+    <!-- File ops -->
+    <button class="tb-btn" id="new-btn" title="New script"></button>
+    <button class="tb-btn" id="save-btn" title="Save script"></button>
+    <div class="tb-sep"></div>
+
+    <!-- RASP file I/O -->
+    <button class="tb-btn" id="import-btn" title="Import RASP file"></button>
+    <button class="tb-btn" id="export-btn" title="Export as RASP file"></button>
+    <div class="tb-sep"></div>
+
+    <!-- RASP clipboard -->
+    <button class="tb-btn" id="paste-rasp-btn" title="Paste RASP from clipboard"></button>
+    <button class="tb-btn" id="copy-rasp-btn" title="Copy as RASP to clipboard"></button>
+    <div class="tb-sep"></div>
+
+    <!-- Idle recording state -->
+    <div id="idleGroup" style="display:contents">
+      <button class="tb-btn stop-active" id="record-btn" title="Record from remote panel"></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn play-active" id="play-btn" title="Play script"></button>
+      <button class="tb-btn" id="stop-btn" title="Stop playback" disabled></button>
+    </div>
+
+    <!-- Recording active state -->
+    <div id="recGroup" style="display:none;align-items:center;gap:4px">
+      <div class="rec-pill">
+        <div class="rec-dot"></div>
+        <span id="rec-timer">0:00</span>
+        <span style="color:var(--rokdock-state-error);opacity:.4;margin:0 2px">&#183;</span>
+        <span id="rec-step-count" style="color:var(--rokdock-state-error);opacity:.6">0 steps</span>
+      </div>
+      <button class="tb-btn stop-active" id="stop-record-btn" title="Stop recording"></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" title="Cannot play while recording" disabled></button>
+      <button class="tb-btn" disabled></button>
+    </div>
+
+    <div class="tb-sep"></div>
+    <span class="tb-filename" id="script-name-display" title="Click to rename">
+      <span id="script-name-text">(untitled)</span><span class="tb-rename-icon" id="tb-rename-icon"></span>
+    </span>
+    <rokdock-settings-gear slot="right" title="Appearance settings"></rokdock-settings-gear>
+  </rokdock-toolbar>
+
+  <!-- Main layout -->
+  <div class="main">
+
+    <!-- Step list column -->
+    <div class="step-col">
+      <div class="list-header">
+        <span class="list-label">Steps</span>
+        <span class="list-badge" id="step-count">0</span>
+        <div class="tb-spacer"></div>
+        <label class="tb-check-label" title="Record delays between key presses during recording">
+          <input type="checkbox" id="rec-delays-chk"><span>Record delays</span>
+        </label>
+        <label class="kw-chip" title="Default delay after each key press (seconds)">
+          <span class="kw-lbl">key wait</span>
+          <span class="kw-val">
+            <input class="kw-inp" id="keypress-wait-inp" type="number" min="0" step="0.1" value="1" />
+            <span class="kw-unit">s</span>
+          </span>
+        </label>
+        <button class="add-btn" id="add-step-btn"> Add step</button>
+      </div>
+
+      <div class="block-name-prompt" id="block-name-prompt">
+        <span style="color:var(--rokdock-step-block);font-weight:var(--rokdock-weight-semibold);flex-shrink:0">Block name:</span>
+        <input type="text" id="block-name-input" placeholder="e.g. login_flow" maxlength="64">
+        <span class="prompt-err" id="block-name-err"></span>
+        <button class="prompt-btn confirm" id="block-name-confirm">Create</button>
+        <button class="prompt-btn" id="block-name-cancel">Cancel</button>
+      </div>
+      <div class="step-list" id="step-list">
+        <div id="step-list-empty" style="display:none">
+          No steps yet. Add a step or record from the remote.
+        </div>
+      </div>
+      <div id="sel-bar" style="display:none" class="sel-bar">
+        <span id="sel-count" class="sel-count"></span>
+        <div class="sel-bar-actions">
+          <button class="sel-btn sel-btn-accent" id="sel-loop-btn">Loop</button>
+          <button class="sel-btn sel-btn-accent" id="sel-block-btn">Block</button>
+          <button class="sel-btn sel-btn-danger" id="sel-delete-btn">Delete</button>
+        </div>
+        <button class="sel-btn sel-btn-clear" id="sel-clear-btn" title="Clear selection">&#x2715;</button>
+      </div>
+
+      <!-- Log strip - starts hidden, .active shows it -->
+      <div class="log-strip" id="log-panel">
+        <div class="log-toggle" id="log-toggle-btn" role="button" tabindex="0">
+          <span>LOG</span>
+          <button class="act" id="clear-log-btn" title="Clear log" style="margin-left:4px"></button>
+          <span class="log-chevron" id="log-chevron-icon"></span>
+        </div>
+        <div class="log-body" id="log-entries"></div>
+      </div>
+    </div>
+
+    <!-- Remote column -->
+    <div class="remote-col">
+      <div class="device-bar">
+        <select id="remote-device-select">
+          <option value="">Select device...</option>
+        </select>
+      </div>
+      <div class="remote-scroll">
+        <rokdock-collapsible label="Remote" open>
+          <span slot="actions" class="keys-status" style="display:flex;align-items:center;gap:5px;white-space:nowrap">
+            <span class="keys-dot" id="keys-dot"></span>
+            <span class="keys-status-text" id="keys-status-text">No device</span>
+          </span>
+          <rokdock-remote id="remote-component" disabled
+            style="padding:var(--rokdock-space-sm) var(--rokdock-space-sm) var(--rokdock-space-md)">
+            <img slot="image" alt="Roku Remote" draggable="false">
+          </rokdock-remote>
+        </rokdock-collapsible>
+
+        <rokdock-collapsible label="Variables" id="variables-section">
+          <span slot="actions">
+            <button class="act" id="var-add-btn" title="Add variable"></button>
+          </span>
+          <div id="variables-list" style="padding:var(--rokdock-space-xs) var(--rokdock-space-sm)"></div>
+        </rokdock-collapsible>
+
+        <rokdock-collapsible label="Scripts" open id="library-section">
+          <span slot="actions" class="lib-actions">
+            <button class="act" id="lib-new-hdr-btn" title="New script"></button>
+            <button class="act" id="refresh-lib-btn" title="Refresh library"></button>
+          </span>
+          <div class="lib-body" id="library-list"></div>
+        </rokdock-collapsible>
+
+      </div><!-- /remote-scroll -->
+    </div><!-- /remote-col -->
+
+  </div><!-- /main -->
+
+  <!-- Status bar -->
+  <div class="statusbar">
+    <div class="sb" id="sb-status">Ready</div>
+    <div class="tb-spacer"></div>
+    <div class="sb" id="sb-steps"></div>
+    <div class="sb" id="sb-warn" style="display:none;color:var(--warn)"><span id="sb-warn-icon"></span> warnings</div>
+  </div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="./scriptEditor.ts"></script>
+</body>
+</html>

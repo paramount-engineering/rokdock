@@ -1,0 +1,5 @@
+[[rule]]
+toolName = "*"
+decision = "deny"
+priority = 999
+denyMessage = "Tools are disabled in this context."

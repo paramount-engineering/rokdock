@@ -1,0 +1,27 @@
+[
+    {
+        "key": "json",
+        "title": "JSON Editor",
+        "badge": "JSON"
+    },
+    {
+        "key": "svg",
+        "title": "SVG Converter",
+        "badge": "SVG"
+    },
+    {
+        "key": "ninepatch",
+        "title": "9-Patch Editor",
+        "badge": ".9"
+    },
+    {
+        "key": "script",
+        "title": "Script Editor",
+        "badge": ">"
+    },
+    {
+        "key": "docs",
+        "title": "Developer Docs",
+        "badge": "DOCS"
+    }
+]

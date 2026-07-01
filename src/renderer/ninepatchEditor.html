@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en" data-rokdock-bundled class="rokdock-theme-pending">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';">
+    <title>9-Patch Editor</title>
+    <!-- The critical FOUC guard (rokdock-theme-pending rules) is injected at the top of
+         this head by bundledEntryFoucPlugin in electron.vite.config.ts, keyed off the
+         data-rokdock-bundled attribute on <html>. It is kept out of the bundled stylesheet
+         on purpose: that loads after first paint in dev and could not prevent the flash. -->
+</head>
+<body>
+
+<rokdock-toolbar>
+    <button class="tb-btn" id="newBtn" title="New (Ctrl+N)"></button>
+    <button class="tb-btn" id="importBtn" title="Import image (Ctrl+O)"></button>
+    <span class="toolbar-sep"></span>
+    <button class="tb-btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled></button>
+    <button class="tb-btn" id="redoBtn" title="Redo (Ctrl+Y)" disabled></button>
+    <span class="toolbar-filename" id="toolbarFilename" slot="right"></span>
+    <rokdock-settings-gear slot="right" title="Appearance settings"></rokdock-settings-gear>
+</rokdock-toolbar>
+
+<div class="main">
+    <!-- LEFT CONFIG -->
+    <div class="config-panel" id="configPanel">
+        <rokdock-collapsible label="Shape" open>
+            <div class="ps-body">
+                <div class="row"><span class="lbl">Type</span><select class="sel" id="shapeType"><option value="rectangle" selected>Rectangle</option><option value="ellipse">Ellipse</option></select></div>
+                <div class="row"><span class="lbl">Width</span><input class="np-range" id="shapeWidthRange" type="range" min="4" max="800" value="120"><div class="inp-wrap"><input class="inp" id="shapeWidth" type="number" min="4" max="2000" value="120"><span class="d7" id="shapeWidth720"></span></div></div>
+                <div class="row"><span class="lbl">Height</span><input class="np-range" id="shapeHeightRange" type="range" min="4" max="800" value="60"><div class="inp-wrap"><input class="inp" id="shapeHeight" type="number" min="4" max="2000" value="60"><span class="d7" id="shapeHeight720"></span></div></div>
+                <div class="row" id="cornerRadiusField"><span class="lbl">Radius</span><input class="np-range" id="cornerRadiusRange" type="range" min="0" max="400" value="12"><div class="inp-wrap"><input class="inp" id="cornerRadius" type="number" min="0" max="500" value="12"><span class="d7" id="cornerRadius720"></span></div></div>
+                <div class="row"><span class="lbl">Padding</span><input class="np-range" id="outerPaddingRange" type="range" min="0" max="100" value="0"><div class="inp-wrap"><input class="inp" id="outerPadding" type="number" min="0" max="200" value="0"><span class="d7" id="outerPadding720"></span></div></div>
+            </div>
+        </rokdock-collapsible>
+        <rokdock-collapsible label="Fill" open>
+            <button slot="actions" class="tog on" id="fillToggle"><span class="tog-track"><span class="tog-thumb"></span></span></button>
+            <div class="ps-body">
+                <div class="row row-clr-op"><span class="lbl">Color</span><input class="clr" id="fillColor" type="color" value="#FFFFFF"><span class="lbl" style="width:auto;margin-left:4px">Opacity</span><input class="np-range" id="fillOpacityRange" style="flex:1;min-width:40px" type="range" min="0" max="100" value="100"><input class="inp" id="fillOpacity" style="width:40px" type="number" min="0" max="100" value="100"><span class="d7">%</span></div>
+            </div>
+        </rokdock-collapsible>
+        <rokdock-collapsible label="Border" default-open="false">
+            <button slot="actions" class="tog" id="borderToggle"><span class="tog-track"><span class="tog-thumb"></span></span></button>
+            <div class="ps-body">
+                <div class="row row-clr-op"><span class="lbl">Color</span><input class="clr" id="borderColor" type="color" value="#000000"><span class="lbl" style="width:auto;margin-left:4px">Opacity</span><input class="np-range" id="borderOpacityRange" style="flex:1;min-width:40px" type="range" min="0" max="100" value="100"><input class="inp" id="borderOpacity" style="width:40px" type="number" min="0" max="100" value="100"><span class="d7">%</span></div>
+                <div class="row"><span class="lbl">Width</span><input class="np-range" id="borderWidthRange" type="range" min="0" max="50" value="2"><div class="inp-wrap"><input class="inp" id="borderWidth" type="number" min="0" max="100" value="2"><span class="d7" id="borderWidth720"></span></div></div>
+            </div>
+        </rokdock-collapsible>
+        <rokdock-collapsible label="Drop Shadow" default-open="false">
+            <button slot="actions" class="tog" id="shadowToggle"><span class="tog-track"><span class="tog-thumb"></span></span></button>
+            <div class="ps-body">
+                <div class="row row-clr-op"><span class="lbl">Color</span><input class="clr" id="shadowColor" type="color" value="#000000"><span class="lbl" style="width:auto;margin-left:4px">Opacity</span><input class="np-range" id="shadowOpacityRange" style="flex:1;min-width:40px" type="range" min="0" max="100" value="50"><input class="inp" id="shadowOpacity" style="width:40px" type="number" min="0" max="100" value="50"><span class="d7">%</span></div>
+                <div class="row"><span class="lbl">X Offset</span><input class="np-range" id="shadowXRange" type="range" min="-100" max="100" value="0"><div class="inp-wrap"><input class="inp" id="shadowX" type="number" min="-200" max="200" value="0"><span class="d7" id="shadowX720"></span></div></div>
+                <div class="row"><span class="lbl">Y Offset</span><input class="np-range" id="shadowYRange" type="range" min="-100" max="100" value="4"><div class="inp-wrap"><input class="inp" id="shadowY" type="number" min="-200" max="200" value="4"><span class="d7" id="shadowY720"></span></div></div>
+                <div class="row"><span class="lbl">Blur</span><input class="np-range" id="shadowBlurRange" type="range" min="0" max="100" value="8"><div class="inp-wrap"><input class="inp" id="shadowBlur" type="number" min="0" max="200" value="8"><span class="d7" id="shadowBlur720"></span></div></div>
+            </div>
+        </rokdock-collapsible>
+        <rokdock-collapsible label="9-Patch Zones" open>
+            <button slot="actions" class="auto-detect-btn" id="autoDetectBtn" title="Auto-detect zones from opaque pixels"></button>
+            <div class="ps-body" id="zonesBody"></div>
+        </rokdock-collapsible>
+    </div>
+
+    <!-- CENTER EDITOR -->
+    <div class="editor-col">
+        <div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div></div>
+        <rokdock-checkerboard class="editor-viewport" id="editorViewport">
+            <div class="empty-state" id="emptyState">
+                <div class="empty-state-icon" id="emptyStateIcon"></div>
+                <div class="empty-state-title">No Asset Loaded</div>
+                <div class="empty-state-hint">Adjust shape parameters in the left panel, or import an existing image.</div>
+            </div>
+            <div class="canvas-zoom-sizer" id="canvasZoomSizer" style="display:none">
+            <div class="canvas-container" id="canvasContainer" style="display:none">
+                <canvas id="borderCanvas"></canvas>
+                <canvas id="editorCanvas" width="120" height="60"></canvas>
+                <canvas id="zoneOverlay"></canvas>
+                <div id="pixelHighlight" style="position:absolute;z-index:4;pointer-events:none;width:1px;height:1px;display:none"></div>
+            </div>
+            </div>
+        </rokdock-checkerboard>
+        <div class="zoom-dock-wrap" id="zoomDockWrap">
+            <rokdock-zoom-dock id="zoomDock" min="10" max="1000" value="100" show-fit show-actual>
+                <button class="dock-btn-guides" id="guidesBtn" title="Hide guides"></button>
+                <div class="pixel-row" id="pixelRow" style="display:none" slot="extra">
+                    <span class="swatch" id="pixelSwatch"></span>
+                    <span class="pxtext" id="pixelText"></span>
+                </div>
+            </rokdock-zoom-dock>
+        </div>
+    </div>
+
+    <!-- RIGHT PREVIEW -->
+    <div class="preview-panel">
+        <rokdock-collapsible label="Preview" open no-collapse>
+            <span slot="actions" style="display:flex;align-items:center;gap:6px">
+                <button class="tog on" id="pvPosterToggle" title="Show fake poster art in frame previews"><span class="tog-track"><span class="tog-thumb"></span></span></button>
+                <span style="font-size:var(--rokdock-font-xxs);font-weight:600;color:var(--rokdock-text-muted);letter-spacing:.03em">Art</span>
+                <button class="tog" id="pvBgToggle" title="Toggle light/dark preview background"><span class="tog-track"><span class="tog-thumb"></span></span></button>
+                <span id="pvBgLabel" style="font-size:var(--rokdock-font-xxs);font-weight:600;color:var(--rokdock-text-muted);letter-spacing:.03em">Dark</span>
+            </span>
+        </rokdock-collapsible>
+        <rokdock-collapsible label="1080p Preview" open>
+            <button slot="actions" class="pv-dl-btn" id="export1080Btn" title="Export 1080p (Ctrl+S)" disabled></button>
+            <div class="pv-section">
+                <div class="pv-card"><div class="pv-card-title">Button</div><canvas class="pv-canvas" id="pvBtn1080" width="189" height="45"></canvas></div>
+                <div class="pv-card"><div class="pv-card-title">Frame</div><canvas class="pv-canvas" id="pvFrame1080" width="147" height="221"></canvas></div>
+            </div>
+        </rokdock-collapsible>
+        <rokdock-collapsible label="720p Preview" open>
+            <button slot="actions" class="pv-dl-btn" id="export720Btn" title="Export 720p" disabled></button>
+            <div class="pv-section">
+                <div class="pv-card"><div class="pv-card-title">Button</div><canvas class="pv-canvas" id="pvBtn720" width="126" height="30"></canvas></div>
+                <div class="pv-card"><div class="pv-card-title">Frame</div><canvas class="pv-canvas" id="pvFrame720" width="98" height="147"></canvas></div>
+            </div>
+        </rokdock-collapsible>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="./ninepatchEditor.ts"></script>
+</body>
+</html>
