@@ -2,17 +2,21 @@ name: Release
 
 # Builds RokDock installers for every desktop platform on native GitHub runners
 # and attaches them, plus the electron-updater manifests (latest-mac.yml,
-# latest.yml, latest-linux.yml), to the GitHub Release that triggered the run.
-# macOS must build on a macOS runner so it can code-sign and notarize.
+# latest.yml, latest-linux.yml), to the GitHub Release for the tag that triggered
+# the run. macOS must build on a macOS runner so it can code-sign and notarize.
 #
-# Trigger: PUBLISHING a GitHub Release. A tag on its own does nothing. The flow is
-# `npm run release`, which bumps the version, pushes a flat `v1.2.3` tag, and
-# creates the published release. Publishing fires this workflow, each runner builds
-# its platform, and electron-builder uploads the artifacts to the same release
-# (it matches the release by the `v${version}` tag). Draft releases do not trigger
-# workflows, so a published release is briefly live with no binaries during the
-# build. If that matters, publish as a prerelease, let the assets attach, then
-# promote it.
+# Trigger: pushing a flat `v1.2.3` tag. `npm run release` bumps the version, pushes
+# that tag, and creates a DRAFT release for it (electron-builder.json sets
+# publish.releaseType: draft to match). Each runner builds its platform and
+# electron-builder uploads the artifacts to that draft (matched by the
+# `v${version}` tag). Once every platform succeeds, the final `publish` job
+# publishes the release.
+#
+# This two-phase draft-then-publish flow is required, not just cautious: GitHub's
+# immutable releases feature (enabled on some org repos, not others) permanently
+# locks a release's assets the moment it is published, so uploading assets to an
+# already-published release fails outright there. Uploading to a draft first and
+# publishing last works on every repo regardless of whether that feature is on.
 #
 # macOS signing and notarization are OPTIONAL. When the signing secrets are absent,
 # electron-builder skips signing and produces an unsigned build, exactly like a
@@ -29,14 +33,15 @@ name: Release
 # GITHUB_TOKEN is provided automatically and is used to publish the artifacts.
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.event.release.tag_name }}
+  group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -122,3 +127,17 @@ jobs:
             dist/latest*.yml
           if-no-files-found: warn
           retention-days: 14
+
+  publish:
+    # Publishes the draft only after every platform has successfully uploaded its
+    # assets, so the release never goes public partially built, and the assets are
+    # already attached by the time immutability locks in.
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "${{ github.ref_name }}" --draft=false

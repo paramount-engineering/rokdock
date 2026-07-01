@@ -5,7 +5,7 @@
         "provider": "github",
         "owner": "paramount-engineering",
         "repo": "rokdock",
-        "releaseType": "release"
+        "releaseType": "draft"
     },
     "directories": {
         "output": "dist",
