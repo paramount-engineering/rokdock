@@ -72,7 +72,7 @@
     "electron": "42.5.1",
     "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
-    "eslint": "9.39.4",
+    "eslint": "10.7.0",
     "eslint-plugin-check-file": "3.3.1",
     "eslint-plugin-react-hooks": "7.1.1",
     "jsdom": "29.1.1",
