@@ -22,7 +22,8 @@ import { TERMINAL_MAX_BUFFER_LINES } from '../../shared/terminal'
 import CustomTerminalView, { clearTerminalCache } from './customTerminalView'
 import TabContextMenu from './tabContextMenu'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faXmark, faCaretLeft, faCaretRight } from '@fortawesome/free-solid-svg-icons'
+import { createTabStripScroller, type TabStripScroller } from '../../shared/tabStripScroll'
 
 const STATUS_COLORS: Record<string, string> = {
     connecting: 'var(--rokdock-state-connecting)',
@@ -35,6 +36,9 @@ interface TerminalPaneProps {
     paneId: PaneId
     isFocused: boolean
     onFocus: () => void
+    /** Right padding (px) reserved on the tab bar for the container's absolute Split/Settings
+     *  toolbar, which floats over this pane when it is the right-most one. 0 when not covered. */
+    toolbarReserve?: number
 }
 
 /**
@@ -42,7 +46,7 @@ interface TerminalPaneProps {
  * and the CustomTerminalView for the currently active tab. Inactive tab views
  * are hidden (display:none) but kept mounted to preserve their buffer state.
  */
-export default function TerminalPane({ paneId, isFocused, onFocus }: TerminalPaneProps) {
+export default function TerminalPane({ paneId, isFocused, onFocus, toolbarReserve = 0 }: TerminalPaneProps) {
     const allTabs = useAppStore(state => state.tabs)
     const paneState = useAppStore(state => paneId === 'a' ? state.paneA : state.paneB)
     const tabLabelMode = useAppStore(state => state.tabLabelMode)
@@ -52,6 +56,9 @@ export default function TerminalPane({ paneId, isFocused, onFocus }: TerminalPan
     const moveTabToPane = useAppStore(state => state.moveTabToPane)
     const reorderTab = useAppStore(state => state.reorderTab)
     const tabListRef = useRef<HTMLDivElement>(null)
+    const leftCaretRef = useRef<HTMLButtonElement>(null)
+    const rightCaretRef = useRef<HTMLButtonElement>(null)
+    const scrollerRef = useRef<TabStripScroller | null>(null)
     const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; tabId: string } | null>(null)
     const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
     const [crossPaneDragOver, setCrossPaneDragOver] = useState(false)
@@ -93,6 +100,26 @@ export default function TerminalPane({ paneId, isFocused, onFocus }: TerminalPan
 
     const styles = useMemo(() => buildPaneStyles(isFocused), [isFocused])
 
+    // Wire caret + wheel scrolling for the tab strip once the elements exist.
+    useEffect(() => {
+        if (!tabListRef.current || !leftCaretRef.current || !rightCaretRef.current) return
+        const scroller = createTabStripScroller(tabListRef.current, leftCaretRef.current, rightCaretRef.current)
+        scrollerRef.current = scroller
+        return () => {
+            scroller.dispose()
+            scrollerRef.current = null
+        }
+    }, [])
+
+    // Recompute caret state on tab changes and keep the active tab in view when selected.
+    // tabLabelMode is a dep because switching name/IP labels changes every tab's width,
+    // which can move the strip in or out of overflow without any count change.
+    useEffect(() => {
+        scrollerRef.current?.refresh()
+        const activeEl = tabListRef.current?.querySelector<HTMLElement>(`[data-tab-id="${activeTabId}"]`)
+        activeEl?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    }, [activeTabId, tabs.length, tabLabelMode])
+
     return (
         <div style={styles.container} onMouseDown={onFocus}>
             <div
@@ -105,18 +132,25 @@ export default function TerminalPane({ paneId, isFocused, onFocus }: TerminalPan
                         ? `inset 0 0 0 1px var(--rokdock-brand-primary)`
                         : `inset 0 -1px 0 var(--rokdock-menu-border)`,
                     opacity: isFocused ? 1 : 0.85,
+                    // Keep tabs and the right caret clear of the container's absolute
+                    // Split/Settings toolbar that floats over this pane's right edge.
+                    ...(toolbarReserve ? { paddingRight: toolbarReserve } : {}),
                     ...(crossPaneDragOver ? { background: `linear-gradient(180deg, color-mix(in srgb, var(--rokdock-brand-primary) 8%, transparent) 0%, var(--rokdock-tab-bg) 100%)` } : {})
                 }}
             >
+                <button
+                    ref={leftCaretRef}
+                    type="button"
+                    className="rokdock-tab-scroll rokdock-tab-scroll-left"
+                    aria-label="Scroll tabs left"
+                    title="Scroll tabs left"
+                    hidden
+                >
+                    <FontAwesomeIcon icon={faCaretLeft} />
+                </button>
                 <div
                     ref={tabListRef}
                     className="rokdock-tab-list"
-                    onWheel={(e) => {
-                        if (tabListRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-                            e.preventDefault()
-                            tabListRef.current.scrollLeft += e.deltaY
-                        }
-                    }}
                     onDrop={(e) => {
                         e.preventDefault()
                         const tabId = e.dataTransfer.getData('text/plain')
@@ -162,6 +196,16 @@ export default function TerminalPane({ paneId, isFocused, onFocus }: TerminalPan
                         <div style={{ width: 2, flexShrink: 0, alignSelf: 'stretch', background: 'var(--rokdock-text-bright)', boxShadow: `0 0 6px var(--rokdock-white-bright)`, borderRadius: 1 }} />
                     )}
                 </div>
+                <button
+                    ref={rightCaretRef}
+                    type="button"
+                    className="rokdock-tab-scroll rokdock-tab-scroll-right"
+                    aria-label="Scroll tabs right"
+                    title="Scroll tabs right"
+                    hidden
+                >
+                    <FontAwesomeIcon icon={faCaretRight} />
+                </button>
             </div>
             <div style={styles.terminalContainer}>
                 {tabs.map(tab => (
@@ -271,6 +315,7 @@ function PaneTab({ tab, labelMode, isActive, onSelect, onClose, onContextMenu, o
     return (
         <div
             draggable
+            data-tab-id={tab.id}
             className={`rokdock-tab${isActive ? ' active' : ''}`}
             onDragStart={(e) => {
                 e.dataTransfer.setData('text/plain', tab.id)

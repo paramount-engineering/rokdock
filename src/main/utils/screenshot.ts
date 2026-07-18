@@ -35,26 +35,57 @@ export interface ScreenshotCaptureResult {
 }
 
 /**
- * Extracts the human-readable status message from a /plugin_inspect or /plugin_install
- * HTML response. Newer Roku firmware embeds a JSON payload via JSON.parse(); older
- * firmware uses a <font color="red"> element. Returns undefined if neither pattern matches.
- *
- * @param html - Raw HTML body returned by the Roku plugin endpoint.
- * @returns Status message string, or undefined if no message was found.
+ * Parses a Roku plugin_install / plugin_inspect response into its message list.
+ * Modern firmware embeds a `JSON.parse('{...}')` blob with a `messages` array of
+ * `{ text, type }`, where type is 'success', 'info', or 'error'. Older firmware only
+ * emits `<font color="red">` lines. Red font is Roku's failure indicator, so those
+ * legacy lines are tagged type 'error'. HTML tags are stripped from each text.
+ */
+export function parsePluginMessages(html: string): Array<{ type?: string; text: string }> {
+    const jsonMatch = html.match(/JSON\.parse\('(?<json>[\s\S]*?)'\);/)
+    if (jsonMatch?.groups?.json) {
+        try {
+            const parsed = JSON.parse(jsonMatch.groups.json) as { messages?: Array<{ type?: string; text?: string }> }
+            return (parsed.messages ?? [])
+                .map(entry => ({ type: entry.type, text: (entry.text ?? '').replace(/<[^>]+>/g, '').trim() }))
+                .filter(entry => entry.text.length > 0)
+        } catch {
+            return []
+        }
+    }
+    return Array.from(
+        html.matchAll(/<font color="red">(?<text>.*?)<\/font>/gi),
+        match => ({ type: 'error', text: (match.groups?.text ?? '').replace(/<[^>]+>/g, '').trim() })
+    ).filter(entry => entry.text.length > 0)
+}
+
+/**
+ * Returns the most significant message text from a plugin response: an error message
+ * if present, otherwise the first message, or undefined if none. Used to surface a
+ * failure reason (e.g. from a failed screenshot capture).
  */
 export function parsePluginInspectMessage(html: string): string | undefined {
-    const match = html.match(/JSON\.parse\('(?<json>[\s\S]*?)'\);/)
-    if (!match?.groups?.json) {
-        const legacy = html.match(/\<font color="red"\>(?<response>.*?)\<\/font\>/i)?.groups?.response
-        if (!legacy) return undefined
-        return legacy.replace(/<[^>]+>/g, '').trim()
-    }
-    try {
-        const parsed = JSON.parse(match.groups.json) as { messages?: Array<{ type?: string; text?: string }> }
-        return parsed.messages?.[0]?.text?.replace(/<[^>]+>/g, '').trim()
-    } catch {
-        return undefined
-    }
+    const messages = parsePluginMessages(html)
+    const error = messages.find(entry => entry.type === 'error')
+    return (error ?? messages[0])?.text
+}
+
+/**
+ * Determines the outcome of a /plugin_install response. A failed install is reported as a
+ * message with type 'error' (e.g. "Install Failure: No manifest. Invalid package."), which
+ * covers both modern firmware and legacy red-font lines (tagged 'error' by parsePluginMessages).
+ * A typeless message whose text reads like a failure is caught as a defensive fallback. The
+ * device's "Application Received: N bytes stored" is a benign upload-received line, not install
+ * success on its own, so success surfaces the final message rather than that one.
+ */
+export function pluginInstallResult(html: string): { ok: boolean; message: string } {
+    const messages = parsePluginMessages(html)
+    const failure = messages.find(entry =>
+        entry.type === 'error'
+        || (entry.type === undefined && /failure|invalid|no manifest|compil|failed/i.test(entry.text))
+    )
+    const message = failure?.text ?? messages[messages.length - 1]?.text ?? 'Application installed.'
+    return { ok: !failure, message }
 }
 
 /**
@@ -264,9 +295,5 @@ export async function pluginInstall(
     })
 
     onProgress?.(100)
-    const message = parsePluginInspectMessage(html)
-    // If parsePluginInspectMessage returns undefined, no error indicator was found = success.
-    // If it returns text, check for known success phrases from Roku firmware responses.
-    const ok = message === undefined || /bytes stored|success/i.test(message)
-    return { ok, message: message ?? 'Application installed successfully.' }
+    return pluginInstallResult(html)
 }

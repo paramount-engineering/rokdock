@@ -139,6 +139,29 @@ describe('ScreenshotHistoryService.load()', () => {
         expect(svc.getArray()).toHaveLength(0)
     })
 
+    it('does not decode or pixel-dedupe images at load (dedup is capture-time only)', async () => {
+        // Two files that would decode to the SAME bitmap. The old load() ran
+        // prunePixelDuplicates and collapsed them to one; load is now a metadata-only
+        // scan, so both remain and no image is decoded on the launch path.
+        mockReaddirSync.mockReturnValue(['dup-a.png', 'dup-b.png'])
+        const { nativeImage } = await import('electron')
+        const fixed = Buffer.alloc(4 * 4 * 4, 0x7f)
+        const decodeSpy = vi.spyOn(nativeImage, 'createFromPath').mockImplementation(() => ({
+            isEmpty: () => false,
+            getSize: (_scale?: number) => ({ width: 4, height: 4 }),
+            toBitmap: () => fixed,
+            resize: (opts: { width: number; height: number }) => opts
+        } as unknown as Electron.NativeImage))
+
+        const svc = freshService()
+        svc.load('/some/folder')
+
+        expect(svc.getArray()).toHaveLength(2)
+        expect(decodeSpy).not.toHaveBeenCalled()
+
+        vi.restoreAllMocks()
+    })
+
     it('sorts entries by mtime ascending so newest is last', () => {
         mockReaddirSync.mockReturnValue(['old.png', 'new.png'])
         mockStatSync.mockImplementation((filePath) => {

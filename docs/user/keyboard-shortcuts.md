@@ -157,4 +157,4 @@ The mouse back/forward buttons also navigate history.
 - [SVG Converter](svg-converter.md) - SVG to PNG converter
 - [9-Patch Editor](ninepatch-editor.md) - editor features
 - [Developer Docs](developer-docs.md) - in-app documentation browser
-- [AI Chat](ai.md) - the AI assistant (Enter to send, Shift+Enter for newline)
+- [roBot](ai.md) - the AI assistant (Enter to send, Shift+Enter for newline)

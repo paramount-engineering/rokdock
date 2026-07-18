@@ -9,6 +9,7 @@ describe('syntaxPresetForMode', () => {
         expect(syntaxPresetForMode('catppuccinMocha', 'light')).toBe('catppuccinLatte')
         expect(syntaxPresetForMode('rokdockDark', 'light')).toBe('rokdockLight')
         expect(syntaxPresetForMode('oneDarkPro', 'light')).toBe('oneLight')
+        expect(syntaxPresetForMode('dracula', 'light')).toBe('alucard')
     })
 
     it('swaps a light preset to its dark companion when switching to dark', () => {
@@ -16,6 +17,7 @@ describe('syntaxPresetForMode', () => {
         expect(syntaxPresetForMode('tokyoNightDay', 'dark')).toBe('tokyoNight')
         expect(syntaxPresetForMode('catppuccinLatte', 'dark')).toBe('catppuccinMocha')
         expect(syntaxPresetForMode('oneLight', 'dark')).toBe('oneDarkPro')
+        expect(syntaxPresetForMode('alucard', 'dark')).toBe('dracula')
     })
 
     it('leaves a preset unchanged when it already matches the target mode', () => {
@@ -24,7 +26,6 @@ describe('syntaxPresetForMode', () => {
     })
 
     it('leaves companion-less dark presets unchanged in either direction', () => {
-        expect(syntaxPresetForMode('dracula', 'light')).toBe('dracula')
         expect(syntaxPresetForMode('nord', 'light')).toBe('nord')
         expect(syntaxPresetForMode('monokai', 'light')).toBe('monokai')
         expect(syntaxPresetForMode('monokai', 'dark')).toBe('monokai')

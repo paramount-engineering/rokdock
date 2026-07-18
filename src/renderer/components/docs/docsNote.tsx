@@ -11,6 +11,7 @@ export function DocsNote({
 }): React.JSX.Element {
     return (
         <div className="docs-note" role="group" aria-label="Page notes">
+            <div className="docs-note-paper" aria-hidden="true" />
             <button
                 type="button"
                 className="docs-note-close"

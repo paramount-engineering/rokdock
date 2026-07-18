@@ -43,3 +43,25 @@ export function findMatchingBracket(text: string, start: number): number {
     }
     return -1
 }
+
+/**
+ * From a list of {start, end} spans, keep only the outermost ones: any span entirely
+ * contained within a wider span (or exactly equal to one already kept) is dropped.
+ * Sorted by start ascending then end descending, then swept with a running max end, so
+ * a span whose end does not exceed the running max is enclosed by an already-kept span.
+ * O(n log n), and shared by the terminal tokenizer's JSON-candidate filter and the
+ * renderer's JSON-overlay merge so the two cannot drift. Returns the input unchanged
+ * (same reference) when there is nothing to merge.
+ */
+export function keepOutermostSpans<T extends { start: number; end: number }>(spans: T[]): T[] {
+    if (spans.length <= 1) return spans
+    const sorted = spans.slice().sort((first, second) => (first.start - second.start) || (second.end - first.end))
+    const kept: T[] = []
+    let maxEnd = -1
+    for (const span of sorted) {
+        if (span.end <= maxEnd) continue
+        kept.push(span)
+        maxEnd = span.end
+    }
+    return kept
+}

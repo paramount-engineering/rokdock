@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findMatchingBracket } from '@shared/jsonUtils'
+import { findMatchingBracket, keepOutermostSpans } from '@shared/jsonUtils'
 
 // ---------------------------------------------------------------------------
 // findMatchingBracket
@@ -101,5 +101,43 @@ describe('findMatchingBracket - edge cases', () => {
         expect(findMatchingBracket(text, 0)).toBe(6)
         expect(findMatchingBracket(text, 1)).toBe(5)
         expect(findMatchingBracket(text, 2)).toBe(4)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// keepOutermostSpans
+// ---------------------------------------------------------------------------
+
+describe('keepOutermostSpans', () => {
+    it('returns the input unchanged (same reference) for zero or one span', () => {
+        const one = [{ start: 0, end: 5 }]
+        expect(keepOutermostSpans(one)).toBe(one)
+        const none: Array<{ start: number; end: number }> = []
+        expect(keepOutermostSpans(none)).toBe(none)
+    })
+
+    it('drops a span entirely contained within a wider one', () => {
+        const outer = { start: 0, end: 20 }
+        const inner = { start: 9, end: 18 }
+        const result = keepOutermostSpans([inner, outer])
+        expect(result).toEqual([outer])
+    })
+
+    it('keeps disjoint sibling spans', () => {
+        const first = { start: 0, end: 5 }
+        const second = { start: 10, end: 20 }
+        expect(keepOutermostSpans([first, second])).toEqual([first, second])
+    })
+
+    it('keeps both when spans partially overlap (neither contains the other)', () => {
+        const first = { start: 0, end: 10 }
+        const second = { start: 5, end: 15 }
+        expect(keepOutermostSpans([first, second])).toEqual([first, second])
+    })
+
+    it('drops exact-duplicate ranges, keeping one', () => {
+        const spanA = { start: 2, end: 8, tag: 'a' }
+        const spanB = { start: 2, end: 8, tag: 'b' }
+        expect(keepOutermostSpans([spanA, spanB])).toHaveLength(1)
     })
 })

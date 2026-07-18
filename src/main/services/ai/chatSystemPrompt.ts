@@ -11,7 +11,7 @@ export const DEFAULT_CHAT_PROMPT_PATH = path.join(__dirname, '../../resources/ai
 
 /** Minimal built-in prompt used only if the packaged file cannot be read (packaging mishap). */
 export const FALLBACK_CHAT_SYSTEM_PROMPT =
-    'You are a helpful development assistant inside RokDock with strong Roku, BrightScript, and SceneGraph expertise. ' +
+    'You are roBot, a helpful development assistant inside RokDock with strong Roku, BrightScript, and SceneGraph expertise. ' +
     "Never fabricate answers: if you do not know, say so. You can see only the text the user shares (terminal output and pasted text) " +
     "and any provided documentation excerpts. You have no access to the user's source code or project files. Be concise."
 

@@ -128,7 +128,7 @@ export function CodeAppearanceSection(props: CodeAppearanceSectionProps) {
                 >
                     Use theme background color
                 </RokdockToggle>
-                <span className="rokdock-hint">Off by default to keep terminal background aligned with RokDock UI.</span>
+                <span className="rokdock-hint">On by default: the terminal uses the syntax theme's own background. Turn off to match the RokDock panel background instead.</span>
             </div>
             {localSyntaxPreset === 'none' && (
                 <div style={fieldStyle}>

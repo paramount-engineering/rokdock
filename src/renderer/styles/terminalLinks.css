@@ -15,8 +15,8 @@
     text-decoration: underline dotted;
 }
 
-/* Resize handles / splitters - styled like the old edge collapse bar: a faint
-   centered grip so it is obvious a splitter is there, brighter and longer on hover. */
+/* Resize handles / splitters - the grip is hidden until the bar is hovered, so it
+   stays out of the way (and does not crowd a panel header) until you reach for it. */
 .rokdock-resize-handle {
     position: relative;
     background: transparent;
@@ -35,7 +35,7 @@
     height: 32px;
     border-radius: 1px;
     background: linear-gradient(180deg, transparent 0%, var(--rokdock-brand-primary-light) 30%, var(--rokdock-brand-primary-light) 70%, transparent 100%);
-    opacity: 0.5;
+    opacity: 0;
     transition: opacity 0.15s ease, height 0.15s ease, width 0.15s ease;
     pointer-events: none;
 }

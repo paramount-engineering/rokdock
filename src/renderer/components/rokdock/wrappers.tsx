@@ -46,11 +46,11 @@ function useCustomEvent<T = unknown>(
     callback?: (detail: T) => void
 ) {
     useEffect(() => {
-        const el = ref.current
-        if (!el || !callback) return
+        const element = ref.current
+        if (!element || !callback) return
         const handler = (e: Event) => callback((e as CustomEvent).detail)
-        el.addEventListener(eventName, handler)
-        return () => el.removeEventListener(eventName, handler)
+        element.addEventListener(eventName, handler)
+        return () => element.removeEventListener(eventName, handler)
     }, [ref, eventName, callback])
 }
 

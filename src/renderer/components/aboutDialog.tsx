@@ -8,9 +8,18 @@
 import React, { useEffect, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
-import { faHexagon, faKeyboard, faGamepad, faXmark, faVideo, faBookOpen, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
+import { faHexagon, faKeyboard, faGamepad, faXmark, faVideo, faBookOpen } from '@fortawesome/free-solid-svg-icons'
 import type { CSSProperties } from 'react'
 import DialogFrame from './common/dialogFrame'
+import { roBot } from './ai/roBotMark'
+import { AI_CHAT_TITLE, withBeta } from '../../shared/ai/labels'
+import appIconRaw from '../../../resources/icons/icon.svg?raw'
+
+// The canonical RokDock app icon (same asset that ships as the window/taskbar icon),
+// sized to fill its host rather than its native pixel size. Keep the source at
+// resources/icons/icon.svg as the single logo of record. The width/height match is
+// value-tolerant so a re-exported icon at a different native size still fills the host.
+const APP_ICON_SVG = appIconRaw.replace(/width="\d+" height="\d+"/, 'width="100%" height="100%"')
 
 const OVERLAY_STYLE: CSSProperties = {
     zIndex: 2000,
@@ -53,6 +62,13 @@ const LOGO_CONTAINER_STYLE: CSSProperties = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+}
+
+const LOGO_MARK_STYLE: CSSProperties = {
+    width: 64,
+    height: 64,
+    display: 'inline-flex',
+    filter: 'drop-shadow(0 4px 10px rgba(22, 10, 51, 0.4))',
 }
 
 const TITLE_GROUP_STYLE: CSSProperties = {
@@ -162,39 +178,7 @@ export default function AboutDialog({ onClose }: { onClose: () => void }) {
                 <div style={BODY_STYLE}>
                     <div style={LOGO_SECTION_STYLE}>
                         <div style={LOGO_CONTAINER_STYLE}>
-                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                                <defs>
-                                    <linearGradient id="aboutHexGrad" x1="0" y1="0" x2="64" y2="64">
-                                        <stop offset="0%" stopColor="var(--rokdock-brand-primary-light)" />
-                                        <stop offset="100%" stopColor="var(--rokdock-brand-primary)" />
-                                    </linearGradient>
-                                    <filter id="aboutGlow">
-                                        <feGaussianBlur stdDeviation="3" result="blur" />
-                                        <feMerge>
-                                            <feMergeNode in="blur" />
-                                            <feMergeNode in="SourceGraphic" />
-                                        </feMerge>
-                                    </filter>
-                                </defs>
-                                <path
-                                    d="M32 4 L56 18 L56 46 L32 60 L8 46 L8 18 Z"
-                                    fill="url(#aboutHexGrad)"
-                                    stroke="var(--rokdock-brand-primary-light)"
-                                    strokeWidth="1.5"
-                                    filter="url(#aboutGlow)"
-                                />
-                                <text
-                                    x="32"
-                                    y="38"
-                                    textAnchor="middle"
-                                    fontSize="22"
-                                    fontFamily="var(--rokdock-font-mono)"
-                                    fontWeight="bold"
-                                    fill="var(--rokdock-text-bright)"
-                                >
-                                    {'>_'}
-                                </text>
-                            </svg>
+                            <span style={LOGO_MARK_STYLE} dangerouslySetInnerHTML={{ __html: APP_ICON_SVG }} />
                         </div>
                         <div style={TITLE_GROUP_STYLE}>
                             <span style={APP_NAME_STYLE}>RokDock</span>
@@ -204,7 +188,8 @@ export default function AboutDialog({ onClose }: { onClose: () => void }) {
 
                     <p style={DESCRIPTION_STYLE}>
                         A desktop workbench for Roku development: discovery, debugging, remote
-                        control, sideloading, screenshots, automation, asset tools, and in-app docs.
+                        control, sideloading, screenshots, automation, asset tools, in-app docs,
+                        and more...
                     </p>
 
                     <div style={DIVIDER_STYLE} />
@@ -223,7 +208,7 @@ export default function AboutDialog({ onClose }: { onClose: () => void }) {
                         <Feature icon={faGamepad} text="ECP virtual remote & sideloading" />
                         <Feature icon={faVideo} text="Screenshots & live HDMI capture" />
                         <Feature icon={faBookOpen} text="In-app Roku developer docs" />
-                        <Feature icon={faWandMagicSparkles} text="AI assistant (Beta)" />
+                        <Feature glyph={<roBot.Glyph size={24} mono />} text={withBeta(AI_CHAT_TITLE)} />
                     </div>
 
                 </div>
@@ -257,8 +242,8 @@ function Badge({ label }: { label: string }) {
     )
 }
 
-/** Renders a single feature row with a FontAwesome icon and descriptive text. */
-function Feature({ icon, text }: { icon: IconDefinition; text: string }) {
+/** Renders a single feature row with an icon (a FontAwesome icon or a custom glyph node) and text. */
+function Feature({ icon, glyph, text }: { icon?: IconDefinition; glyph?: React.ReactNode; text: string }) {
     return (
         <div style={{
             display: 'flex',
@@ -267,8 +252,8 @@ function Feature({ icon, text }: { icon: IconDefinition; text: string }) {
             padding: '4px 8px',
             borderRadius: 'var(--rokdock-radius-md)',
         }}>
-            <span style={{ fontSize: 'var(--rokdock-font-md)', width: 22, textAlign: 'center', flexShrink: 0 }}>
-                <FontAwesomeIcon icon={icon} />
+            <span style={{ fontSize: 'var(--rokdock-font-md)', width: 22, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {glyph ?? (icon && <FontAwesomeIcon icon={icon} />)}
             </span>
             <span style={{ fontSize: 'var(--rokdock-font-sm)', color: 'var(--rokdock-text-primary)' }}>{text}</span>
         </div>

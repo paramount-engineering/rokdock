@@ -124,6 +124,10 @@ export interface AppPreferences {
     aiActiveProfileId: string | null
     /** Per-CLI overrides for auto-detected CLI providers (model, redaction, hidden). */
     aiCliOverrides: AiCliOverrides
+    /** When false, roBot performs state-changing device actions (press key, launch channel,
+     *  type text, deeplink) without asking for confirmation each time. Defaults to true
+     *  (confirm) when unset. Toggled on the AI settings tab and persisted across sessions. */
+    aiConfirmDeviceControl?: boolean
     discoveryScanIntervalMs: number
     discoveryRequestTimeoutMs: number
     devAppPollIntervalMs: number
@@ -143,6 +147,7 @@ export interface AppPreferences {
     screenshotOnionOverlayHistory: string[]
     splitRatio: number
     collapsedPanels: string[]
+    expandedPanels: string[]
     // Capture device preview
     captureDeviceId: string | null
     /** Stable label of the remembered capture device. Used to re-resolve the volatile

@@ -369,10 +369,10 @@ class RokdockRemote extends HTMLElement {
 
     /** Briefly highlight a hotspot button (visual feedback for keyboard shortcuts) */
     pulseKey(key: string): void {
-        const el = this.hotspotElements.get(key)
-        if (!el) return
-        el.classList.add('active')
-        setTimeout(() => el.classList.remove('active'), 150)
+        const element = this.hotspotElements.get(key)
+        if (!element) return
+        element.classList.add('active')
+        setTimeout(() => element.classList.remove('active'), 150)
     }
 
     // Text input

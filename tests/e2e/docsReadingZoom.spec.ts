@@ -9,6 +9,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { launchRokDockWithArgsAndUserData } from './helpers'
+import type { AppPreferences } from '@shared/types'
 
 function seedPage(userData: string): string {
     const cacheDir = path.join(userData, 'docs-cache')
@@ -58,7 +59,7 @@ test('reading-pane text zoom: Ctrl+=/-/0 scale the prose and persist', async () 
         await win.keyboard.press('Control+Equal')
         await win.keyboard.press('Control+Equal')
         await expect.poll(() => pane.evaluate(readScaleVar)).toBe('1.2')
-        expect(await win.evaluate(() => window.rokdock.store.getPreferences().then(p => p.docsReadingScale))).toBeCloseTo(1.2)
+        expect(await win.evaluate(() => window.rokdock.store.getPreferences().then((p: AppPreferences) => p.docsReadingScale))).toBeCloseTo(1.2)
 
         // One decrease: 1.2 -> 1.1.
         await win.keyboard.press('Control+Minus')
@@ -67,7 +68,7 @@ test('reading-pane text zoom: Ctrl+=/-/0 scale the prose and persist', async () 
         // Reset: 1.1 -> 1.
         await win.keyboard.press('Control+0')
         await expect.poll(() => pane.evaluate(readScaleVar)).toBe('1')
-        expect(await win.evaluate(() => window.rokdock.store.getPreferences().then(p => p.docsReadingScale))).toBeCloseTo(1)
+        expect(await win.evaluate(() => window.rokdock.store.getPreferences().then((p: AppPreferences) => p.docsReadingScale))).toBeCloseTo(1)
     } finally {
         await app.close()
         fs.rmSync(userData, { recursive: true, force: true })

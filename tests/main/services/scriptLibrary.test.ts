@@ -39,10 +39,10 @@ describe('ScriptLibrary dual extension', () => {
     })
 
     it('saves with the new .rscript extension', () => {
-        const fp = lib.save(makeScript('demo'))
-        expect(fp.endsWith('.rscript')).toBe(true)
-        expect(fp.endsWith('.rscript.json')).toBe(false)
-        expect(fs.existsSync(fp)).toBe(true)
+        const filePath = lib.save(makeScript('demo'))
+        expect(filePath.endsWith('.rscript')).toBe(true)
+        expect(filePath.endsWith('.rscript.json')).toBe(false)
+        expect(fs.existsSync(filePath)).toBe(true)
     })
 
     it('lists both legacy .rscript.json and new .rscript files with correct names', () => {

@@ -17,10 +17,10 @@ vi.mock('electron', () => ({
 
 /** Minimal in-memory StoreService stand-in exposing only what AiProfileStore uses. */
 function fakeStore() {
-    let prefs = { aiProfiles: [], aiActiveProfileId: null, aiCliOverrides: {} } as unknown as AppPreferences
+    let preferences = { aiProfiles: [], aiActiveProfileId: null, aiCliOverrides: {} } as unknown as AppPreferences
     return {
-        getPreferences: () => prefs,
-        setPreferences: (patch: Partial<AppPreferences>) => { prefs = { ...prefs, ...patch } },
+        getPreferences: () => preferences,
+        setPreferences: (patch: Partial<AppPreferences>) => { preferences = { ...preferences, ...patch } },
     }
 }
 

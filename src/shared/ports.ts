@@ -18,6 +18,17 @@ export const DEFAULT_PORT_CONFIGS: PortConfig[] = [
 ]
 
 /**
+ * Generates a random color for a newly added port, so a new row gets its own color
+ * instead of reusing the default port's green. Each RGB channel is random, packed
+ * into a lowercase `#rrggbb` string because the color input the row renders only
+ * accepts hex (an `rgb(...)` string is rejected by `<input type="color">`).
+ */
+export function randomPortColor(): string {
+    const channel = (): string => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
+    return `#${channel()}${channel()}${channel()}`
+}
+
+/**
  * Returns a shallow clone of the default port configurations.
  * Callers should use this rather than referencing {@link DEFAULT_PORT_CONFIGS}
  * directly to avoid mutating the shared constant.

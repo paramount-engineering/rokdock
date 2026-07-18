@@ -69,6 +69,10 @@
                         <span class="lbl">H</span>
                         <input type="number" class="inp" id="inpH" min="1" max="4320" value="1080">
                     </div>
+                    <div class="opt-row size-aspect-row">
+                        <span class="opt-label">Maintain aspect ratio</span>
+                        <rokdock-toggle id="togAspect" checked></rokdock-toggle>
+                    </div>
                 </div>
             </rokdock-collapsible>
 
@@ -82,19 +86,37 @@
             <rokdock-collapsible label="Export Options" open>
                 <div class="ps-body disabled" id="optsSection">
                     <div class="opt-row">
-                        <span class="opt-label">Colors</span>
-                        <div class="pill-row" id="colorPillRow">
-                            <button class="pill" data-colors="64">64</button>
-                            <button class="pill" data-colors="128">128</button>
-                            <button class="pill" data-colors="256">256</button>
+                        <span class="opt-label">Format</span>
+                        <div class="pill-row" id="formatPillRow">
+                            <button class="pill active" data-format="png">PNG</button>
+                            <button class="pill" data-format="webp">WebP</button>
                         </div>
                     </div>
-                    <div class="opt-hint">Palette size - fewer colors = smaller file</div>
-                    <div class="opt-row">
-                        <span class="opt-label">FS Dithering</span>
-                        <rokdock-toggle id="togDither" checked></rokdock-toggle>
+                    <div class="opt-hint">PNG uses an indexed palette. WebP is smaller for gradients and photos.</div>
+                    <div id="pngOptions">
+                        <div class="opt-row">
+                            <span class="opt-label">Colors</span>
+                            <div class="pill-row" id="colorPillRow">
+                                <button class="pill" data-colors="64">64</button>
+                                <button class="pill" data-colors="128">128</button>
+                                <button class="pill" data-colors="256">256</button>
+                            </div>
+                        </div>
+                        <div class="opt-hint">Palette size (fewer colors = smaller file)</div>
+                        <div class="opt-row">
+                            <span class="opt-label">FS Dithering</span>
+                            <rokdock-toggle id="togDither" checked></rokdock-toggle>
+                        </div>
+                        <div class="opt-hint">Floyd-Steinberg dithering reduces visible banding</div>
                     </div>
-                    <div class="opt-hint">Floyd-Steinberg dithering reduces visible banding</div>
+                    <div id="webpOptions" style="display:none">
+                        <div class="opt-row">
+                            <span class="opt-label">Quality</span>
+                            <input type="range" class="webp-quality-slider" id="webpQuality" min="1" max="100" value="80">
+                            <span class="opt-value" id="webpQualityVal">80</span>
+                        </div>
+                        <div class="opt-hint">Lossy WebP quality. Higher keeps more detail at a larger size.</div>
+                    </div>
                     <div class="opt-row">
                         <span class="opt-label">Light background</span>
                         <rokdock-toggle id="togLightBg"></rokdock-toggle>
@@ -107,7 +129,7 @@
         <!-- Export footer -->
         <div class="export-footer">
             <div class="est-size" id="estSize"></div>
-            <button class="export-btn" id="panelExportBtn" disabled><svg viewBox="0 0 384 512" fill="currentColor"><path d="M64 0C28.7 0 0 28.7 0 64v384c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zm192 0v128h128L256 0zM216 232v102.1l31-31c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-72 72c-9.4 9.4-24.6 9.4-33.9 0l-72-72c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l31 31V232c0-13.3 10.7-24 24-24s24 10.7 24 24z"/></svg> Export PNG...</button>
+            <button class="export-btn" id="panelExportBtn" disabled><svg viewBox="0 0 384 512" fill="currentColor"><path d="M64 0C28.7 0 0 28.7 0 64v384c0 35.3 28.7 64 64 64h256c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zm192 0v128h128L256 0zM216 232v102.1l31-31c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-72 72c-9.4 9.4-24.6 9.4-33.9 0l-72-72c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l31 31V232c0-13.3 10.7-24 24-24s24 10.7 24 24z"/></svg> <span id="exportBtnLabel">Export PNG...</span></button>
         </div>
     </div>
 </div>

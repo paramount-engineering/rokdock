@@ -519,10 +519,58 @@ rokdock-toolbar .tb-btn svg { width: 13px; height: 13px; display: block; pointer
     flex: 0 1 auto;
 }
 
-.rokdock-tab-list::-webkit-scrollbar { height: 3px }
-.rokdock-tab-list::-webkit-scrollbar-track { background: transparent }
-.rokdock-tab-list::-webkit-scrollbar-thumb { background: var(--rokdock-scrollbar-thumb); border-radius: 2px }
-.rokdock-tab-list::-webkit-scrollbar-thumb:hover { background: var(--rokdock-scrollbar-thumb-hover) }
+/* The native scrollbar is hidden: overflow is driven by the caret buttons and the
+   mouse wheel (see createTabStripScroller). overflow-x stays auto so scrollLeft works. */
+.rokdock-tab-list { scrollbar-width: none }
+.rokdock-tab-list::-webkit-scrollbar { height: 0; width: 0 }
+
+/* Caret buttons that flank the tab list. Hidden (via the [hidden] attribute) unless
+   the strip overflows; disabled at whichever end the strip is against. */
+.rokdock-tab-scroll {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 20px;
+    align-self: stretch;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--rokdock-text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+}
+
+/* The inline caret SVG (faSvg emits no width/height) must be sized explicitly,
+   or it falls back to the default replaced-element size and balloons. */
+.rokdock-tab-scroll svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+}
+
+.rokdock-tab-scroll:hover:not(:disabled) {
+    color: var(--rokdock-text-bright);
+    background: var(--rokdock-bg-active);
+}
+
+.rokdock-tab-scroll:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.rokdock-tab-scroll[hidden] {
+    display: none;
+}
+
+/* While the wheel is scrolling the strip, the pointer is stationary and the browser
+   does not recompute :hover, so the tab under the cursor at scroll-start stays
+   highlighted. Suppress the stale hover until the next real pointer move (which the
+   scroller signals by removing this class). The active tab keeps its own background. */
+.rokdock-tab-list-wheeling .rokdock-tab:hover:not(.active) {
+    background: transparent;
+}
 
 .rokdock-tab {
     display: flex;
@@ -551,8 +599,9 @@ rokdock-toolbar .tb-btn svg { width: 13px; height: 13px; display: block; pointer
 
 .rokdock-tab.active {
     background: linear-gradient(180deg, var(--rokdock-bg-hover) 0%, var(--rokdock-bg-surface) 100%);
-    border-bottom: 2px solid var(--rokdock-brand-primary);
-    box-shadow: inset 0 1px 0 var(--rokdock-white-subtle), 0 2px 8px -2px var(--rokdock-tab-glow);
+    /* Underline drawn as an inset shadow, not a border: a border-bottom shrinks the
+       border-box and lifts the centered label ~1px (most visible in light mode). */
+    box-shadow: inset 0 1px 0 var(--rokdock-white-subtle), inset 0 -2px 0 var(--rokdock-brand-primary), 0 2px 8px -2px var(--rokdock-tab-glow);
 }
 
 .rokdock-tab-label {

@@ -54,6 +54,7 @@ resources/icons/icon-*.png
 docs/superpowers/
 docs/BACKLOG.md
 docs/adding-a-tool-window.md
+docs/release-to-public.md
 .claude/
 openspec/
 tasks/
@@ -74,4 +75,6 @@ keys/
 *.key
 *.cer
 *.mobileprovision
-demo-video/
+
+# MkDocs build output
+/site/

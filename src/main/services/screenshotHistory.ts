@@ -36,6 +36,16 @@ function getScreenshotHistoryDir(folder?: string): string {
 }
 
 /**
+ * The absolute folder screenshots are saved to when no custom folder is configured, created if
+ * missing so the Settings UI can show it and Browse can open into it. Single source of truth for
+ * the default, shared by the save path (getScreenshotHistoryDir) and the Capture settings field.
+ * @returns The absolute path to the default screenshot folder.
+ */
+export function getDefaultScreenshotFolder(): string {
+    return getScreenshotHistoryDir()
+}
+
+/**
  * Returns the absolute path to the screenshot history index JSON file,
  * stored in the app's userData directory.
  * @returns The path to screenshot-history-index.json.
@@ -119,18 +129,14 @@ export function formatHistoryLabel(timestamp: number): string {
  * @param filePath - Absolute path to the source screenshot file.
  * @returns A scaled NativeImage, or undefined if the file cannot be read.
  */
-export function createHistoryThumbnail(filePath: string): Electron.NativeImage | undefined {
+export function createHistoryThumbnail(filePath: string, maxSize = SCREENSHOT_HISTORY_MENU_ICON_SIZE): Electron.NativeImage | undefined {
     try {
         if (!fs.existsSync(filePath)) return undefined
         const img = nativeImage.createFromPath(filePath)
         if (img.isEmpty()) return undefined
         const size = img.getSize()
         if (size.width < 1 || size.height < 1) return undefined
-        const scale = Math.min(
-            SCREENSHOT_HISTORY_MENU_ICON_SIZE / size.width,
-            SCREENSHOT_HISTORY_MENU_ICON_SIZE / size.height,
-            1
-        )
+        const scale = Math.min(maxSize / size.width, maxSize / size.height, 1)
         const w = Math.round(size.width * scale)
         const h = Math.round(size.height * scale)
         return img.resize({ width: w, height: h })
@@ -229,8 +235,11 @@ export class ScreenshotHistoryService {
     /**
      * Loads the screenshot history from disk into the in-memory list on first call.
      * Scans the history directory for image files, sorts them by modification time,
-     * keeps only the most recent SCREENSHOT_HISTORY_MAX entries, then prunes duplicates.
-     * Subsequent calls are no-ops (guarded by the loaded flag).
+     * and keeps only the most recent SCREENSHOT_HISTORY_MAX entries. This is a metadata-only
+     * scan (readdir + stat): it deliberately does NOT decode or hash images. Pixel-duplicate
+     * detection is a capture-time concern (see push -> findPixelIdenticalEntry), and running it
+     * here decoded up to 20 full-size images synchronously on the launch path (load runs before
+     * the window exists), which stalled startup. Subsequent calls are no-ops (loaded flag).
      * @param folder - Optional user-configured screenshot folder to scan.
      */
     load(folder?: string): void {
@@ -250,7 +259,6 @@ export class ScreenshotHistoryService {
         } catch {
             this.history = []
         }
-        this.prunePixelDuplicates()
     }
 
     /** Resets the loaded flag and clears the list, then reloads from the given folder. */

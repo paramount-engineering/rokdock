@@ -46,6 +46,19 @@ export default [
             // caught-error / event-handler idiom (e), which is used consistently as `e`.
             // Properties are not length-checked (object keys often mirror external schemas).
             'id-length': ['error', { min: 2, exceptions: ['i', 'j', 'k', 'x', 'y', 'w', 'h', '_', 'e'], properties: 'never' }],
+            // id-length only bans single-character names, so two-character abbreviations that
+            // hide a whole word slipped through for a long time (el, cb, btn, prefs, ...). This
+            // denylist names the offenders we have already had to clean up so they cannot come
+            // back. It matches exact identifier names only (not substrings), so compound names
+            // like tabListEl or historyBtn are unaffected. Add a name here when a review finds
+            // a new word-hiding abbreviation. Graphics coordinate/dimension pairs derived from
+            // the allowed x/y/w/h family (ox, cx, sw, sh, ...) are intentionally NOT listed:
+            // they are idiomatic in the canvas-drawing code.
+            'id-denylist': [
+                'error',
+                'el', 'els', 'av', 'sv', 'cb', 'cfg', 'fp', 'cmd',
+                'prefs', 'btn', 'zf', 'sel', 'sl', 'st', 'cs', 'rs', 'sc', 'dc'
+            ],
             // No snake_case / kebab-case in identifiers we define. Properties are left
             // unconstrained because object keys frequently mirror external API schemas
             // (e.g. tool_calls, web_search), IPC payloads, and CSS-in-JS keys.

@@ -15,7 +15,7 @@ import { launchRokDock, type LaunchedApp } from './helpers'
 async function openAiSettings(mainWin: import('@playwright/test').Page): Promise<void> {
     await mainWin.getByRole('button', { name: 'File' }).click()
     await mainWin.getByRole('button', { name: /^Settings\.\.\./ }).click({ force: true })
-    await mainWin.getByRole('button', { name: 'AI (Beta)', exact: true }).click()
+    await mainWin.getByRole('button', { name: 'roBot (Beta)', exact: true }).click()
 }
 
 /** Closes the Settings dialog via the Cancel button. */

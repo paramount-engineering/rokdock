@@ -1,4 +1,4 @@
-# SVG Converter
+# SVG to Roku-Ready PNG Converter
 
 RokDock includes an SVG-to-PNG converter for preparing vector assets for Roku SceneGraph development. The converter rasterizes an SVG at a chosen resolution, reduces it to an indexed color palette sized for Roku, and saves the result as a PNG.
 
@@ -42,8 +42,8 @@ The W and H fields default to 1920 x 1080 before an SVG is loaded. Once an SVG i
 
 The Colors section lets you override the colors of an imported SVG before it is rasterized, so the change flows through to the quantized preview and the exported PNG.
 
-![SVG Converter Colors section with one color overridden](images/svg-converter-recolor.png)
-*Recoloring an imported SVG: the original red fill (#e50914) is remapped to amber. Each detected color shows its original swatch, a picker for the new value, and a reset button.*
+![SVG Converter with an imported glyph recolored: the Colors section lists each detected fill and stroke with its original swatch, a color picker, and a reset button, and the change shows in the quantized preview](images/svg-converter-recolored.png)
+*Recoloring an imported SVG. Each detected color shows its original swatch, a picker for the new value, and a reset button, and the change flows through to the preview and the exported PNG.*
 
 When an SVG is loaded, RokDock scans it for the distinct fill and stroke colors it uses and lists each one:
 

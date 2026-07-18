@@ -18,6 +18,8 @@ import {
     faArrowDownAZ,
     faBars,
     faBarsStaggered,
+    faCaretLeft,
+    faCaretRight,
     faFile,
     faFileArrowDown,
     faFloppyDisk,
@@ -27,6 +29,7 @@ import {
     faXmark,
 } from '@fortawesome/free-solid-svg-icons'
 import { faSvg } from '@shared/icons'
+import { createTabStripScroller, type TabStripScroller } from '@shared/tabStripScroll'
 import { EditorState, Compartment, Prec } from '@codemirror/state'
 import type { Extension, Text } from '@codemirror/state'
 import {
@@ -58,7 +61,7 @@ import type { Diagnostic } from '@codemirror/lint'
 import { buildJsonEditorTheme, foldMarkerDOM } from './jsonEditorTheme'
 import { resolveSyntaxTheme } from './styles/terminalSyntaxThemes'
 import type { TerminalSyntaxThemePreset } from './styles/terminalSyntaxThemes'
-import { formatJson, minifyJson, findEnclosingSpan, sortJsonValue, reindentJson, INDENT_WIDTH, decodeNestedJson, utf8ByteLength, isJsonlMode, expandJsonl, compactJsonl, jsonlRecordErrors, countJsonlRecords } from './jsonFormat'
+import { formatJson, minifyJson, findEnclosingSpan, sortJsonValue, reindentJson, lineIndentAt, INDENT_WIDTH, decodeNestedJson, utf8ByteLength, isJsonlMode, expandJsonl, compactJsonl, jsonlRecordErrors, countJsonlRecords } from './jsonFormat'
 
 // -- Types ---------------------------------------------------------------------
 
@@ -85,13 +88,15 @@ const svgCollapse = faSvg(faMinus)
 const svgSort = faSvg(faArrowDownAZ)
 const svgPlus = faSvg(faPlus)
 const svgXmark = faSvg(faXmark)
+const svgCaretLeft = faSvg(faCaretLeft)
+const svgCaretRight = faSvg(faCaretRight)
 
 // -- Inject button icons -------------------------------------------------------
 
 function injectButtonIcons(): void {
     const set = (id: string, svg: string) => {
-        const el = document.getElementById(id)
-        if (el) el.innerHTML = svg
+        const element = document.getElementById(id)
+        if (element) element.innerHTML = svg
     }
     set('btnNew', svgNew)
     set('btnOpen', svgOpen)
@@ -300,13 +305,13 @@ function baseExtensions(): Extension[] {
             // Collapsed ranges show a centered ellipsis plus the child count.
             preparePlaceholder: (state, range) => countFoldChildren(state, range),
             placeholderDOM: (_view, onclick, prepared) => {
-                const el = document.createElement('span')
-                el.className = 'cm-foldPlaceholder'
+                const element = document.createElement('span')
+                element.className = 'cm-foldPlaceholder'
                 const count = prepared as number
-                el.textContent = count > 0 ? `... ${count}` : '...'
-                el.title = 'Click to expand'
-                el.addEventListener('click', onclick)
-                return el
+                element.textContent = count > 0 ? `... ${count}` : '...'
+                element.title = 'Click to expand'
+                element.addEventListener('click', onclick)
+                return element
             },
         }),
         foldGutter({ markerDOM: foldMarkerDOM }),
@@ -430,6 +435,27 @@ function updatePlaceholder(): void {
 
 const tabListEl = document.getElementById('tabList') as HTMLDivElement
 
+// Caret buttons flank the tab list for overflow scrolling (native scrollbar hidden).
+// createTabStripScroller owns their visibility, the wheel handler, and the end states.
+const tabScroller: TabStripScroller = (() => {
+    const bar = tabListEl.parentElement as HTMLElement
+    const makeCaret = (side: 'left' | 'right', svg: string): HTMLButtonElement => {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.className = `rokdock-tab-scroll rokdock-tab-scroll-${side}`
+        button.title = `Scroll tabs ${side}`
+        button.setAttribute('aria-label', `Scroll tabs ${side}`)
+        button.hidden = true
+        button.innerHTML = svg
+        return button
+    }
+    const leftCaret = makeCaret('left', svgCaretLeft)
+    const rightCaret = makeCaret('right', svgCaretRight)
+    bar.insertBefore(leftCaret, tabListEl)
+    bar.insertBefore(rightCaret, tabListEl.nextSibling)
+    return createTabStripScroller(tabListEl, leftCaret, rightCaret)
+})()
+
 function getActiveTab(): Tab | null {
     return tabs.find(tab => tab.id === activeTabId) ?? null
 }
@@ -518,51 +544,53 @@ function markTabSaved(id: string, newTitle: string | null, newFilePath: string |
 function renderTabs(): void {
     tabListEl.innerHTML = ''
     for (const tab of tabs) {
-        const el = document.createElement('div')
-        el.dataset.tabId = tab.id
-        el.className =
+        const tabElement = document.createElement('div')
+        tabElement.dataset.tabId = tab.id
+        tabElement.className =
             'rokdock-tab' +
             (tab.id === activeTabId ? ' active' : '') +
             (tab.dirty ? ' dirty' : '')
-        el.innerHTML =
+        tabElement.innerHTML =
             `<span class="rokdock-tab-label">${escapeHtml(tab.title)}</span>` +
             `<span class="rokdock-tab-dirty" title="Unsaved changes" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor"></span>` +
             `<button class="rokdock-tab-close" title="Close">${svgXmark}</button>`
 
-        el.addEventListener('click', (e: MouseEvent) => {
+        tabElement.addEventListener('click', (e: MouseEvent) => {
             if ((e.target as Element).closest('.rokdock-tab-close')) return
             switchToTab(tab.id)
         })
 
-        const closeBtn = el.querySelector('.rokdock-tab-close') as HTMLButtonElement
-        closeBtn.addEventListener('click', (e: MouseEvent) => {
+        const closeButton = tabElement.querySelector('.rokdock-tab-close') as HTMLButtonElement
+        closeButton.addEventListener('click', (e: MouseEvent) => {
             e.stopPropagation()
             closeTab(tab.id)
         })
 
-        el.addEventListener('auxclick', (e: MouseEvent) => {
+        tabElement.addEventListener('auxclick', (e: MouseEvent) => {
             if (e.button === 1) {
                 e.preventDefault()
                 closeTab(tab.id)
             }
         })
 
-        tabListEl.appendChild(el)
+        tabListEl.appendChild(tabElement)
 
         if (tab.id === activeTabId) {
             requestAnimationFrame(() => {
-                el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+                tabElement.scrollIntoView({ block: 'nearest', inline: 'nearest' })
             })
         }
     }
+    // Recompute caret visibility and end states now the strip's content changed.
+    tabScroller.refresh()
 }
 
 // Toggles just the dirty marker on one tab's existing element. Used on the
 // per-keystroke dirty flip so typing does not tear down and rebuild the whole
 // tab strip (with its event listeners) on every transition.
 function setTabDirty(tab: Tab): void {
-    const el = tabListEl.querySelector(`[data-tab-id="${tab.id}"]`)
-    el?.classList.toggle('dirty', tab.dirty)
+    const tabElement = tabListEl.querySelector(`[data-tab-id="${tab.id}"]`)
+    tabElement?.classList.toggle('dirty', tab.dirty)
 }
 
 function restoreSession(session: JsonRestoredSession): void {
@@ -675,18 +703,6 @@ document.getElementById('btnExpandAll')!.addEventListener('click', doUnfoldAll)
 document.getElementById('btnCollapseAll')!.addEventListener('click', doFoldAll)
 document.getElementById('btnSort')!.addEventListener('click', doSortAtCursor)
 
-// Horizontal scroll of tab list with mouse wheel
-tabListEl.addEventListener(
-    'wheel',
-    (e: WheelEvent) => {
-        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-            tabListEl.scrollLeft += e.deltaY
-            e.preventDefault()
-        }
-    },
-    { passive: false }
-)
-
 // -- Editor Operations ---------------------------------------------------------
 
 // Replaces the whole document and moves the cursor to the top. Used by both
@@ -757,9 +773,10 @@ function doSortAtCursor(): void {
         return
     }
 
-    // Indent the replacement to the column where the opening bracket sits.
-    const startLine = view.state.doc.lineAt(span.start)
-    const baseIndent = ' '.repeat(span.start - startLine.from)
+    // Align continuation lines to the value's indentation LEVEL (the leading whitespace of the
+    // line it starts on), not the column of the opening bracket, which for a nested value sits
+    // after a `"key": ` prefix. Using the bracket column pushed sorted keys far to the right.
+    const baseIndent = lineIndentAt(text, span.start)
     const replacement = reindentJson(sorted, baseIndent)
 
     view.dispatch({ changes: { from: span.start, to: span.end + 1, insert: replacement } })
@@ -777,14 +794,14 @@ function doJumpToError(): void {
 }
 
 function doUnescapeNested(): void {
-    const sel = view.state.selection.main
+    const selection = view.state.selection.main
     let raw: string | null = null
     let label = 'unescaped'
 
-    if (!sel.empty) {
-        raw = view.state.sliceDoc(sel.from, sel.to)
+    if (!selection.empty) {
+        raw = view.state.sliceDoc(selection.from, selection.to)
     } else {
-        const node = syntaxTree(view.state).resolveInner(sel.head, 0)
+        const node = syntaxTree(view.state).resolveInner(selection.head, 0)
         if (node.name === 'String') {
             raw = view.state.sliceDoc(node.from, node.to)
             const parent = node.parent

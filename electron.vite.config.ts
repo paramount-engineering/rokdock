@@ -186,6 +186,10 @@ export default defineConfig({
         plugins: [react(), bootSplashFirstPaintPlugin(packageVersion), bundledEntryFoucPlugin(), tightenCspPlugin()],
         root: 'src/renderer',
         publicDir: false,
+        // ES-format workers: the regex-match worker is loaded as a module worker
+        // (new Worker(new URL(...), { type: 'module' })). Vite defaults worker.format to
+        // 'iife', which breaks a module worker, so pin it to 'es'.
+        worker: { format: 'es' },
         build: {
             // Use absolute output path so packaged builds always include renderer assets.
             outDir: path.resolve(__dirname, 'out/renderer'),

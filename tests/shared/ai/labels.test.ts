@@ -3,12 +3,12 @@ import { AI_BETA_SUFFIX, AI_CHAT_TITLE, AI_EXPLAIN_ACTION, withBeta } from '@sha
 
 describe('ai labels', () => {
     it('exposes the base labels and the beta suffix', () => {
-        expect(AI_CHAT_TITLE).toBe('AI Chat')
-        expect(AI_EXPLAIN_ACTION).toBe('Explain this')
+        expect(AI_CHAT_TITLE).toBe('roBot')
+        expect(AI_EXPLAIN_ACTION).toBe('Ask roBot')
         expect(AI_BETA_SUFFIX).toBe('(Beta)')
     })
     it('withBeta appends the suffix once', () => {
-        expect(withBeta(AI_EXPLAIN_ACTION)).toBe('Explain this (Beta)')
-        expect(withBeta(AI_CHAT_TITLE)).toBe('AI Chat (Beta)')
+        expect(withBeta(AI_EXPLAIN_ACTION)).toBe('Ask roBot (Beta)')
+        expect(withBeta(AI_CHAT_TITLE)).toBe('roBot (Beta)')
     })
 })

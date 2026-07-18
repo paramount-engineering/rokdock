@@ -16,11 +16,11 @@ import os from 'os'
 import {
     createAiEngine,
     cliAdapter, anthropicAdapter, geminiAdapter, openAiCompatibleAdapter,
-    CLI_DEFINITIONS, isCliKind,
+    CLI_DEFINITIONS, isCliKind, redact,
 } from '../../../ai-core'
 import type { AiEngine } from '../../../ai-core'
-import type { AiAdapter, AiEngineConfig, CliEngineConfig, AiRequest, AiStreamChunk, AiActivityChunk, ContextProvider, RedactSecrets, ToolDef, ToolResult } from '../../../ai-core/types'
-import { buildToolRouting } from '../../../ai-core/toolRouting'
+import type { AiAdapter, AiEngineConfig, CliEngineConfig, AiRequest, AiStreamChunk, AiActivityChunk, ContextProvider, RedactSecrets, ToolDef, ToolResult, ToolCallContext } from '../../../ai-core/types'
+import { buildToolRouting, dispatchTool } from '../../../ai-core/toolRouting'
 import type { CliKind } from '../../../ai-core/types'
 import type { AiProfile, AiProfileInput, AiTestResult, RedactionPreview, AiCliOverrides, CliOverride } from '../../../shared/ai/types'
 import type { AiProfileStore } from './aiProfileStore'
@@ -247,7 +247,7 @@ export class AiService {
     }
 
     /** The engine-agnostic seam: a stream of deltas for the active profile. */
-    async *stream(request: AiRequest, signal: AbortSignal, conversationId?: string): AsyncIterable<AiStreamChunk | AiActivityChunk> {
+    async *stream(request: AiRequest, signal: AbortSignal, conversationId?: string, toolContext?: ToolCallContext): AsyncIterable<AiStreamChunk | AiActivityChunk> {
         const profile = await this.requireActive()
         const withSystem: AiRequest = { ...request, system: request.system ?? this.chatSystemPrompt }
 
@@ -261,13 +261,13 @@ export class AiService {
         ) {
             const { specs, ownerByToolName } = buildToolRouting(this.contextProviders)
             if (specs.length > 0) {
-                yield* this.streamWithMcp(profile, withSystem, signal, specs, ownerByToolName, conversationId)
+                yield* this.streamWithMcp(profile, withSystem, signal, specs, ownerByToolName, conversationId, toolContext)
                 return
             }
         }
 
         const engine = this.createEngine(await this.configForProfile(profile, true))
-        yield* engine.stream(withSystem, signal)
+        yield* engine.stream(withSystem, signal, toolContext)
     }
 
     /** Remove a directory tree, swallowing any error (cleanup is always best-effort). */
@@ -305,6 +305,7 @@ export class AiService {
         specs: ToolDef[],
         ownerByToolName: Map<string, ContextProvider>,
         conversationId?: string,
+        toolContext?: ToolCallContext,
     ): AsyncIterable<AiStreamChunk | AiActivityChunk> {
         const endpoint = this.mcpEndpoint!
         const { url } = await endpoint.start()
@@ -343,7 +344,7 @@ export class AiService {
             ? prior!.dir!
             : fs.mkdtempSync(path.join(this.resolveMcpRoot(), stableDir ? 'conv-' : 'req-'))
 
-        const spawnContext = { mcp, baseConfig, configDir, codexHome, toolNames, url, request, signal, specs, ownerByToolName }
+        const spawnContext = { mcp, baseConfig, configDir, codexHome, toolNames, url, request, signal, specs, ownerByToolName, toolContext }
         const recordSession = (handle: string): void => {
             this.conversations.set(conversationId!, {
                 cliKind, model: profile.model, handle,
@@ -426,6 +427,7 @@ export class AiService {
         signal: AbortSignal
         specs: ToolDef[]
         ownerByToolName: Map<string, ContextProvider>
+        toolContext?: ToolCallContext
     }): AsyncIterable<AiStreamChunk | AiActivityChunk> {
         const endpoint = this.mcpEndpoint!
         const plan = opts.mcp.plan({
@@ -459,11 +461,8 @@ export class AiService {
             )
             endpoint.registerSession(opts.token, {
                 tools: opts.specs,
-                async call(name: string, args: unknown, callSignal: AbortSignal): Promise<ToolResult> {
-                    const owner = opts.ownerByToolName.get(name)
-                    if (!owner?.callTool) return { content: `Unknown tool: ${name}`, isError: true }
-                    return owner.callTool(name, args, callSignal)
-                },
+                call: (name: string, args: unknown, callSignal: AbortSignal): Promise<ToolResult> =>
+                    dispatchTool(opts.ownerByToolName, name, args, callSignal, opts.toolContext),
                 onActivity(activity) { queue.push({ activity }) },
                 signal: opts.signal,
             })
@@ -528,5 +527,20 @@ export class AiService {
         const redacted = await engine.dryRun(request, new AbortController().signal)
         const text = redacted.system ? `${redacted.system}\n\n${redacted.prompt}` : redacted.prompt
         return { text, replacements: redacted.replacements }
+    }
+
+    /**
+     * Redact a tool result for the active profile before it reaches the model. Runs the same
+     * pure device-values-only redact() pass the outbound prompt uses, gated on the active
+     * profile's redactionEnabled flag. Returns the text unchanged only when an active profile
+     * explicitly has redaction off. Fails closed otherwise: an unresolvable active profile still
+     * gets scrubbed, matching previewRedaction and avoiding a raw leak if the profile changes
+     * mid-stream. Backs the terminal-output provider's redact dependency, so terminal text is
+     * scrubbed on both the HTTP and CLI/MCP transports.
+     */
+    async redactForActiveProfile(text: string): Promise<string> {
+        const profile = await this.resolveProvider(this.profileStore.getActiveId())
+        if (profile && !profile.redactionEnabled) return text
+        return redact(text, this.secrets(), { enabled: true }).text
     }
 }

@@ -154,8 +154,8 @@ export function clearOnionOverlayPersistDir(): void {
         if (!fs.existsSync(dir)) return
         for (const name of fs.readdirSync(dir)) {
             try {
-                const fp = path.join(dir, name)
-                if (fs.statSync(fp).isFile()) fs.unlinkSync(fp)
+                const filePath = path.join(dir, name)
+                if (fs.statSync(filePath).isFile()) fs.unlinkSync(filePath)
             } catch {
                 // best-effort
             }

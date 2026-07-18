@@ -1,4 +1,4 @@
-# Developer Docs
+# Roku Developer Documentation Browser (Offline Capable)
 
 The Developer Docs tool is an in-app browser for the official Roku developer documentation. It fetches the docs directly from the rokudev/dev-doc repository and renders them inside RokDock, so you can read reference material without leaving the app.
 
@@ -12,7 +12,7 @@ The Developer Docs tool is an in-app browser for the official Roku developer doc
 
 ## Window Layout
 
-![Developer Docs window: brand-gradient toolbar, a navigation sidebar with search, What's New, Favorites, and the Browse tree, and a reading pane showing a rendered Roku documentation page](images/developer-docs.png)
+![Developer Docs window: brand-gradient toolbar, a navigation sidebar with search, What's New, Favorites, and the Browse tree, and a reading pane showing a rendered Roku documentation page](images/docs-lead.png)
 *Developer Docs with the Browse tree expanded and a page open in the reading pane.*
 
 The window has a brand-gradient toolbar across the top, a navigation sidebar on the left, and a reading pane on the right.
@@ -31,19 +31,16 @@ From top to bottom, the sidebar contains:
 
 ### Search
 
-![Developer Docs sidebar showing search results for "deeplink": each result has a page title, its section, and a snippet with the matched term highlighted](images/docs-search.png)
+![Developer Docs with a full-text search in the sidebar: each result shows a page title, its section, and a snippet with the matched term highlighted, and the selected page open in the reading pane](images/docs-search.png)
 *Full-text search results in the sidebar, with the matched term highlighted in each snippet.*
 
 A full-text search box. Type a query and matching pages appear with the section name and a context snippet, with your terms highlighted. Press `Enter` to open the first result, or `Escape` to clear the box. The first search of a session builds a local index of every page (it shows "Building search index..."), which then makes later searches instant. Opening a result scrolls to and highlights the matched text and shows a floating find bar to cycle through matches (`F3` / `Shift+F3`).
-
-![An opened doc page with the matched term highlighted in the body and the floating find bar showing the match count and prev/next/close controls](images/docs-find-bar.png)
-*Opening a result highlights the match in the page and shows the find bar to cycle through matches.*
 
 Search runs entirely against a local index built from the page content, not the GitHub search API, so it works against the same content you browse.
 
 ### What's New
 
-![The What's New feed: 7/30/90-day window controls, Rendered/Source and Content-only toggles, and changed pages grouped by section with per-page added/removed line counts](images/docs-whats-new.png)
+![The What's New feed: 7/30/90-day window controls, Rendered/Source and Content-only toggles, and changed pages grouped by section with per-page added/removed line counts](images/docs-whatsnew.png)
 *What's New groups changed pages by section and shows each page's added and removed line counts.*
 
 Opens a feed of pages that changed in the official docs over a chosen window (7, 30, or 90 days). Each entry can be expanded to show the actual change as a diff, with a Rendered view (formatted markdown tinted for additions and removals) and a Source view (line-level tracked changes). A "Content only" toggle hides formatting-only changes so you see just the meaningful text edits. Click an entry's title to open that page.

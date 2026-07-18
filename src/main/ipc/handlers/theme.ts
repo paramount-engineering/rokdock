@@ -60,7 +60,7 @@ function persistedAppearance(preferences: AppPreferences): AppearanceDraft {
         fontSize: preferences.fontSize ?? 13,
         syntaxPreset: preferences.terminalSyntaxThemePreset ?? 'rokdockDark',
         syntaxCustom: (preferences.terminalSyntaxThemeCustomColors ?? {}) as Record<string, string>,
-        useThemeBackground: preferences.terminalUseThemeBackground ?? false,
+        useThemeBackground: preferences.terminalUseThemeBackground ?? true,
         fallbackColor: preferences.terminalFallbackColor ?? '#e0e0e0',
     }
 }

@@ -5,6 +5,8 @@
  * unit-tested without a DOM or Electron context.
  */
 
+import { JSON_INDENT_WIDTH } from '../shared/jsonIndent'
+
 // -- Byte size -------------------------------------------------------------------
 
 /**
@@ -43,7 +45,7 @@ export function utf8ByteLength(text: string): number {
  * drives both the pretty-printers here (format and sort) and the editor's own
  * typing indent / tab size in jsonEditor.ts.
  */
-export const INDENT_WIDTH = 2
+export const INDENT_WIDTH = JSON_INDENT_WIDTH
 
 /**
  * Parses and re-serializes the given text with INDENT_WIDTH-space indentation.
@@ -201,15 +203,29 @@ export function sortJsonValue(slice: string): string | null {
 // -- Indent --------------------------------------------------------------------
 
 /**
- * Prepends `baseIndent` to every line in `jsonStr` after the first.
- * Used when replacing a span in the editor so the replacement aligns with the
- * column where the opening bracket lives.
+ * Prepends `baseIndent` to every line in `jsonStr` after the first. Used when replacing a
+ * value span in the editor: the first line stays where the opening bracket already sits, and
+ * later lines are shifted to the value's own indentation level so nested keys sit one level
+ * deeper and the closing bracket returns to the parent's indent.
  */
 export function reindentJson(jsonStr: string, baseIndent: string): string {
     return jsonStr
         .split('\n')
         .map((line, index) => (index === 0 ? line : baseIndent + line))
         .join('\n')
+}
+
+/**
+ * Returns the leading whitespace (indentation) of the line containing `offset` in `text`.
+ * This is the value's indentation LEVEL, not the column of a bracket that may sit later on
+ * the line after a `"key": ` prefix, so it is the correct base indent for reindenting a
+ * replaced value span.
+ */
+export function lineIndentAt(text: string, offset: number): string {
+    const lineStart = text.lastIndexOf('\n', offset - 1) + 1
+    let end = lineStart
+    while (end < text.length && (text[end] === ' ' || text[end] === '\t')) end++
+    return text.slice(lineStart, end)
 }
 
 // JSONL

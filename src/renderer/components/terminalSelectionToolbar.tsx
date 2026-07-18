@@ -4,7 +4,7 @@
  * actions are eligible for the current selection.
  *
  *  - "Look up in Docs" appears for a short (1-3 word) term (non-null `term`).
- *  - "Explain this" appears for any non-empty selection when `aiAvailable` is true.
+ *  - "Ask roBot" appears for any non-empty selection when `aiAvailable` is true.
  *
  * Renders nothing when no action is eligible.
  *
@@ -16,7 +16,8 @@
  */
 import React from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faMagnifyingGlass, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
+import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
+import { roBot } from './ai/roBotMark'
 import { AI_EXPLAIN_ACTION, withBeta } from '../../shared/ai/labels'
 
 interface Props {
@@ -77,7 +78,7 @@ export default function TerminalSelectionToolbar({ anchor, selection, term, aiAv
                     aria-label={withBeta(AI_EXPLAIN_ACTION)}
                     onClick={onExplain}
                 >
-                    <FontAwesomeIcon icon={faWandMagicSparkles} />
+                    <roBot.Glyph size={20} />
                 </button>
             )}
         </div>

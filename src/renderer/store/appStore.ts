@@ -30,7 +30,12 @@ import type { ThemeMode } from '../styles/theme'
 import type { Tint } from '@shared/colorTint'
 import type { AppearanceDraft } from '@shared/appearanceDraft'
 import type { TerminalSyntaxThemePreset, TerminalTokenPalette } from '../styles/terminalSyntaxThemes'
-import type { ChatMessage } from '../../shared/ai/types'
+import { syntaxPresetForMode } from '../styles/terminalSyntaxThemes'
+import type { ChatMessage, AiUiRequest, AiChatImage } from '../../shared/ai/types'
+
+/** A pending "roBot asks you to choose" question, rendered inline in the chat. */
+type ChatChoice = Extract<AiUiRequest, { kind: 'choice' }>
+import { reconcileDevices } from './reconcileDevices'
 
 export type { PortConfig, DeeplinkParam, DeeplinkConfig }
 export type Device = DeviceInfo
@@ -131,9 +136,14 @@ interface AppState {
     setLeftPanel: (open: boolean) => void
     setRightPanel: (open: boolean) => void
 
-    // Collapsible section persistence
+    // Collapsible section persistence. collapsedPanels tracks open-by-default
+    // sections the user has collapsed. expandedPanels tracks collapsed-by-default
+    // sections the user has expanded. A section uses one list or the other based
+    // on its defaultOpen, never both.
     collapsedPanels: string[]
     toggleCollapsedPanel: (id: string) => void
+    expandedPanels: string[]
+    toggleExpandedPanel: (id: string) => void
 
     // Remote panel target IP (shared by remote + deeplinks)
     remoteTargetIp: string | null
@@ -274,6 +284,13 @@ interface AppState {
     aiChatMessages: ChatMessage[]
     aiChatStreaming: { sessionId: string; text: string; activity: string | null } | null
     aiChatError: string | null
+    /** A pending inline choice question from roBot (held here so it survives a panel remount). */
+    aiChatChoice: ChatChoice | null
+    setAiChatChoice: (choice: ChatChoice | null) => void
+    /** Record an answered choice in the transcript: roBot's question, then the user's pick. */
+    appendChoiceExchange: (question: string, answer: string) => void
+    /** Append a screenshot roBot captured as an inline (display-only) chat message. */
+    appendChatImage: (image: AiChatImage) => void
     aiChatDock: AiChatDock
     aiChatDrawerHeight: number
     aiConversationId: string | null
@@ -374,11 +391,39 @@ let aiStreamWired = false
  */
 let docSymbolsRequested = false
 
+/** Returns `ids` with `id` removed if present, otherwise appended. Backs the panel toggles. */
+function toggleIdInList(ids: string[], id: string): string[] {
+    return ids.includes(id) ? ids.filter(existing => existing !== id) : [...ids, id]
+}
+
 /** Human label for the live tool-activity line. The two tool names are ours. */
 function formatActivity(name: string, args: Record<string, unknown>): string {
-    if (name === 'search_docs' && typeof args.query === 'string') return `Searching docs: "${args.query}"`
-    if (name === 'fetch_page' && typeof args.path === 'string') return `Reading: ${args.path}`
-    return 'Working...'
+    const str = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
+    switch (name) {
+        case 'search_docs': return str(args.query) ? `Searching docs: "${str(args.query)}"` : 'Searching docs'
+        case 'fetch_page': return str(args.path) ? `Reading: ${str(args.path)}` : 'Reading a doc page'
+        case 'list_devices': return 'Listing devices'
+        case 'get_active_app': return 'Checking the active app'
+        case 'get_media_state': return 'Checking playback'
+        case 'list_installed_channels': return 'Listing installed channels'
+        case 'capture_screenshot': return 'Capturing a screenshot'
+        case 'type_text': return 'Typing on the device'
+        case 'press_remote_key': {
+            const key = str(args.key) || 'a key'
+            const count = Math.floor(Number(args.count) || 1)
+            return count > 1 ? `Pressing ${key} (x${count})` : `Pressing ${key}`
+        }
+        case 'launch_channel': return str(args.channel) ? `Launching ${str(args.channel)}` : 'Launching a channel'
+        case 'open_deeplink': return str(args.channel) ? `Opening ${str(args.channel)}` : 'Opening a deeplink'
+        case 'ask_user': return 'Asking you a question'
+        case 'read_terminal_output': return 'Reading terminal output'
+        case 'search_terminal_output': {
+            const pattern = str(args.pattern)
+            return pattern ? `Searching terminal output: "${pattern}"` : 'Searching terminal output'
+        }
+        // Labels carry no trailing dots; the .ai-chat-activity::after animation supplies them.
+        default: return 'Working'
+    }
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -387,8 +432,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     lastScanAt: 0,
     /** Record the timestamp of the most recent device discovery scan. */
     setLastScanAt: (ts) => set({ lastScanAt: ts }),
-    /** Replace the full device list (called by useDeviceSync on discovery events). */
-    setDevices: (devices) => set({ devices }),
+    /**
+     * Merge a freshly-emitted device list into the store, preserving object identity for
+     * devices that have not meaningfully changed. SSDP re-emits the full list every scan
+     * (and IPC structured-clones it), so a blind replace would churn every device reference
+     * on every scan, resetting identity-keyed consumers like the Sideload dialog and
+     * flickering the status dot. reconcileDevices returns the same array when nothing
+     * structural changed, so we skip the state write in that case (lastSeen is still
+     * refreshed in place for the staleness math).
+     */
+    setDevices: (devices) => {
+        const current = get().devices
+        const reconciled = reconcileDevices(current, devices)
+        if (reconciled !== current) set({ devices: reconciled })
+    },
 
     // Tabs
     tabs: [],
@@ -681,20 +738,33 @@ export const useAppStore = create<AppState>((set, get) => ({
      * Persists the updated list of collapsed IDs to user preferences.
      */
     toggleCollapsedPanel: (id) => {
-        const current = get().collapsedPanels
-        const next = current.includes(id)
-            ? current.filter(panelId => panelId !== id)
-            : [...current, id]
+        const next = toggleIdInList(get().collapsedPanels, id)
         set({ collapsedPanels: next })
         void window.rokdock.store.setPreferences({ collapsedPanels: next }).catch((err: unknown) => {
             console.error('Failed to persist collapsed panels:', err)
         })
     },
+    expandedPanels: [],
+    /**
+     * Toggle the expanded state of a collapsed-by-default section by ID.
+     * Persists the updated list of expanded IDs to user preferences.
+     */
+    toggleExpandedPanel: (id) => {
+        const next = toggleIdInList(get().expandedPanels, id)
+        set({ expandedPanels: next })
+        void window.rokdock.store.setPreferences({ expandedPanels: next }).catch((err: unknown) => {
+            console.error('Failed to persist expanded panels:', err)
+        })
+    },
 
     // Remote panel target IP
     remoteTargetIp: null,
-    /** Set the device IP shown in the remote panel and deeplinks panel. */
-    setRemoteTargetIp: (ip) => set({ remoteTargetIp: ip }),
+    /** Set the device IP shown in the remote panel and deeplinks panel. Also tells main so
+     *  roBot's device-control tools default to the device the user is working with. */
+    setRemoteTargetIp: (ip) => {
+        set({ remoteTargetIp: ip })
+        void window.rokdock?.ai?.setActiveDevice?.(ip)
+    },
 
     toolsScreenshotEnabled: false,
     /** Set whether the Tools > Screenshot action is available (device selected and not in-flight). */
@@ -761,7 +831,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     terminalFontSize: 13,
     terminalFontFamily: '',
     terminalFallbackColor: DEFAULT_FALLBACK_TEXT_DARK,
-    terminalUseThemeBackground: false,
+    terminalUseThemeBackground: true,
     terminalAutoScroll: true,
     terminalWordWrap: true,
     terminalSyntaxThemePreset: 'rokdockDark',
@@ -829,9 +899,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         const shouldAutoAdjustFallback = normalizeHex(current.terminalFallbackColor) === normalizeHex(currentModeDefault)
         const nextFallback = shouldAutoAdjustFallback ? nextModeDefault : current.terminalFallbackColor
 
-        set({ themeMode: mode, terminalFallbackColor: nextFallback })
+        // Swap the syntax theme to its light/dark companion for the new mode, matching the
+        // Settings and Appearance-modal surfaces. A named theme's palette is fixed regardless of
+        // mode, so without this a dark theme stays dark after a direct toggle to light. Companion-less
+        // themes and the mode-aware none/custom presets pass through unchanged.
+        const nextSyntaxPreset = syntaxPresetForMode(current.terminalSyntaxThemePreset, nextConcrete)
+
+        set({ themeMode: mode, terminalFallbackColor: nextFallback, terminalSyntaxThemePreset: nextSyntaxPreset })
         void window.rokdock.store.setPreferences({
             themeMode: mode,
+            terminalSyntaxThemePreset: nextSyntaxPreset,
             ...(shouldAutoAdjustFallback ? { terminalFallbackColor: nextFallback } : {})
         }).catch((err: unknown) => {
             console.error('Failed to persist theme mode:', err)
@@ -848,13 +925,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     loadSettings: async () => {
         // Settings come from two stores: static app settings + user preferences.
         const settings = await window.rokdock.store.getSettings()
-        const prefs = await window.rokdock.store.getPreferences()
+        const preferences = await window.rokdock.store.getPreferences()
         // The user's actual choice (including 'system') is stored in themeMode below.
         // 'system' resolves to a concrete theme via nativeTheme in the main process.
         // Here we only need a concrete value for the fallback-color heuristic.
-        const storedMode: ThemeModeSetting = prefs.themeMode ?? 'dark'
+        const storedMode: ThemeModeSetting = preferences.themeMode ?? 'dark'
         const concreteMode = resolveConcreteThemeMode(storedMode)
-        const prefFallback = prefs.terminalFallbackColor
+        const prefFallback = preferences.terminalFallbackColor
         const resolvedFallback = (() => {
             if (!prefFallback) return concreteMode === 'light' ? DEFAULT_FALLBACK_TEXT_LIGHT : DEFAULT_FALLBACK_TEXT_DARK
             // Migrate the legacy single default to a readable light-mode default.
@@ -867,38 +944,39 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({
             ports: settings.ports,
             deeplinks,
-            terminalFontSize: prefs.fontSize ?? 13,
-            terminalFontFamily: prefs.fontFamily ?? '',
+            terminalFontSize: preferences.fontSize ?? 13,
+            terminalFontFamily: preferences.fontFamily ?? '',
             terminalFallbackColor: resolvedFallback,
-            terminalUseThemeBackground: prefs.terminalUseThemeBackground ?? false,
-            terminalAutoScroll: prefs.autoScroll ?? true,
-            terminalWordWrap: prefs.wordWrap ?? false,
-            terminalSyntaxThemePreset: prefs.terminalSyntaxThemePreset ?? (concreteMode === 'dark' ? 'rokdockDark' : 'rokdockLight'),
-            terminalSyntaxThemeCustomColors: prefs.terminalSyntaxThemeCustomColors ?? {},
-            terminalCommandHistory: prefs.terminalCommandHistory ?? [],
-            remoteKeyBindings: normalizeRemoteKeyBindings(prefs.remoteKeyBindings),
-            tabLabelMode: prefs.tabLabelMode ?? 'displayName',
+            terminalUseThemeBackground: preferences.terminalUseThemeBackground ?? true,
+            terminalAutoScroll: preferences.autoScroll ?? true,
+            terminalWordWrap: preferences.wordWrap ?? false,
+            terminalSyntaxThemePreset: preferences.terminalSyntaxThemePreset ?? (concreteMode === 'dark' ? 'rokdockDark' : 'rokdockLight'),
+            terminalSyntaxThemeCustomColors: preferences.terminalSyntaxThemeCustomColors ?? {},
+            terminalCommandHistory: preferences.terminalCommandHistory ?? [],
+            remoteKeyBindings: normalizeRemoteKeyBindings(preferences.remoteKeyBindings),
+            tabLabelMode: preferences.tabLabelMode ?? 'displayName',
             themeMode: storedMode,
             appliedThemeMode: concreteMode,
-            tint: prefs.tint ?? { hue: 0, saturation: 1, brightness: 0 },
-            discoveryScanIntervalMs: prefs.discoveryScanIntervalMs ?? 60000,
-            discoveryRequestTimeoutMs: prefs.discoveryRequestTimeoutMs ?? 5000,
-            devAppPollIntervalMs: prefs.devAppPollIntervalMs ?? 3000,
-            appZoomLevel: prefs.appZoomLevel ?? 0,
-            uiFontScale: prefs.uiFontScale ?? 0,
-            splitRatio: prefs.splitRatio ?? 0.5,
-            collapsedPanels: prefs.collapsedPanels ?? ['scripts'],
-            captureDeviceId: prefs.captureDeviceId ?? null,
-            captureDeviceLabel: prefs.captureDeviceLabel ?? null,
-            captureMuted: prefs.captureMuted ?? true,
-            captureVolume: prefs.captureVolume ?? 80,
-            captureMode: (prefs.captureMode === 'popout' ? 'docked' : (prefs.captureMode as CaptureMode)) ?? 'docked',
-            captureDockSide: (prefs.captureDockSide as 'left' | 'right') ?? 'left',
-            capturePipBounds: prefs.capturePipBounds ?? null,
-            captureAspectRatio: (prefs.captureAspectRatio as '16:9' | '4:3' | 'auto') ?? 'auto',
-            captureIdleTimeoutSec: prefs.captureIdleTimeoutSec ?? 3600,
-            screenshotFolder: prefs.screenshotFolder ?? '',
-            screenshotNamingFormat: prefs.screenshotNamingFormat ?? DEFAULT_SCREENSHOT_NAMING_FORMAT,
+            tint: preferences.tint ?? { hue: 0, saturation: 1, brightness: 0 },
+            discoveryScanIntervalMs: preferences.discoveryScanIntervalMs ?? 60000,
+            discoveryRequestTimeoutMs: preferences.discoveryRequestTimeoutMs ?? 5000,
+            devAppPollIntervalMs: preferences.devAppPollIntervalMs ?? 3000,
+            appZoomLevel: preferences.appZoomLevel ?? 0,
+            uiFontScale: preferences.uiFontScale ?? 0,
+            splitRatio: preferences.splitRatio ?? 0.5,
+            collapsedPanels: preferences.collapsedPanels ?? ['scripts'],
+            expandedPanels: preferences.expandedPanels ?? [],
+            captureDeviceId: preferences.captureDeviceId ?? null,
+            captureDeviceLabel: preferences.captureDeviceLabel ?? null,
+            captureMuted: preferences.captureMuted ?? true,
+            captureVolume: preferences.captureVolume ?? 80,
+            captureMode: (preferences.captureMode === 'popout' ? 'docked' : (preferences.captureMode as CaptureMode)) ?? 'docked',
+            captureDockSide: (preferences.captureDockSide as 'left' | 'right') ?? 'left',
+            capturePipBounds: preferences.capturePipBounds ?? null,
+            captureAspectRatio: (preferences.captureAspectRatio as '16:9' | '4:3' | 'auto') ?? 'auto',
+            captureIdleTimeoutSec: preferences.captureIdleTimeoutSec ?? 3600,
+            screenshotFolder: preferences.screenshotFolder ?? '',
+            screenshotNamingFormat: preferences.screenshotNamingFormat ?? DEFAULT_SCREENSHOT_NAMING_FORMAT,
         })
     },
     /**
@@ -1113,6 +1191,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     aiChatMessages: [],
     aiChatStreaming: null,
     aiChatError: null,
+    aiChatChoice: null,
+    setAiChatChoice: (choice) => set({ aiChatChoice: choice }),
+    appendChoiceExchange: (question, answer) => set(state => ({
+        aiChatMessages: [...state.aiChatMessages, { role: 'assistant', content: question }, { role: 'user', content: answer }],
+    })),
+    appendChatImage: (image) => set(state => ({
+        aiChatMessages: [...state.aiChatMessages, { role: 'assistant', content: `Screenshot of ${image.deviceName}`, image: { thumbnailDataUrl: image.thumbnailDataUrl, deviceIp: image.deviceIp, path: image.path } }],
+    })),
     aiChatDock: 'left',
     aiConversationId: null,
     aiDocSymbols: {},
@@ -1152,7 +1238,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (!conversationId) { conversationId = crypto.randomUUID(); set({ aiConversationId: conversationId }) }
         set({ aiChatMessages: [...state.aiChatMessages, { role: 'user', content: trimmed }], aiChatError: null })
         try {
-            const { sessionId } = await window.rokdock.ai.startStream({ messages: [...priorMessages, { role: 'user', content: trimmed }] }, conversationId)
+            // Send only real turns and only their model-visible fields. Display-only screenshot
+            // messages are dropped entirely (they carry no model text and would otherwise create
+            // two assistant turns in a row, which native providers reject).
+            const outbound = [...priorMessages, { role: 'user' as const, content: trimmed }]
+                .filter(message => !message.image)
+                .map(message => ({ role: message.role, content: message.content }))
+            const { sessionId } = await window.rokdock.ai.startStream({ messages: outbound }, conversationId)
             set({ aiChatStreaming: { sessionId, text: '', activity: null } })
         } catch (e) {
             set({ aiChatError: e instanceof Error ? e.message : String(e) })
@@ -1228,6 +1320,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             const streaming = get().aiChatStreaming
             if (!streaming || streaming.sessionId !== sessionId) return
             set({ aiChatStreaming: null, aiChatError: message })
+        })
+        window.rokdock.ai.onChatImage((image: AiChatImage) => {
+            get().appendChatImage(image)
         })
     },
 }))

@@ -1,4 +1,4 @@
-# Terminal
+# Roku Debug Terminal (BrightScript Telnet Console)
 
 RokDock uses a custom built-in terminal emulator for Roku debug sessions.
 
@@ -52,7 +52,7 @@ Highlights include:
 - JSON detection and click-to-open JSON Viewer
 - Optional theme background integration
 
-![A connected terminal tab streaming BrightScript Micro Debugger output: syntax-highlighted source around the break, a Source Digest, a backtrace, local variables with types and refcounts, the thread list, and the "Brightscript Debugger>" prompt, with a detected URL underlined at the top](images/terminal-live.png)
+![A connected terminal tab streaming BrightScript Micro Debugger output: syntax-highlighted source around the break, a Source Digest, a backtrace, local variables with types and refcounts, the thread list, and the "Brightscript Debugger>" prompt, with a detected URL underlined at the top](images/terminal-live.webp)
 *A connected terminal tab at a BrightScript debugger break. Output is tokenized and colored, and detected URLs are underlined as links.*
 
 ## Search
@@ -161,7 +161,7 @@ This is useful for inspecting long ad URLs, analytics beacons, and API calls tha
 
 Open **Settings > Appearance** to configure font and syntax options. The gear icon in the terminal tab bar opens this tab scrolled to its Terminal section.
 
-![Settings > Appearance tab showing the Theme section plus the shared Code section with font family, font size, syntax theme selector, use-theme-background toggle, and live BrightScript preview](images/settings-appearance.png)
+![Settings > Appearance tab scrolled to the shared Code section: font family, code font size, syntax theme selector, use-theme-background toggle, and a live BrightScript preview](images/settings-code.png)
 _Settings > Appearance: the Code section sets font family, font size, syntax theme, and the use-theme-background toggle with a live preview._
 
 Options include:

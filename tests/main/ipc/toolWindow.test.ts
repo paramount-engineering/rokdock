@@ -8,7 +8,7 @@ function fakeWin() {
         destroyed: false,
         focused: 0,
         isDestroyed() { return this.destroyed },
-        on(event: string, cb: () => void) { listeners[event] = cb },
+        on(event: string, callback: () => void) { listeners[event] = callback },
         focus() { this.focused++ },
         emitClosed() { this.destroyed = true; listeners['closed']?.() },
     }

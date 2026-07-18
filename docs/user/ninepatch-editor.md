@@ -1,4 +1,4 @@
-# 9-Patch Editor
+# 9-Patch Editor for Roku SceneGraph Assets
 
 RokDock includes a built-in 9-patch image editor for creating and editing stretchable `.9.png` assets used in Roku SceneGraph development.
 

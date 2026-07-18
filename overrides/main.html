@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{#
+  Injects JSON-LD SoftwareApplication structured data into every page head so
+  search and AI answer engines can identify RokDock as a free, cross-platform
+  developer application. Rendered by MkDocs Material via theme.custom_dir.
+#}
+{% block extrahead %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "RokDock",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Windows, macOS, Linux",
+    "description": "Free cross-platform desktop app for Roku development: device discovery, BrightScript debug terminal, sideloading, screenshots, deeplinks, automation scripting, and an AI assistant with Gemini, Claude, Copilot, and Codex.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "license": "https://www.apache.org/licenses/LICENSE-2.0"
+  }
+  </script>
+{% endblock %}

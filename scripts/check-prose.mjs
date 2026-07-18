@@ -21,10 +21,11 @@ const sourceExtensions = new Set([
 // Generated, vendored, gitignored, or tool-output trees we never hand-edit. `superpowers`
 // covers docs/superpowers (gitignored brainstorm/plan artifacts, not shipped docs).
 // `demo-video` is the gitignored Remotion marketing video project, not shipped app source.
+// `site` is the gitignored MkDocs build output (docs site), not hand-authored.
 const skipDirectories = new Set([
     'node_modules', '.git', 'out', 'dist', 'release', 'build', 'coverage',
     'test-results', 'playwright-report', 'graphify-out', '.claude', '.superpowers', 'superpowers',
-    'demo-video',
+    'demo-video', 'site',
 ])
 // Generated files (upstream non-ASCII) or the gitignored backlog, which intentionally
 // documents the banned characters as examples.

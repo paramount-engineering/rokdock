@@ -10,8 +10,9 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import type { DocsTreeNode } from '@shared/docs/types'
 import { Caret } from '../common/caret'
 
-/** A tiny sticky-note glyph marking a tree page that has a personal note. */
-function NoteMarker(): React.JSX.Element {
+/** A tiny sticky-note glyph marking a page that has a personal note. Shared with
+ *  the sidebar's Favorites and Notes sections so the marker is identical everywhere. */
+export function NoteMarker(): React.JSX.Element {
     return (
         <span className="docs-nav-note" title="This page has a note" aria-label="Has a note">
             <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">

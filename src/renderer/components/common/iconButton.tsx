@@ -19,7 +19,9 @@ type IconButtonProps = {
     'data-testid'?: string
 }
 
-const sizeMap = { sm: 20, md: 26 }
+/** Outer button footprint (px) per size variant. Exported so layouts can reserve space. */
+export const ICON_BUTTON_SIZE = { sm: 20, md: 26 } as const
+const sizeMap = ICON_BUTTON_SIZE
 const iconSizeMap = { sm: 11, md: 12 }
 
 /**

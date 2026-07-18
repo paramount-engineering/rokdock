@@ -77,5 +77,15 @@ export interface TerminalLineChunk {
     overlays: TerminalOverlaySpan[]
 }
 
+/**
+ * The focused terminal tab's whole line buffer, delivered from the dock renderer to the main
+ * process when roBot reads or searches terminal output. `lines` are the plain display texts
+ * (no tokens/overlays). `label` identifies the terminal to the model (redacted downstream).
+ */
+export interface FocusedTerminalPayload {
+    label: string
+    lines: string[]
+}
+
 /** Max scrollback lines kept per terminal session (renderer buffer cap). */
 export const TERMINAL_MAX_BUFFER_LINES = 5000

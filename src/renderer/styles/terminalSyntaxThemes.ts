@@ -25,6 +25,7 @@ export type TerminalSyntaxThemePreset =
     | 'oneLight'
     | 'oneDarkPro'
     | 'dracula'
+    | 'alucard'
     | 'nord'
     | 'solarizedDark'
     | 'solarizedLight'
@@ -240,6 +241,29 @@ const draculaColors: TerminalTokenPalette = {
     objectNumberValue: '#bd93f9'
 }
 
+// Alucard is the official light companion to Dracula. Each token is the Alucard counterpart of the
+// Dracula color above it, per the Dracula project spec (draculatheme.com/spec), over the light base.
+const alucardColors: TerminalTokenPalette = {
+    ...atomOneLightColors,
+    plain: '#1f1f1f',
+    prompt: '#000000',
+    brightscriptDebuggerPrompt: '#644ac9',
+    comment: '#6c664b',
+    keyword: '#a3144d',
+    functionName: '#036a96',
+    string: '#846e15',
+    number: '#644ac9',
+    boolean: '#a3144d',
+    error: '#cb3a2a',
+    warning: '#a34d14',
+    info: '#036a96',
+    debug: '#644ac9',
+    filePath: '#036a96',
+    url: '#036a96',
+    objectStringValue: '#846e15',
+    objectNumberValue: '#644ac9'
+}
+
 const nordColors: TerminalTokenPalette = {
     ...atomOneDarkColors,
     plain: '#d8dee9',
@@ -357,6 +381,7 @@ export const TERMINAL_SYNTAX_THEMES: Record<Exclude<TerminalSyntaxThemePreset, '
     oneDarkPro: { name: 'One Dark Pro', mode: 'dark', colors: { ...oneDarkProColors }, background: '#282c34' },
     oneLight: { name: 'One Light', mode: 'light', colors: { ...oneLightColors }, background: '#fafafa' },
     dracula: { name: 'Dracula', mode: 'dark', colors: { ...draculaColors }, background: '#282a36' },
+    alucard: { name: 'Alucard', mode: 'light', colors: { ...alucardColors }, background: '#fffbeb' },
     nord: { name: 'Nord', mode: 'dark', colors: { ...nordColors }, background: '#2e3440' },
     solarizedDark: { name: 'Solarized Dark', mode: 'dark', colors: { ...solarizedDarkColors }, background: '#002b36' },
     solarizedLight: { name: 'Solarized Light', mode: 'light', colors: { ...solarizedLightColors }, background: '#fdf6e3' },
@@ -379,6 +404,7 @@ export const TERMINAL_SYNTAX_THEMES: Record<Exclude<TerminalSyntaxThemePreset, '
  */
 const SYNTAX_THEME_COMPANIONS: Partial<Record<TerminalSyntaxThemePreset, Exclude<TerminalSyntaxThemePreset, 'custom'>>> = {
     rokdockDark: 'rokdockLight', rokdockLight: 'rokdockDark',
+    dracula: 'alucard', alucard: 'dracula',
     atomOneDark: 'atomOneLight', atomOneLight: 'atomOneDark',
     oneDarkPro: 'oneLight', oneLight: 'oneDarkPro',
     solarizedDark: 'solarizedLight', solarizedLight: 'solarizedDark',

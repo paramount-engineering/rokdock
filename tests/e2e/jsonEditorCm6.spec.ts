@@ -155,6 +155,17 @@ test('sorts keys at the cursor (offset-native path)', async () => {
     }).toBe(true)
 })
 
+test('sorting a nested value indents keys one level deep, not to the bracket column', async () => {
+    // Regression: sorting a nested object pushed its keys far right (base indent was the column
+    // of the opening brace, which sits after `"appConfig": `, instead of the line's indent level).
+    await openTabWith(editor, '{\n  "appConfig": {\n    "z_key": "1",\n    "a_key": "2"\n  }\n}')
+    // Click a key inside the nested object so the cursor lands within appConfig's value.
+    await editor.locator('.cm-content').getByText('z_key').first().click()
+    await sendCommand({ type: 'sortAtCursor' })
+    await expect.poll(async () => docText(editor), { timeout: 3_000 })
+        .toContain('  "appConfig": {\n    "a_key": "2",\n    "z_key": "1"\n  }')
+})
+
 test('warns when format merges duplicate keys', async () => {
     await openTabWith(editor, '{"a":1,"a":2}')
     await editor.locator('#btnFormat').click()

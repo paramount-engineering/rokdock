@@ -1,4 +1,4 @@
-# Deeplinks
+# Roku Deeplink Testing (Launch and Input Presets)
 
 RokDock lets you configure reusable deeplink presets and fire them against a selected Roku device from the right panel.
 
@@ -47,7 +47,7 @@ From this tab you can:
 
 ## Launching Deeplinks
 
-![The Deeplinks panel with three preset buttons: Launch Dev Channel and Play Test Movie (rocket icon, launch/dev path), and Send Refresh Input (satellite-dish icon, input path)](images/deeplinks-live.png)
+![The Deeplinks panel with preset buttons: Launch: Craig Venter (episode), Launch from ad campaign, and Launch with custom params (rocket icon, launch/dev path), and Input: resume at 15:00 (satellite-dish icon, input path)](images/control-deeplinks.png)
 *The Deeplinks panel with configured presets. Launch entries show a rocket icon, Input entries a satellite dish, and each button's meta line shows its ECP path and content ID.*
 
 From the Deeplinks panel in the right rail:

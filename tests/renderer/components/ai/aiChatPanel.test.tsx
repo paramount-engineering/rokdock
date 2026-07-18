@@ -30,7 +30,7 @@ afterEach(() => {
 describe('AiChatPanel', () => {
     it('shows the (Beta) title', () => {
         const { getByTestId } = render(<AiChatPanel />)
-        expect(getByTestId('ai-chat-panel').textContent).toContain('AI Chat (Beta)')
+        expect(getByTestId('ai-chat-panel').textContent).toContain('roBot (Beta)')
     })
 
     it('sends the typed message on Enter', () => {

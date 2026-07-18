@@ -57,8 +57,8 @@ export function useDocsNotes(): DocsNotesHook {
     const persistReady = useRef(false)
 
     useEffect(() => {
-        void window.rokdock.store.getPreferences().then((prefs: AppPreferences) => {
-            const stored = prefs.docsNotesByPath ?? {}
+        void window.rokdock.store.getPreferences().then((preferences: AppPreferences) => {
+            const stored = preferences.docsNotesByPath ?? {}
             notesRef.current = stored
             setNotesByPath(stored)
             setLoaded(true)

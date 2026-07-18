@@ -18,6 +18,9 @@ import { AiService } from '../services/ai/aiService'
 import { DocsService } from '../services/docsService'
 import { DocsRagIndex } from '../services/docsRagIndex'
 import { createDocsContextProvider } from '../services/ai/docsContextProvider'
+import { createDeviceControlProvider } from '../services/ai/deviceControlProvider'
+import { createTerminalOutputProvider } from '../services/ai/terminalOutputProvider'
+import { createAskUserProvider } from '../services/ai/askUserProvider'
 import { SsdpService } from '../services/ssdp'
 import { TcpManager } from '../services/tcpManager'
 import { EcpService } from '../services/ecp'
@@ -27,7 +30,8 @@ import type { IpcContext } from './types'
 import { registerAppHandlers } from './handlers/app'
 import { registerContextMenuHandlers } from './handlers/contextMenu'
 import { registerEditHandlers } from './handlers/edit'
-import { registerDeviceScreenshotHandlers } from './handlers/deviceScreenshot'
+import { registerDeviceScreenshotHandlers, captureDeviceScreenshotForChat } from './handlers/deviceScreenshot'
+import { requestFocusedTerminal } from './handlers/terminalOutputBridge'
 import { registerDialogHandlers } from './handlers/dialog'
 import { registerDiscoveryHandlers, repopulateConfiguredDevices } from './handlers/discovery'
 import { registerEcpHandlers } from './handlers/ecp'
@@ -90,8 +94,40 @@ export function registerIpcHandlers(
     // conventions used by the rest of the e2e harness.
     const e2eCliKinds = process.env.ROKDOCK_E2E_CLIS
     const mcpEndpoint = createMcpToolEndpoint()
-    const aiService = new AiService(aiProfileStore, ssdp, store, {
-        contextProviders: [createDocsContextProvider({ query: (queryText, topK) => ragIndex.query(queryText, topK), getPage: (pagePath) => docs.getPage(pagePath) })],
+    // The renderer's currently-selected remote device, pushed on change (ai:set-active-device).
+    // The device-control tools read it as their default target. Encapsulated behind a
+    // setter on the context so no handler can mutate it directly.
+    let activeDeviceIp: string | null = null
+    const aiService: AiService = new AiService(aiProfileStore, ssdp, store, {
+        contextProviders: [
+            createDocsContextProvider({ query: (queryText, topK) => ragIndex.query(queryText, topK), getPage: (pagePath) => docs.getPage(pagePath) }),
+            createDeviceControlProvider({
+                ecp,
+                listDevices: () => ssdp.getDevices(),
+                getActiveDeviceIp: () => activeDeviceIp,
+                // `context` is assigned just below; this closure only runs during a live AI stream.
+                // Capture to a file, then push a thumbnail into the chat for inline display. The
+                // image stays local (never sent to the model), and clicking it opens the viewer.
+                captureScreenshot: async (ip) => {
+                    // Native ECP capture (dev channel) with an HDMI-preview fallback. The screenshot
+                    // module owns that policy. Here we only push the resulting thumbnail into the chat
+                    // (it stays local, never sent to the model) so a click can open the saved file.
+                    const result = await captureDeviceScreenshotForChat(context, ip)
+                    if (!result.ok) return { ok: false, error: result.error }
+                    const device = ssdp.getDevices().find((device) => device.ip === ip)
+                    context.sendToAllWindows('ai:chat-image', { thumbnailDataUrl: result.thumbnailDataUrl, path: result.filePath, deviceIp: ip, deviceName: device?.name ?? 'Roku' })
+                    return { ok: true, viaHdmiCapture: result.viaHdmiCapture }
+                },
+            }),
+            createTerminalOutputProvider({
+                // The dock owns the terminal tabs, so ask it (not every window) for the focused buffer.
+                readFocusedTerminal: () => requestFocusedTerminal(getMainWindow()),
+                // Late-bound: aiService is the const being assigned here. The closure only reads it at
+                // stream time (after assignment), matching the captureScreenshot closure over `context`.
+                redact: (text) => aiService.redactForActiveProfile(text),
+            }),
+            createAskUserProvider(),
+        ],
         policyDir: app.getPath('userData'),
         mcpEndpoint,
         ...(e2eCliKinds ? { detectClis: async () => e2eCliKinds.split(',').filter(isCliKind) } : {}),
@@ -106,6 +142,7 @@ export function registerIpcHandlers(
         docs,
         ai: aiService,
         mcpEndpoint,
+        setActiveDeviceIp: (ip: string | null) => { activeDeviceIp = typeof ip === 'string' && ip ? ip : null },
         sendToAllWindows: (channel: string, ...args: unknown[]) => {
             for (const win of BrowserWindow.getAllWindows()) {
                 if (!win.isDestroyed()) win.webContents.send(channel, ...args)

@@ -41,9 +41,13 @@ import {
 } from '../../shared/terminal'
 import { resolveSyntaxTheme, type TerminalSyntaxTheme } from '../styles/terminalSyntaxThemes'
 import { escapeRegExp } from '@shared/escapeRegExp'
+import { createRegexMatchClient } from './terminal/regexMatchClient'
+import type { RegexMatchClient } from './terminal/regexMatchClient'
 import { selectionQualifiesForLookup, qualifyingLookupTerm } from './terminalDocsLookup'
+import { wrapInCodeFence } from '../codeFence'
 import TerminalSelectionToolbar from './terminalSelectionToolbar'
 import ConfirmDialog from './common/confirmDialog'
+import RegexFilterDialog from './terminal/regexFilterDialog'
 import {
     buildSegments,
     groupSegmentsForLine,
@@ -91,6 +95,11 @@ export function clearTerminalCache(tabId: string): void {
     terminalLinesCache.delete(tabId)
 }
 
+/** Read a tab's cached line buffer (write-through). Used by the terminal-output responder. */
+export function readTerminalCache(tabId: string): TerminalLineChunk[] | undefined {
+    return terminalLinesCache.get(tabId)
+}
+
 
 
 /**
@@ -112,8 +121,8 @@ const JSON_LINK_ACTIVE_CLASS = 'rokdock-terminal-json-link-active'
 /** Remove the hover-active CSS class from every JSON link element inside `root`. */
 function clearJsonLinkActiveInRoot(root: HTMLElement | null): void {
     if (!root) return
-    root.querySelectorAll(`.${JSON_LINK_ACTIVE_CLASS}`).forEach((el) => {
-        el.classList.remove(JSON_LINK_ACTIVE_CLASS)
+    root.querySelectorAll(`.${JSON_LINK_ACTIVE_CLASS}`).forEach((element) => {
+        element.classList.remove(JSON_LINK_ACTIVE_CLASS)
     })
 }
 
@@ -125,9 +134,9 @@ function clearJsonLinkActiveInRoot(root: HTMLElement | null): void {
 function setJsonLinkActiveGroupInRoot(root: HTMLElement | null, ig: string): void {
     if (!root) return
     clearJsonLinkActiveInRoot(root)
-    const sel = `[data-json-ig="${CSS.escape(ig)}"]`
-    root.querySelectorAll(sel).forEach((el) => {
-        el.classList.add(JSON_LINK_ACTIVE_CLASS)
+    const selector = `[data-json-ig="${CSS.escape(ig)}"]`
+    root.querySelectorAll(selector).forEach((element) => {
+        element.classList.add(JSON_LINK_ACTIVE_CLASS)
     })
 }
 
@@ -138,9 +147,9 @@ function setJsonLinkActiveGroupInRoot(root: HTMLElement | null, ig: string): voi
  */
 function clearJsonLinkActiveGroupInRoot(root: HTMLElement | null, ig: string): void {
     if (!root) return
-    const sel = `[data-json-ig="${CSS.escape(ig)}"]`
-    root.querySelectorAll(sel).forEach((el) => {
-        el.classList.remove(JSON_LINK_ACTIVE_CLASS)
+    const selector = `[data-json-ig="${CSS.escape(ig)}"]`
+    root.querySelectorAll(selector).forEach((element) => {
+        element.classList.remove(JSON_LINK_ACTIVE_CLASS)
     })
 }
 
@@ -520,7 +529,10 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     const aiConfigured = useAppStore((state) => state.aiConfigured)
     const openChatWith = useAppStore((state) => state.openChatWith)
 
-    const [lines, setLines] = useState<TerminalLineChunk[]>([])
+    // Seed from the write-through cache so a remounted view (pane move, or the left panel being
+    // collapsed then reopened) restores its last-known buffer. The initializer runs once on mount,
+    // before the write-through effect below, so it cannot be clobbered by that effect's first run.
+    const [lines, setLines] = useState<TerminalLineChunk[]>(() => terminalLinesCache.get(tab.id) ?? [])
     const [input, setInput] = useState('')
     const [historyIndex, setHistoryIndex] = useState<number | null>(null)
     const [historyDraft, setHistoryDraft] = useState('')
@@ -536,14 +548,20 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     const [searchRegex, setSearchRegex] = useState(false)
     const [historyMenuOpen, setHistoryMenuOpen] = useState(false)
     const [streamFilePath, setStreamFilePath] = useState<string | null>(null)
+    // Optional line filter for Save-output / Stream-to-file: the prompt mode plus a
+    // snapshot of the buffer texts taken when it opens (for the live match count), null
+    // when closed; and the compiled regex applied to streamed lines (null = every line).
+    const [filterPrompt, setFilterPrompt] = useState<{ mode: 'save' | 'stream'; sampleLines: string[] } | null>(null)
+    const streamFilterRef = useRef<RegExp | null>(null)
     const markActivityRafRef = useRef<number | null>(null)
     const bufferCountRafRef = useRef<number | null>(null)
     const pendingBufferLineCountRef = useRef<number | null>(null)
-    const linesRef = useRef<TerminalLineChunk[]>(lines)
 
+    // Write through to the module cache so an always-mounted responder can read the focused tab's
+    // buffer even while this component is unmounted (e.g. the left panel is collapsed).
     useLayoutEffect(() => {
-        linesRef.current = lines
-    }, [lines])
+        terminalLinesCache.set(tab.id, lines)
+    }, [lines, tab.id])
 
     useLayoutEffect(() => {
         pendingBufferLineCountRef.current = lines.length
@@ -875,39 +893,52 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         }
     }, [isActive, lines, jsonHoverDetectEnabled, tab.wordWrap])
 
-    const searchState = useMemo<SearchState>(() => {
-        if (!isActive) return { matches: [], regexError: null }
+    // Search matching runs in a Web Worker (regexMatchClient) so a catastrophic-backtracking
+    // user pattern cannot freeze the renderer: the client hard-terminates a stuck worker on a
+    // watchdog timeout and surfaces "Pattern too slow" instead of hanging. The run is debounced,
+    // and the previous matches stay on screen until the new result arrives (no per-keystroke flicker).
+    const searchClientRef = useRef<RegexMatchClient | null>(null)
+    const filterClientRef = useRef<RegexMatchClient | null>(null)
+    const streamClientRef = useRef<RegexMatchClient | null>(null)
+    useEffect(() => () => {
+        searchClientRef.current?.dispose()
+        searchClientRef.current = null
+        filterClientRef.current?.dispose()
+        filterClientRef.current = null
+        streamClientRef.current?.dispose()
+        streamClientRef.current = null
+    }, [])
+    const ensureFilterClient = (): RegexMatchClient => {
+        if (!filterClientRef.current) filterClientRef.current = createRegexMatchClient()
+        return filterClientRef.current
+    }
+    // Set once the stream filter times out on a streamed line: from then on the stream is written
+    // unfiltered (see the stream effect), so a catastrophic pattern on a future line cannot freeze
+    // or repeatedly stall the write loop. Reset when a new stream starts or streaming stops.
+    const streamFilterTimedOutRef = useRef(false)
+
+    const [searchState, setSearchState] = useState<SearchState>({ matches: [], regexError: null })
+    useEffect(() => {
+        if (!isActive) { setSearchState({ matches: [], regexError: null }); return }
         const query = searchQuery.trim()
-        if (!query) return { matches: [], regexError: null }
+        if (!query) { setSearchState({ matches: [], regexError: null }); return }
         let source = searchRegex ? query : escapeRegExp(query)
         if (searchWholeWord) source = `\\b${source}\\b`
+        const flags = searchMatchCase ? 'g' : 'gi'
+        const lines = linesWithJsonFallback.map((line) => line.text)
 
-        let pattern: RegExp
-        try {
-            pattern = new RegExp(source, searchMatchCase ? 'g' : 'gi')
-        } catch {
-            return { matches: [], regexError: 'Invalid regex' }
-        }
-
-        const matches: SearchMatch[] = []
-        for (let lineIndex = 0; lineIndex < linesWithJsonFallback.length; lineIndex++) {
-            const haystack = linesWithJsonFallback[lineIndex].text
-            if (!haystack) continue
-            pattern.lastIndex = 0
-            while (true) {
-                const found = pattern.exec(haystack)
-                if (!found) break
-                const token = found[0]
-                const start = found.index
-                const end = start + token.length
-                if (token.length === 0) {
-                    pattern.lastIndex += 1
-                    continue
-                }
-                matches.push({ lineIndex, start, end })
-            }
-        }
-        return { matches, regexError: null }
+        let cancelled = false
+        const debounce = setTimeout(() => {
+            if (!searchClientRef.current) searchClientRef.current = createRegexMatchClient()
+            void searchClientRef.current.search(source, flags, lines).then((outcome) => {
+                if (cancelled) return
+                if (outcome.status === 'ok') setSearchState({ matches: outcome.value, regexError: null })
+                else if (outcome.status === 'invalid') setSearchState({ matches: [], regexError: 'Invalid regex' })
+                else if (outcome.status === 'timeout') setSearchState({ matches: [], regexError: 'Pattern too slow' })
+                // 'superseded': a newer keystroke is already in flight; let it set the state.
+            })
+        }, 120)
+        return () => { cancelled = true; clearTimeout(debounce) }
     }, [isActive, linesWithJsonFallback, searchMatchCase, searchQuery, searchRegex, searchWholeWord])
 
     const searchMatches = searchState.matches
@@ -984,13 +1015,13 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     // selection rather than over it. Captures both the full selection (for Explain)
     // and the qualifying short term (for docs lookup, null when not applicable).
     const onOutputMouseUp = useCallback(() => {
-        const sel = window.getSelection()
-        const text = sel?.toString() ?? ''
-        if (!text.trim() || !sel || sel.rangeCount === 0) {
+        const selection = window.getSelection()
+        const text = selection?.toString() ?? ''
+        if (!text.trim() || !selection || selection.rangeCount === 0) {
             setSelectionAnchor(null)
             return
         }
-        const rect = sel.getRangeAt(0).getBoundingClientRect()
+        const rect = selection.getRangeAt(0).getBoundingClientRect()
         setSelectionAnchor({ x: rect.left, y: rect.top, selection: text, term: qualifyingLookupTerm() })
     }, [])
 
@@ -1006,6 +1037,20 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         document.addEventListener('selectionchange', onSelectionChange)
         return () => document.removeEventListener('selectionchange', onSelectionChange)
     }, [toolbarVisible])
+
+    // The toolbar is pinned to a fixed viewport point captured when the selection
+    // was made. Resizing the layout (e.g. dragging the AI chat panel divider) moves
+    // the output without firing a scroll, so the toolbar would otherwise strand over
+    // now-hidden content. Clear it on any viewport resize, mirroring onViewportScroll.
+    // Attached at mount, where the anchor is null, so the observer's initial callback
+    // is a no-op rather than dismissing a fresh selection.
+    useEffect(() => {
+        const viewport = viewportRef.current
+        if (!viewport) return
+        const observer = new ResizeObserver(() => setSelectionAnchor(null))
+        observer.observe(viewport)
+        return () => observer.disconnect()
+    }, [])
 
     /**
      * Return the LineSegmentGroups for a terminal line, using a per-line identity
@@ -1024,7 +1069,13 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         return groups
     }, [])
 
-    const shouldVirtualize = !tab.wordWrap && !searchVisible
+    // Fixed-height virtualization stays ON during search: rendering the whole buffer (up to
+    // TERMINAL_MAX_BUFFER_LINES) when the find bar opened froze the terminal. The scroll-to-match
+    // effect brings an off-screen active match into the virtual window (set scrollTop, then
+    // scrollIntoView on the next frame), so jump-to-match still works without mounting every line.
+    // Word-wrap rows have variable height and cannot use fixed-height virtualization, so wrapped
+    // search still renders the full buffer (its match jump relies on the line already being in the DOM).
+    const shouldVirtualize = !tab.wordWrap
     const shouldWindowWrapRows = tab.wordWrap && tab.autoScroll && !searchVisible
     const totalVisibleLineCount = linesWithJsonFallback.length
     const virtualStartIndex = shouldVirtualize
@@ -1164,22 +1215,6 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         [flushPendingTerminalLines]
     )
 
-    // Save lines to cache on unmount using useLayoutEffect so the cleanup runs before
-    // the newly-mounted pane B component's useLayoutEffect setup in the same commit.
-    useLayoutEffect(() => {
-        return () => {
-            terminalLinesCache.set(tab.id, linesRef.current)
-        }
-    // tab.id is stable for a given instance; [] would also work but this is explicit
-    }, [tab.id])
-
-    // Restore from cache on mount. Runs after the unmounting component's layout effect
-    // cleanup (which saved to cache), so the cache entry is guaranteed to be there.
-    useLayoutEffect(() => {
-        const cached = terminalLinesCache.get(tab.id)
-        if (cached && cached.length > 0) setLines(cached)
-    }, [tab.id])
-
     useEffect(
         () => () => {
             if (flushRafRef.current !== null) {
@@ -1234,21 +1269,55 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         setHistoryMenuOpen(false)
     }, [addTerminalCommandHistory, input, tab.id])
 
+    /** Appends a one-line warning message to the terminal. */
+    const appendWarning = useCallback((message: string) => {
+        appendLine({ text: message, tokens: [{ start: 0, end: message.length, kind: 'warning' }], overlays: [] })
+    }, [appendLine])
+
     useEffect(() => {
         if (!streamFilePath || linesWithJsonFallback.length === 0) return
         if (streamWriteInFlightRef.current) return
         const from = Math.max(0, Math.min(streamCursorRef.current, linesWithJsonFallback.length))
         if (from >= linesWithJsonFallback.length) return
-        const delta = linesWithJsonFallback.slice(from).map((line) => line.text).join('\n') + '\n'
+        // Advance only past the lines examined THIS pass (this snapshot's length), not the
+        // live ref length. Lines that arrive during the async filter/append are then picked up by
+        // a later pass instead of being skipped over.
+        const examinedEnd = linesWithJsonFallback.length
+        const newTexts = linesWithJsonFallback.slice(from).map((line) => line.text)
+        const filter = streamFilterRef.current
+        // Single-in-flight: hold the gate across the async filter AND the append so batches stay
+        // strictly ordered (the worker preserves input order, so writes remain FIFO).
         streamWriteInFlightRef.current = true
-        void window.rokdock.dialog.appendFile(streamFilePath, delta)
-            .then((ok: boolean) => {
-                if (ok) streamCursorRef.current = linesWithJsonFallbackRef.current.length
-            })
-            .finally(() => {
+        void (async () => {
+            try {
+                // Filter this batch in the regex worker so a catastrophic pattern on a future line
+                // cannot freeze the renderer. On timeout the worker is terminated and streaming
+                // continues UNFILTERED from then on (one-time warning); line order is never disturbed.
+                let kept: string[]
+                if (!filter || streamFilterTimedOutRef.current) {
+                    kept = newTexts
+                } else {
+                    if (!streamClientRef.current) streamClientRef.current = createRegexMatchClient()
+                    const outcome = await streamClientRef.current.filter(filter.source, filter.flags, newTexts)
+                    if (outcome.status === 'ok') {
+                        kept = outcome.value.map((index) => newTexts[index]!)
+                    } else {
+                        streamFilterTimedOutRef.current = true
+                        appendWarning('Filter pattern too slow on a streamed line; writing subsequent lines unfiltered.')
+                        kept = newTexts
+                    }
+                }
+                if (kept.length === 0) {
+                    streamCursorRef.current = examinedEnd
+                    return
+                }
+                const ok = await window.rokdock.dialog.appendFile(streamFilePath, kept.join('\n') + '\n')
+                if (ok) streamCursorRef.current = examinedEnd
+            } finally {
                 streamWriteInFlightRef.current = false
-            })
-    }, [linesWithJsonFallback, streamFilePath])
+            }
+        })()
+    }, [linesWithJsonFallback, streamFilePath, appendWarning])
 
     useEffect(() => {
         const unsubData = window.rokdock.terminal.onData((id: string, chunk: TerminalLineChunk) => {
@@ -1274,6 +1343,8 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
             if (id !== tab.id) return
             updateTabStatus(id, 'disconnected')
             streamCursorRef.current = linesWithJsonFallbackRef.current.length
+            streamFilterRef.current = null
+            streamFilterTimedOutRef.current = false
             setStreamFilePath(null)
             appendLine({
                 text: `Process exited (code ${exitCode})`,
@@ -1315,29 +1386,15 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                     .reconnect(tab.id, tab.deviceIp, tab.deviceName, tab.port)
                     .catch(() => updateTabStatus(tab.id, 'error'))
             } else if (action === 'save-output') {
-                const content = linesWithJsonFallbackRef.current.map((line) => line.text).join('\n')
-                void window.rokdock.dialog.saveFile(buildLogFilename(tab.deviceIp, tab.port), content).then((ok: boolean) => {
-                    if (!ok) {
-                        appendLine({
-                            text: 'Save output canceled or failed.',
-                            tokens: [{ start: 0, end: 'Save output canceled or failed.'.length, kind: 'warning' }],
-                            overlays: []
-                        })
-                    }
-                })
+                // Prompt for an optional line filter before saving (empty = every line).
+                setFilterPrompt({ mode: 'save', sampleLines: linesWithJsonFallbackRef.current.map((line) => line.text) })
             } else if (action === 'start-stream-output') {
-                void window.rokdock.dialog.pickSavePath(buildLogFilename(tab.deviceIp, tab.port, 'stream')).then((filePath: string | null) => {
-                    if (!filePath) return
-                    streamCursorRef.current = linesWithJsonFallbackRef.current.length
-                    setStreamFilePath(filePath)
-                    appendLine({
-                        text: `Streaming terminal output to: ${filePath}`,
-                        tokens: [{ start: 0, end: `Streaming terminal output to: ${filePath}`.length, kind: 'info' }],
-                        overlays: []
-                    })
-                })
+                // Prompt for an optional line filter before choosing the stream file.
+                setFilterPrompt({ mode: 'stream', sampleLines: linesWithJsonFallbackRef.current.map((line) => line.text) })
             } else if (action === 'stop-stream-output') {
                 streamCursorRef.current = linesWithJsonFallbackRef.current.length
+                streamFilterRef.current = null
+                streamFilterTimedOutRef.current = false
                 setStreamFilePath(null)
                 appendLine({
                     text: 'Stopped streaming terminal output.',
@@ -1349,7 +1406,7 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                 if (term) void window.rokdock.docs.lookUp(term)
             } else if (action === 'explain') {
                 const selection = window.getSelection()?.toString() ?? ''
-                if (selection.trim()) void openChatWith(selection)
+                if (selection.trim()) void openChatWith(wrapInCodeFence(selection, 'roku-console'))
             }
         })
         return () => {
@@ -1379,6 +1436,40 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         toggleTabWordWrap,
         updateTabStatus
     ])
+
+    // Save the current buffer, keeping only the lines matching the chosen filter. Filtering runs in
+    // the regex worker: the buffer can grow between opening the dialog and confirming, so a pattern
+    // the dialog validated may still meet an unseen line here. A too-slow pattern aborts the save
+    // (the worker is terminated) instead of freezing the app.
+    const handleFilteredSave = async (regex: RegExp | null) => {
+        setFilterPrompt(null)
+        const texts = linesWithJsonFallbackRef.current.map((line) => line.text)
+        let content: string
+        if (!regex) {
+            content = texts.join('\n')
+        } else {
+            const outcome = await ensureFilterClient().filter(regex.source, regex.flags, texts)
+            if (outcome.status === 'timeout') { appendWarning('Filter pattern too slow; save aborted.'); return }
+            if (outcome.status !== 'ok') return // invalid: the dialog gates this, so treat as a no-op
+            content = outcome.value.map((index) => texts[index]!).join('\n')
+        }
+        const ok = await window.rokdock.dialog.saveFile(buildLogFilename(tab.deviceIp, tab.port), content)
+        if (!ok) appendWarning('Save output canceled or failed.')
+    }
+
+    // Begin streaming to a chosen file, writing only lines matching the chosen filter.
+    const handleFilteredStream = (regex: RegExp | null) => {
+        setFilterPrompt(null)
+        void window.rokdock.dialog.pickSavePath(buildLogFilename(tab.deviceIp, tab.port, 'stream')).then((filePath: string | null) => {
+            if (!filePath) return
+            streamFilterRef.current = regex
+            streamFilterTimedOutRef.current = false
+            streamCursorRef.current = linesWithJsonFallbackRef.current.length
+            setStreamFilePath(filePath)
+            const message = `Streaming terminal output to: ${filePath}${regex ? ` (filter: ${regex.source})` : ''}`
+            appendLine({ text: message, tokens: [{ start: 0, end: message.length, kind: 'info' }], overlays: [] })
+        })
+    }
 
     useEffect(() => {
         if (!tab.autoScroll || !viewportRef.current) return
@@ -1821,18 +1912,18 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                     </button>
                     {historyMenuOpen && terminalCommandHistory.length > 0 && (
                         <div style={styles.historyFlyout}>
-                            {[...terminalCommandHistory].slice(-20).reverse().map((cmd) => (
+                            {[...terminalCommandHistory].slice(-20).reverse().map((command) => (
                                 <button
-                                    key={cmd}
+                                    key={command}
                                     style={styles.historyItem}
                                     onMouseDown={(e) => {
                                         e.preventDefault()
-                                        setInput(cmd)
+                                        setInput(command)
                                         setHistoryMenuOpen(false)
                                         inputRef.current?.focus()
                                     }}
                                 >
-                                    {cmd}
+                                    {command}
                                 </button>
                             ))}
                         </div>
@@ -1849,13 +1940,28 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                             setSelectionAnchor(null)
                         }}
                         onExplain={() => {
-                            void openChatWith(selectionAnchor.selection)
+                            void openChatWith(wrapInCodeFence(selectionAnchor.selection, 'roku-console'))
                             setSelectionAnchor(null)
                         }}
                         onClose={() => setSelectionAnchor(null)}
                     />
                 )}
             </div>
+            <RegexFilterDialog
+                open={!!filterPrompt}
+                title={filterPrompt?.mode === 'stream' ? 'Stream Output to File' : 'Save Output'}
+                description={filterPrompt?.mode === 'stream'
+                    ? 'Pick a file to stream this terminal to. Optionally filter which lines get written.'
+                    : 'Save the current terminal output. Optionally filter which lines get written.'}
+                confirmLabel={filterPrompt?.mode === 'stream' ? 'Choose File...' : 'Save...'}
+                sampleLines={filterPrompt?.sampleLines}
+                countMatches={(source, flags, lines) => ensureFilterClient().filter(source, flags, lines)}
+                onCancel={() => setFilterPrompt(null)}
+                onConfirm={(regex) => {
+                    if (filterPrompt?.mode === 'stream') void handleFilteredStream(regex)
+                    else void handleFilteredSave(regex)
+                }}
+            />
             <ConfirmDialog
                 open={!!pendingExternalUrl}
                 title="Open External Link"
@@ -2001,7 +2107,10 @@ function buildStyles(): Record<string, React.CSSProperties> {
         searchCloseBtn: smallBtn,
         searchIconGroup: { display: 'flex', alignItems: 'center', gap: 2 },
         viewport: { flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' },
-        output: { lineHeight: 1.45, userSelect: 'text' },
+        // Render debug output literally: a ligature-capable mono font (e.g. JetBrains
+        // Mono) otherwise fuses sequences like -> or != into a single glyph, which
+        // misrepresents what the device actually emitted.
+        output: { lineHeight: 1.45, userSelect: 'text', fontVariantLigatures: 'none', fontFeatureSettings: '"liga" 0, "calt" 0' },
         line: { minHeight: 18 },
         lineSearchMatch: { background: 'var(--rokdock-search-line-bg)', borderRadius: 3 },
         lineSearchActive: { background: 'var(--rokdock-search-line-active-bg)', outline: '1px solid var(--rokdock-brand-primary-light)', borderRadius: 3 },

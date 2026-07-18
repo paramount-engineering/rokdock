@@ -28,6 +28,7 @@ import { test, expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import type { ElectronApplication } from '@playwright/test'
 import { launchRokDock } from './helpers'
+import type { AppPreferences } from '@shared/types'
 
 let app: ElectronApplication
 let mainWin: Page
@@ -95,6 +96,30 @@ async function clickSegmentedOption(page: Page, label: string): Promise<boolean>
         }
         return false
     }, label)
+}
+
+/**
+ * Reads the Code section's Syntax Theme select value. That select is the rokdock-select
+ * carrying the preset options (identified by its githubDark option), distinct from the Font
+ * Family select. Its .value getter returns the inner <select> value.
+ */
+function syntaxThemeValue(page: Page): Promise<string | null> {
+    return page.evaluate(() => {
+        const code = document.querySelector('[data-section="code"]')
+        const selects = Array.from(code?.querySelectorAll('rokdock-select') ?? [])
+        const syntax = selects.find(s => s.querySelector('option[value="githubDark"]')) as (HTMLElement & { value: string }) | undefined
+        return syntax?.value ?? null
+    })
+}
+
+/** Selects the GitHub Dark preset (a dark theme with a light companion) in the Code section. */
+function seedGithubDarkSyntax(page: Page): Promise<void> {
+    return page.evaluate(() => {
+        const code = document.querySelector('[data-section="code"]')
+        const selects = Array.from(code?.querySelectorAll('rokdock-select') ?? [])
+        const syntax = selects.find(s => s.querySelector('option[value="githubDark"]'))
+        syntax?.dispatchEvent(new CustomEvent('rokdock-change', { detail: { value: 'githubDark' }, bubbles: true, composed: true }))
+    })
 }
 
 // --- tests ------------------------------------------------------------------
@@ -279,7 +304,7 @@ test('terminal section renders without a connected device (data-section visible 
 // telnet server in tests/e2e/terminalDeeplink.spec.ts rather than skipped here.
 
 test('theme mode is save-gated: Cancel reverts without persisting, Save persists', async () => {
-    const persistedMode = () => mainWin.evaluate(() => window.rokdock.store.getPreferences().then(p => p.themeMode ?? 'dark'))
+    const persistedMode = () => mainWin.evaluate(() => window.rokdock.store.getPreferences().then((p: AppPreferences) => p.themeMode ?? 'dark'))
     const baseline = await persistedMode()
 
     // Cancel path: switch to Light (live preview), then Escape. The preview must
@@ -314,7 +339,7 @@ test('theme mode is save-gated: Cancel reverts without persisting, Save persists
 })
 
 test('UI font size is save-gated: Cancel reverts the preview and persists nothing, Save persists', async () => {
-    const persistedScale = () => mainWin.evaluate(() => window.rokdock.store.getPreferences().then(p => p.uiFontScale ?? 0))
+    const persistedScale = () => mainWin.evaluate(() => window.rokdock.store.getPreferences().then((p: AppPreferences) => p.uiFontScale ?? 0))
     const fontBase = () => mainWin.evaluate(() => document.documentElement.style.getPropertyValue('--rokdock-font-base').trim())
     const baseline = await persistedScale()
     const baselineBase = `${14 + baseline}px`
@@ -361,35 +386,54 @@ test('switching theme mode swaps the syntax theme to its light/dark companion', 
     await mainWin.getByRole('button', { name: 'Appearance', exact: true }).click()
     await mainWin.waitForSelector('rokdock-segmented', { timeout: 5_000 })
 
-    // The Code section's Syntax Theme select is the rokdock-select carrying the
-    // preset options (identified by a known preset value), distinct from the Font
-    // Family select. Its .value getter returns the inner <select> value.
-    const syntaxValue = () => mainWin.evaluate(() => {
-        const code = document.querySelector('[data-section="code"]')
-        const selects = Array.from(code?.querySelectorAll('rokdock-select') ?? [])
-        const syntax = selects.find(s => s.querySelector('option[value="githubDark"]')) as (HTMLElement & { value: string }) | undefined
-        return syntax?.value ?? null
-    })
-
     // Seed a known dark preset that has a light companion (GitHub Dark).
-    await mainWin.evaluate(() => {
-        const code = document.querySelector('[data-section="code"]')
-        const selects = Array.from(code?.querySelectorAll('rokdock-select') ?? [])
-        const syntax = selects.find(s => s.querySelector('option[value="githubDark"]'))
-        syntax?.dispatchEvent(new CustomEvent('rokdock-change', { detail: { value: 'githubDark' }, bubbles: true, composed: true }))
-    })
-    await expect.poll(syntaxValue, { timeout: 5_000 }).toBe('githubDark')
+    await seedGithubDarkSyntax(mainWin)
+    await expect.poll(() => syntaxThemeValue(mainWin), { timeout: 5_000 }).toBe('githubDark')
 
     // Switch to Light: the syntax theme follows to its light companion.
     expect(await clickSegmentedOption(mainWin, 'Light')).toBe(true)
-    await expect.poll(syntaxValue, { timeout: 5_000 }).toBe('githubLight')
+    await expect.poll(() => syntaxThemeValue(mainWin), { timeout: 5_000 }).toBe('githubLight')
 
     // Switch back to Dark: it returns to the dark companion.
     expect(await clickSegmentedOption(mainWin, 'Dark')).toBe(true)
-    await expect.poll(syntaxValue, { timeout: 5_000 }).toBe('githubDark')
+    await expect.poll(() => syntaxThemeValue(mainWin), { timeout: 5_000 }).toBe('githubDark')
 
     // Escape cancels the draft so persisted prefs are untouched for later tests.
     await closeSettings(mainWin)
+    expect(mainErrors).toEqual([])
+})
+
+test('the menu-bar quick toggle also swaps the syntax theme to its companion (the direct-toggle path)', async () => {
+    // Regression: the Settings segmented control swapped the syntax theme on a mode change, but the
+    // menu-bar quick toggle (store.setThemeMode) did not, so a named dark theme stayed dark in light
+    // mode. This drives the ACTUAL button the user hits, distinct from the Settings-control test above.
+
+    // Seed GitHub Dark in Dark mode and Save so it persists to the live store (the toggle reads the store).
+    await openSettings(mainWin)
+    await mainWin.getByRole('button', { name: 'Appearance', exact: true }).click()
+    await mainWin.waitForSelector('rokdock-segmented', { timeout: 5_000 })
+    expect(await clickSegmentedOption(mainWin, 'Dark')).toBe(true)
+    await seedGithubDarkSyntax(mainWin)
+    await expect.poll(() => syntaxThemeValue(mainWin), { timeout: 5_000 }).toBe('githubDark')
+    await mainWin.getByRole('button', { name: 'Save', exact: true }).click()
+    await mainWin.locator('.rokdock-dialog-header .rokdock-title').waitFor({ state: 'hidden', timeout: 5_000 })
+    await expect.poll(() => mainWin.evaluate(() => document.documentElement.classList.contains('theme-dark')), { timeout: 5_000 }).toBe(true)
+
+    // The bug path: click the menu-bar quick toggle, not the Settings segmented control.
+    await mainWin.getByRole('button', { name: 'Toggle light and dark mode' }).click()
+    await expect.poll(() => mainWin.evaluate(() => document.documentElement.classList.contains('theme-light')), { timeout: 5_000 }).toBe(true)
+
+    // Reopen Settings and confirm the syntax theme followed to its light companion.
+    await openSettings(mainWin)
+    await mainWin.getByRole('button', { name: 'Appearance', exact: true }).click()
+    await mainWin.waitForSelector('rokdock-segmented', { timeout: 5_000 })
+    await expect.poll(() => syntaxThemeValue(mainWin), { timeout: 5_000 }).toBe('githubLight')
+    await closeSettings(mainWin)
+
+    // Restore dark mode so later tests see the default.
+    await mainWin.getByRole('button', { name: 'Toggle light and dark mode' }).click()
+    await expect.poll(() => mainWin.evaluate(() => document.documentElement.classList.contains('theme-dark')), { timeout: 5_000 }).toBe(true)
+
     expect(mainErrors).toEqual([])
 })
 

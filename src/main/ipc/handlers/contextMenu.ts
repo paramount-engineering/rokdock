@@ -18,7 +18,7 @@ interface TerminalContextMenuOptions {
     hasSelection: boolean
     /** True when the selection is a short term (1 to 3 words) worth a docs lookup. */
     lookupEligible: boolean
-    /** True when an AI provider is configured. Gates the Explain this item. */
+    /** True when an AI provider is configured. Gates the Ask roBot item. */
     aiAvailable: boolean
     isDisconnected: boolean
     isStreaming: boolean

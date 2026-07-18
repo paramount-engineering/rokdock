@@ -8,7 +8,8 @@
  * Keeping this logic in a separate module makes it independently testable and
  * removes it from the React component's surface area.
  */
-import { findMatchingBracket } from '../../../shared/jsonUtils'
+import { findMatchingBracket, keepOutermostSpans } from '../../../shared/jsonUtils'
+import { JSON_INDENT_WIDTH } from '../../../shared/jsonIndent'
 import type { TerminalLineChunk, TerminalOverlaySpan, TerminalTokenSpan } from '../../../shared/terminal'
 import type { TerminalSyntaxTheme } from '../../styles/terminalSyntaxThemes'
 
@@ -88,10 +89,11 @@ export function detectJsonOverlaysForLine(lines: TerminalLineChunk[], lineIndex:
                 start: overlapStart - targetStart,
                 end: overlapEnd - targetStart,
                 kind: 'json',
-                // 4-space indent to match the main-process tokenizer (terminalTokenizer.ts),
-                // so JSON opened from the viewer formats identically regardless of which
-                // detection path (intra-line tokenizer vs multiline fallback) produced it.
-                value: JSON.stringify(parsed, null, 4)
+                // Shared JSON_INDENT_WIDTH so this multiline fallback, the main-process
+                // tokenizer (terminalTokenizer.ts), and the JSON editor all format
+                // identically. A payload opened from the terminal then matches the
+                // editor's own indent instead of being reindented on first view.
+                value: JSON.stringify(parsed, null, JSON_INDENT_WIDTH)
             })
         } catch {
             // Not valid JSON.
@@ -126,18 +128,12 @@ export function tokenizerCoversTrimmedLineAsSingleJson(line: TerminalLineChunk):
 }
 
 /**
- * Drop JSON overlay spans that are entirely contained within a wider sibling span.
- * Sorted by descending length so the largest span wins when two share the same range.
+ * Drop JSON overlay spans entirely contained within a wider sibling, keeping only the
+ * outermost. Delegates to the shared keepOutermostSpans sweep (also used by the terminal
+ * tokenizer's JSON-candidate filter) so the containment logic lives in one place.
  */
 export function mergeJsonOverlaysForLine(jsonOverlays: TerminalOverlaySpan[]): TerminalOverlaySpan[] {
-    if (jsonOverlays.length <= 1) return jsonOverlays
-    const sorted = [...jsonOverlays].sort((first, second) => second.end - second.start - (first.end - first.start))
-    const kept: TerminalOverlaySpan[] = []
-    for (const candidate of sorted) {
-        if (kept.some((wider) => wider.start <= candidate.start && wider.end >= candidate.end)) continue
-        kept.push(candidate)
-    }
-    return kept
+    return keepOutermostSpans(jsonOverlays)
 }
 
 /**

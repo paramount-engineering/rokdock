@@ -18,10 +18,10 @@
  * the window.rokdock global in the renderer.
  */
 
-import { contextBridge, ipcRenderer, webFrame } from 'electron'
+import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 import type { DeviceInfo } from '../shared/device'
 import type { AppPreferences, DeeplinkConfig, DeviceAuth, IpcResult, PanelState, SettingsUpdate, StoreSettings, ThemeVars } from '../shared/types'
-import type { TerminalLineChunk } from '../shared/terminal'
+import type { TerminalLineChunk, FocusedTerminalPayload } from '../shared/terminal'
 import type {
     ScreenshotHistoryEntryForPreview,
     ScreenshotPreviewImageResult,
@@ -153,8 +153,10 @@ const api = {
             ipcRenderer.invoke('store:set-panel-state', state),
         getPreferences: (): Promise<AppPreferences> =>
             ipcRenderer.invoke('store:get-preferences'),
-        setPreferences: (prefs: Partial<AppPreferences>): Promise<void> =>
-            ipcRenderer.invoke('store:set-preferences', prefs),
+        getDefaultScreenshotFolder: (): Promise<string> =>
+            ipcRenderer.invoke('store:get-default-screenshot-folder'),
+        setPreferences: (preferences: Partial<AppPreferences>): Promise<void> =>
+            ipcRenderer.invoke('store:set-preferences', preferences),
         getManualDevices: (): Promise<Array<{ ip: string; name: string }>> =>
             ipcRenderer.invoke('store:get-manual-devices'),
         getLastConnected: (): Promise<Record<string, number>> =>
@@ -265,8 +267,8 @@ const api = {
             ipcRenderer.invoke('device:get-active-app', deviceIp),
         captureScreenshot: (deviceIp: string, themeMode?: 'dark' | 'light'): Promise<{ ok: boolean; error?: string }> =>
             ipcRenderer.invoke('device:capture-screenshot', deviceIp, themeMode),
-        openScreenshotWindow: (deviceIp: string, themeMode?: 'dark' | 'light'): Promise<{ ok: boolean; error?: string }> =>
-            ipcRenderer.invoke('device:open-screenshot-window', deviceIp, themeMode)
+        openScreenshotWindow: (deviceIp: string, themeMode?: 'dark' | 'light', initialPath?: string): Promise<{ ok: boolean; error?: string }> =>
+            ipcRenderer.invoke('device:open-screenshot-window', deviceIp, themeMode, initialPath)
     },
 
     // External
@@ -324,8 +326,8 @@ const api = {
         prime: (): Promise<void> => ipcRenderer.invoke('docs:prime') as Promise<void>,
         // A nudge (no payload) telling the window to drain the pending lookup
         // term via getPendingLookup. Returns an unsubscribe function.
-        onLookupQuery: (cb: () => void): (() => void) => {
-            const handler = (): void => cb()
+        onLookupQuery: (callback: () => void): (() => void) => {
+            const handler = (): void => callback()
             ipcRenderer.on('docs:lookup-query', handler)
             return () => ipcRenderer.removeListener('docs:lookup-query', handler)
         },
@@ -341,8 +343,8 @@ const api = {
             ipcRenderer.invoke('svg-exporter:import-svg-text', svgText, fileName) as Promise<IpcResult & { svgText?: string; intrinsicWidth?: number; intrinsicHeight?: number; fileName?: string }>,
         quantize: (dataUrl: string, colors: number, dither: boolean): Promise<IpcResult & { dataUrl?: string; sizeBytes?: number }> =>
             ipcRenderer.invoke('svg-exporter:quantize', dataUrl, colors, dither) as Promise<IpcResult & { dataUrl?: string; sizeBytes?: number }>,
-        savePng: (pngDataUrl: string, defaultName: string): Promise<IpcResult> =>
-            ipcRenderer.invoke('svg-exporter:save-png', pngDataUrl, defaultName) as Promise<IpcResult>,
+        saveImage: (dataUrl: string, defaultName: string, format: 'png' | 'webp'): Promise<IpcResult> =>
+            ipcRenderer.invoke('svg-exporter:save-image', dataUrl, defaultName, format) as Promise<IpcResult>,
         getInitialData: (): Promise<{ data: { svgText: string; fileName: string; intrinsicWidth: number; intrinsicHeight: number } | null; error: string | null }> =>
             ipcRenderer.invoke('svg-exporter:get-initial-data') as Promise<{ data: { svgText: string; fileName: string; intrinsicWidth: number; intrinsicHeight: number } | null; error: string | null }>
     },
@@ -571,11 +573,32 @@ const api = {
             ipcRenderer.invoke('capture:set-mode', mode),
         saveFrame: (dataUrl: string): Promise<IpcResult & { history?: Array<{ path: string; label: string }> }> =>
             ipcRenderer.invoke('capture:save-frame', dataUrl),
+        /** Main asks the active capture stream for a single frame (roBot's screenshot fallback). */
+        onGrabFrame: (callback: (requestId: string) => void): (() => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, requestId: string): void => callback(requestId)
+            ipcRenderer.on('capture:grab-frame', handler)
+            return () => ipcRenderer.removeListener('capture:grab-frame', handler)
+        },
+        /** Return a grabbed frame (a PNG data URL, or '' if none) for the given request. */
+        frameGrabbed: (requestId: string, dataUrl: string): void => ipcRenderer.send('capture:frame-grabbed', requestId, dataUrl),
         onModeChanged: (callback: (mode: string) => void) => {
             const handler = (_event: Electron.IpcRendererEvent, mode: string) => callback(mode)
             ipcRenderer.on('capture:mode-changed', handler)
             return () => ipcRenderer.removeListener('capture:mode-changed', handler)
         }
+    },
+
+    // Terminal Output (roBot tools)
+    terminalOutput: {
+        /** Main asks the dock for the focused terminal tab's buffer (roBot's terminal-output tools). */
+        onRequest: (callback: (requestId: string) => void): (() => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, requestId: string): void => callback(requestId)
+            ipcRenderer.on('terminal-output:request', handler)
+            return () => ipcRenderer.removeListener('terminal-output:request', handler)
+        },
+        /** Return the focused terminal payload (or null if none) for the given request. */
+        respond: (requestId: string, payload: FocusedTerminalPayload | null): void =>
+            ipcRenderer.send('terminal-output:response', requestId, payload),
     },
 
     // Sideload
@@ -584,6 +607,9 @@ const api = {
             ipcRenderer.invoke('sideload:pick-file'),
         install: (ip: string, filePath: string): Promise<IpcResult & { message?: string }> =>
             ipcRenderer.invoke('sideload:install', ip, filePath) as Promise<IpcResult & { message?: string }>,
+        // Electron 42 removed File.path. webUtils.getPathForFile resolves a dropped file's
+        // absolute path here in the preload so a drag-drop sideload reuses sideload:install.
+        getDroppedFilePath: (file: File): string => webUtils.getPathForFile(file),
         onProgress: (callback: (data: { percent: number; status: string }) => void) => {
             const handler = (_event: Electron.IpcRendererEvent, data: { percent: number; status: string }) => callback(data)
             ipcRenderer.on('sideload:progress', handler)
@@ -635,8 +661,8 @@ const api = {
         getHistory: (): Promise<ScreenshotHistoryEntryForPreview[]> =>
             ipcRenderer.invoke('screenshot-preview:get-history'),
         /** Persist preview preferences (zoom, auto-refresh, overlay opacity). */
-        savePrefs: (prefs: ScreenshotPreviewPrefs): Promise<void> =>
-            ipcRenderer.invoke('screenshot-preview:prefs', prefs),
+        savePrefs: (preferences: ScreenshotPreviewPrefs): Promise<void> =>
+            ipcRenderer.invoke('screenshot-preview:prefs', preferences),
         /** Push live UI state so main's right-click menu reflects it (fire-and-forget). */
         pushState: (state: ScreenshotPreviewState): void =>
             ipcRenderer.send('screenshot-preview:set-state', state),
@@ -681,27 +707,43 @@ const api = {
         previewRedaction: (request: AiRequest, profileId?: string): Promise<RedactionPreview> => ipcRenderer.invoke('ai:preview-redaction', request, profileId),
         startStream: (request: AiRequest, conversationId?: string): Promise<{ sessionId: string }> => ipcRenderer.invoke('ai:start-stream', request, conversationId),
         cancelStream: (sessionId: string): void => ipcRenderer.send('ai:cancel-stream', sessionId),
-        onStreamChunk: (cb: (data: { sessionId: string; delta: string }) => void): (() => void) => {
-            const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; delta: string }): void => cb(data)
+        onStreamChunk: (callback: (data: { sessionId: string; delta: string }) => void): (() => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; delta: string }): void => callback(data)
             ipcRenderer.on('ai:stream-chunk', handler)
             return () => ipcRenderer.removeListener('ai:stream-chunk', handler)
         },
-        onStreamActivity: (cb: (data: { sessionId: string; name: string; args: Record<string, unknown> }) => void): (() => void) => {
-            const handler = (_e: Electron.IpcRendererEvent, data: { sessionId: string; name: string; args: Record<string, unknown> }): void => cb(data)
+        onStreamActivity: (callback: (data: { sessionId: string; name: string; args: Record<string, unknown> }) => void): (() => void) => {
+            const handler = (_e: Electron.IpcRendererEvent, data: { sessionId: string; name: string; args: Record<string, unknown> }): void => callback(data)
             ipcRenderer.on('ai:stream-activity', handler)
             return () => ipcRenderer.removeListener('ai:stream-activity', handler)
         },
-        onStreamDone: (cb: (data: { sessionId: string; finalText: string; sources: import('../shared/ai/types').DocSource[] }) => void): (() => void) => {
-            const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; finalText: string; sources: import('../shared/ai/types').DocSource[] }): void => cb(data)
+        onStreamDone: (callback: (data: { sessionId: string; finalText: string; sources: import('../shared/ai/types').DocSource[] }) => void): (() => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; finalText: string; sources: import('../shared/ai/types').DocSource[] }): void => callback(data)
             ipcRenderer.on('ai:stream-done', handler)
             return () => ipcRenderer.removeListener('ai:stream-done', handler)
         },
-        onStreamError: (cb: (data: { sessionId: string; message: string }) => void): (() => void) => {
-            const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; message: string }): void => cb(data)
+        onStreamError: (callback: (data: { sessionId: string; message: string }) => void): (() => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; message: string }): void => callback(data)
             ipcRenderer.on('ai:stream-error', handler)
             return () => ipcRenderer.removeListener('ai:stream-error', handler)
         },
         getDocSymbols: (): Promise<Record<string, string>> => ipcRenderer.invoke('ai:get-doc-symbols'),
+        /** Tell main which device the user has selected, so device-control tools default to it. */
+        setActiveDevice: (ip: string | null): Promise<void> => ipcRenderer.invoke('ai:set-active-device', ip),
+        /** Subscribe to prompts (confirm / choice) the AI stream asks the user to answer. */
+        onUiRequest: (callback: (request: import('../shared/ai/types').AiUiRequest) => void): (() => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, request: import('../shared/ai/types').AiUiRequest): void => callback(request)
+            ipcRenderer.on('ai:ui-request', handler)
+            return () => ipcRenderer.removeListener('ai:ui-request', handler)
+        },
+        /** Reply to an AI prompt by its requestId. */
+        respondUi: (response: import('../shared/ai/types').AiUiResponse): void => ipcRenderer.send('ai:ui-response', response),
+        /** Subscribe to screenshots roBot captured, for inline display in the chat. */
+        onChatImage: (callback: (image: import('../shared/ai/types').AiChatImage) => void): (() => void) => {
+            const handler = (_event: Electron.IpcRendererEvent, image: import('../shared/ai/types').AiChatImage): void => callback(image)
+            ipcRenderer.on('ai:chat-image', handler)
+            return () => ipcRenderer.removeListener('ai:chat-image', handler)
+        },
         getCliOverrides: (): Promise<import('../shared/ai/types').AiCliOverrides> => ipcRenderer.invoke('ai:get-cli-overrides'),
         setCliOverride: (kind: import('../ai-core/types').CliKind, override: import('../shared/ai/types').CliOverride): Promise<void> => ipcRenderer.invoke('ai:set-cli-override', kind, override),
         refreshCliDetection: (): Promise<void> => ipcRenderer.invoke('ai:refresh-cli-detection'),

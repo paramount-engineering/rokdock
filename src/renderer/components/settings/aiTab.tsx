@@ -6,8 +6,10 @@
  */
 import React, { useCallback, useEffect, useState } from 'react'
 import type { AiProfile, AiProfileInput, AiAdapterType, CliKind } from '../../../shared/ai/types'
+import type { AppPreferences } from '../../../shared/types'
 import { CLI_DEFINITIONS, CLI_KINDS } from '../../../ai-core/adapters/cliRegistry'
 import { RokdockSelect, RokdockToggle, CollapsibleSettingsSection } from '../rokdock/wrappers'
+import { roBot } from '../ai/roBotMark'
 import ConfirmDialog from '../common/confirmDialog'
 import IconButton from '../common/iconButton'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -104,14 +106,13 @@ const ROW_BTN_STYLE: React.CSSProperties = {
     fontSize: 'var(--rokdock-font-sm)',
 }
 
-/** Build the "what was sent" note for a completed test, describing the redaction outcome. */
-function formatRedactionNote(redactionEnabled: boolean, redactedCount: number, redacted: string): string {
-    const note = !redactionEnabled
-        ? 'redaction off'
-        : redactedCount > 0
-            ? `${redactedCount} sensitive value${redactedCount === 1 ? '' : 's'} removed`
-            : 'no sensitive values found'
-    return `Sent to the provider (${note}): ${redacted}`
+/** Build the "what was sent" note for a completed test. Only call out redaction when it actually
+ *  removed something. A clean prompt (nothing removed, or redaction off) shows no parenthetical. */
+function formatRedactionNote(redactedCount: number, redacted: string): string {
+    const removed = redactedCount > 0
+        ? ` (${redactedCount} sensitive value${redactedCount === 1 ? '' : 's'} removed)`
+        : ''
+    return `Sent to the provider${removed}: ${redacted}`
 }
 
 const EMPTY_STYLE: React.CSSProperties = {
@@ -216,7 +217,7 @@ export default function AiTab(): React.JSX.Element {
     const [editingId, setEditingId] = useState<string | null>(null)
     // The result of testing one specific provider (by row). Carries the provider name so the
     // output is unambiguously tied to the provider that was tested.
-    const [testResult, setTestResult] = useState<{ providerId: string; providerName: string; text: string; isError: boolean; redacted: string; redactedCount: number; redactionEnabled: boolean } | null>(null)
+    const [testResult, setTestResult] = useState<{ providerId: string; providerName: string; text: string; isError: boolean; redacted: string; redactedCount: number } | null>(null)
     const [isBusy, setIsBusy] = useState(false)
     // The name of the provider currently being tested, for the in-progress indicator.
     const [testingName, setTestingName] = useState<string | null>(null)
@@ -227,6 +228,20 @@ export default function AiTab(): React.JSX.Element {
     // The Add/Edit form is hidden until the user adds or edits, so the tab defaults to a
     // clean provider list rather than a long form.
     const [formOpen, setFormOpen] = useState(false)
+    // Whether roBot asks before each state-changing device action. Persisted in AppPreferences
+    // so the choice sticks across sessions. Unset defaults to on (confirm).
+    const [confirmDeviceControl, setConfirmDeviceControl] = useState(true)
+
+    useEffect(() => {
+        void window.rokdock.store.getPreferences().then((preferences: AppPreferences) => {
+            setConfirmDeviceControl(preferences.aiConfirmDeviceControl !== false)
+        })
+    }, [])
+
+    const updateConfirmDeviceControl = async (checked: boolean): Promise<void> => {
+        setConfirmDeviceControl(checked) // optimistic: the toggle reflects the choice immediately
+        await window.rokdock.store.setPreferences({ aiConfirmDeviceControl: checked })
+    }
 
     const refresh = useCallback(async (): Promise<void> => {
         const list: AiProfile[] = await window.rokdock.ai.listProfiles()
@@ -355,7 +370,6 @@ export default function AiTab(): React.JSX.Element {
                 isError: !result.ok,
                 redacted: preview.text,
                 redactedCount: preview.replacements.reduce((sum: number, replacement: { count: number }) => sum + replacement.count, 0),
-                redactionEnabled: profile.redactionEnabled,
             })
         } finally {
             setTestingName(null)
@@ -372,17 +386,25 @@ export default function AiTab(): React.JSX.Element {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--rokdock-space-md)' }}>
             <CollapsibleSettingsSection label="Providers" gap={8} padding="10px 14px 10px 14px">
-                <div style={PROFILE_LIST_STYLE}>
+                <div
+                    style={PROFILE_LIST_STYLE}
+                    // Moving focus onto a provider row (Set active, Test, editing another, or a
+                    // keyboard tab into the list) closes a stale open edit form. Capture phase runs
+                    // before a row's own click, so clicking Edit closes it here, then that row's
+                    // handler reopens the form for the row just clicked.
+                    onFocusCapture={() => { if (formOpen) closeForm() }}
+                >
                     {profiles.map((profile, index) => {
-                        // A CLI provider has no API key and is always local; its subtitle reads
-                        // "local CLI". CLI rows carry cli-prefixed test ids so they stay addressable.
+                        // A CLI provider has no API key; its subtitle reads "CLI" (a CLI is
+                        // inherently local, so "local" would be redundant). CLI rows carry
+                        // cli-prefixed test ids so they stay addressable.
                         const isCli = profile.adapter === 'cli'
                         return (
                             <div key={profile.id} style={index > 0 ? { ...ROW_STYLE, ...ROW_DIVIDER_STYLE } : ROW_STYLE}>
                                 <span style={PROFILE_LABEL_STYLE}>
                                     <span>{profile.name}</span>
                                     <span style={{ color: 'var(--rokdock-text-dim)', fontSize: 'var(--rokdock-font-xs, 11px)' }}>
-                                        {isCli ? '(local CLI)' : `(${profile.adapter}${profile.hasKey ? ', key stored' : ''})`}
+                                        {isCli ? '(CLI)' : `(${profile.adapter}${profile.hasKey ? ', key stored' : ''})`}
                                     </span>
                                 </span>
                                 <span style={ACTIVE_SLOT_STYLE}>
@@ -443,7 +465,7 @@ export default function AiTab(): React.JSX.Element {
                         </pre>
                         {!testResult.isError && (
                             <div data-testid="ai-redaction-preview" style={REDACTION_PREVIEW_STYLE}>
-                                {formatRedactionNote(testResult.redactionEnabled, testResult.redactedCount, testResult.redacted)}
+                                {formatRedactionNote(testResult.redactedCount, testResult.redacted)}
                             </div>
                         )}
                     </div>
@@ -570,7 +592,7 @@ export default function AiTab(): React.JSX.Element {
                         <span className="rokdock-label" style={{ marginBottom: 0 }}>Redact sensitive values</span>
                     </div>
                     <span className="rokdock-hint">
-                        Removes device IPs, names, and serial numbers from your prompt before it is sent.
+                        Removes known device IPs, names, and serial numbers from your prompt and from terminal output roBot reads. It does not remove other sensitive values (file paths, tokens, or arbitrary debug data), so review what you share with a remote provider.
                     </span>
                     <div style={REDACT_EXAMPLE_STYLE}>
                         <div style={REDACT_ROW_STYLE}>
@@ -622,6 +644,22 @@ export default function AiTab(): React.JSX.Element {
                 </div>
             </CollapsibleSettingsSection>
             )}
+
+            <CollapsibleSettingsSection label="Device control" gap={8} padding="10px 14px 10px 14px">
+                <div style={TOGGLE_FIELD_STYLE}>
+                    <div style={TOGGLE_ROW_STYLE}>
+                        <RokdockToggle
+                            data-testid="ai-confirm-device-control-toggle"
+                            checked={confirmDeviceControl}
+                            onChange={({ checked }) => void updateConfirmDeviceControl(checked)}
+                        />
+                        <span className="rokdock-label" style={{ marginBottom: 0 }}>Confirm before <roBot.Logotype height={13} style={{ verticalAlign: 'baseline', margin: '0 1px' }} /> controls the Roku</span>
+                    </div>
+                    <span className="rokdock-hint">
+                        When on, roBot asks for approval before each device action (pressing remote keys, launching a channel, typing text, opening a deeplink). Turn off to let it act without a prompt. This choice is saved and sticks across sessions.
+                    </span>
+                </div>
+            </CollapsibleSettingsSection>
 
             <ConfirmDialog
                 open={deleteTarget !== null}

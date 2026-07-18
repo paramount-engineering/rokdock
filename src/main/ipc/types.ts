@@ -38,6 +38,12 @@ export interface IpcContext {
     /** MCP tool endpoint: loopback HTTP server that bridges tool calls from the CLI to providers. */
     mcpEndpoint: McpToolEndpoint
     /**
+     * Record the IP of the device the user currently has selected (the remote target), or null.
+     * The renderer pushes it on change. The AI device-control tools read it as their default
+     * target, so most actions need no explicit device argument.
+     */
+    setActiveDeviceIp: (ip: string | null) => void
+    /**
      * Broadcasts a message to all open BrowserWindows (main + any tool windows).
      * @param channel - The IPC channel name.
      * @param args - Arguments to include in the message.

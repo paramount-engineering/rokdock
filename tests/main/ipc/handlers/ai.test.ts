@@ -24,6 +24,7 @@ vi.mock('electron', () => ({
 import { registerAiHandlers } from '@main/ipc/handlers/ai'
 import type { IpcContext } from '@main/ipc/types'
 import type { AiRequest } from '@shared/ai/types'
+import type { AppPreferences } from '@shared/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -38,7 +39,16 @@ function makeSender() {
     }
 }
 
-function makeContext(streamImpl: (req: AiRequest, signal: AbortSignal, conversationId?: string) => AsyncIterable<{ delta: string }>) {
+type StreamOptions = {
+    confirm?: (summary: string) => Promise<boolean>
+    ask?: (question: string, options: string[]) => Promise<string | null>
+    confirmationsEnabled?: boolean
+}
+
+function makeContext(
+    streamImpl: (req: AiRequest, signal: AbortSignal, conversationId?: string, options?: StreamOptions) => AsyncIterable<{ delta: string }>,
+    preferences: Partial<AppPreferences> = {},
+) {
     return {
         ai: {
             stream: streamImpl,
@@ -54,6 +64,7 @@ function makeContext(streamImpl: (req: AiRequest, signal: AbortSignal, conversat
             refreshCliDetection: vi.fn(),
             evictConversation: vi.fn(),
         },
+        store: { getPreferences: () => preferences },
     } as unknown as IpcContext
 }
 
@@ -164,6 +175,52 @@ describe('registerAiHandlers streaming lifecycle', () => {
 
         expect(errorCalls).toHaveLength(0)
         expect(doneCalls).toHaveLength(0)
+    })
+
+    it('device-control confirm: bypasses the prompt and auto-approves when aiConfirmDeviceControl is false', async () => {
+        let confirmResult: boolean | undefined
+        async function* streamImpl(_req: AiRequest, _signal: AbortSignal, _conversationId?: string, options?: StreamOptions): AsyncGenerator<{ delta: string }> {
+            confirmResult = await options!.confirm!('Press Home on Living Room?')
+            yield { delta: 'ok' }
+        }
+        const context = makeContext(streamImpl, { aiConfirmDeviceControl: false })
+        registerAiHandlers(context)
+
+        const startHandler = handleMap.get('ai:start-stream')!
+        const sender = makeSender()
+        const { sessionId } = await (startHandler as (ev: unknown, req: AiRequest) => Promise<{ sessionId: string }>)({ sender }, fakeRequest)
+
+        await vi.waitFor(() => {
+            expect(sender.send).toHaveBeenCalledWith('ai:stream-done', expect.objectContaining({ sessionId }))
+        })
+        expect(confirmResult).toBe(true)
+        // No dialog was shown to the user.
+        expect(sender.send).not.toHaveBeenCalledWith('ai:ui-request', expect.anything())
+    })
+
+    it('device-control confirm: prompts the user when aiConfirmDeviceControl is not false', async () => {
+        async function* streamImpl(_req: AiRequest, _signal: AbortSignal, _conversationId?: string, options?: StreamOptions): AsyncGenerator<{ delta: string }> {
+            await options!.confirm!('Press Home on Living Room?')
+            yield { delta: 'ok' }
+        }
+        const context = makeContext(streamImpl, { aiConfirmDeviceControl: true })
+        registerAiHandlers(context)
+
+        const startHandler = handleMap.get('ai:start-stream')!
+        const uiResponseHandler = onMap.get('ai:ui-response')!
+        const sender = makeSender()
+        const { sessionId } = await (startHandler as (ev: unknown, req: AiRequest) => Promise<{ sessionId: string }>)({ sender }, fakeRequest)
+
+        // confirm() shows the dialog and awaits the reply, so the ui-request must have gone out.
+        await vi.waitFor(() => {
+            expect(sender.send).toHaveBeenCalledWith('ai:ui-request', expect.objectContaining({ kind: 'confirm' }))
+        })
+        // Reply so the stream can unwind cleanly.
+        const uiRequest = sender.send.mock.calls.find(([channel]) => channel === 'ai:ui-request')![1] as { requestId: string }
+        ;(uiResponseHandler as (ev: unknown, response: unknown) => void)({}, { requestId: uiRequest.requestId, kind: 'confirm', choice: 'deny' })
+        await vi.waitFor(() => {
+            expect(sender.send).toHaveBeenCalledWith('ai:stream-done', expect.objectContaining({ sessionId }))
+        })
     })
 
     it('forwards ai:get-cli-overrides to context.ai.getCliOverrides and returns its result', async () => {
