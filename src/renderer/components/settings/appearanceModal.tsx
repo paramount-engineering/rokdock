@@ -107,28 +107,28 @@ function AppearanceModal({ onClose }: { onClose: () => void }) {
 
     useEffect(() => {
         let cancelled = false
-        void window.rokdock.store.getPreferences().then((prefs: AppPreferences) => {
+        void window.rokdock.store.getPreferences().then((preferences: AppPreferences) => {
             if (cancelled) return
-            setThemeMode(asThemeMode(prefs.themeMode))
-            setZoomLevel(prefs.appZoomLevel ?? 0)
-            setFontScale(prefs.uiFontScale ?? 0)
-            setTint(prefs.tint ?? IDENTITY_TINT)
+            setThemeMode(asThemeMode(preferences.themeMode))
+            setZoomLevel(preferences.appZoomLevel ?? 0)
+            setFontScale(preferences.uiFontScale ?? 0)
+            setTint(preferences.tint ?? IDENTITY_TINT)
 
-            // Seed the code section from persisted prefs. Derive the light/dark
+            // Seed the code section from persisted preferences. Derive the light/dark
             // default for the syntax preset from the document class so it matches
             // the current theme at open time.
             const isLightAtOpen = document.documentElement.classList.contains('theme-light')
             const defaultPreset: TerminalSyntaxThemePreset = isLightAtOpen ? 'rokdockLight' : 'rokdockDark'
-            const storedPreset = prefs.terminalSyntaxThemePreset
+            const storedPreset = preferences.terminalSyntaxThemePreset
             // 'custom' is not a selectable preset in this UI. Fall back to the default.
             const resolvedPreset: TerminalSyntaxThemePreset =
                 storedPreset && storedPreset !== 'custom' ? storedPreset : defaultPreset
-            setFontFamily(prefs.fontFamily ?? '')
-            setFontSize(prefs.fontSize ?? 13)
+            setFontFamily(preferences.fontFamily ?? '')
+            setFontSize(preferences.fontSize ?? 13)
             setSyntaxPreset(resolvedPreset)
-            setSyntaxCustom(prefs.terminalSyntaxThemeCustomColors ?? {})
-            setUseThemeBackground(prefs.terminalUseThemeBackground ?? false)
-            setFallbackColor(prefs.terminalFallbackColor ?? '#e0e0e0')
+            setSyntaxCustom(preferences.terminalSyntaxThemeCustomColors ?? {})
+            setUseThemeBackground(preferences.terminalUseThemeBackground ?? true)
+            setFallbackColor(preferences.terminalFallbackColor ?? '#e0e0e0')
             setFontPickerMode('preset')
 
             setLoaded(true)

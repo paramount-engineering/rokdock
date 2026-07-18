@@ -89,19 +89,19 @@ class RokdockSegmented extends HTMLElement {
         const hasMatch = options.some(opt => opt.value === current)
 
         options.forEach((opt, index) => {
-            const btn = document.createElement('button')
-            btn.type = 'button'
-            btn.textContent = opt.label
-            btn.setAttribute('role', 'radio')
+            const button = document.createElement('button')
+            button.type = 'button'
+            button.textContent = opt.label
+            button.setAttribute('role', 'radio')
             const isSelected = opt.value === current
-            btn.setAttribute('aria-checked', String(isSelected))
-            btn.tabIndex = (isSelected || (!hasMatch && index === 0)) ? 0 : -1
+            button.setAttribute('aria-checked', String(isSelected))
+            button.tabIndex = (isSelected || (!hasMatch && index === 0)) ? 0 : -1
 
-            btn.addEventListener('click', () => { this.selectOption(opt) })
+            button.addEventListener('click', () => { this.selectOption(opt) })
 
-            btn.addEventListener('keydown', (event: KeyboardEvent) => {
+            button.addEventListener('keydown', (event: KeyboardEvent) => {
                 const buttons = Array.from(group.querySelectorAll<HTMLButtonElement>('button'))
-                const currentIndex = buttons.indexOf(btn)
+                const currentIndex = buttons.indexOf(button)
                 let targetIndex = -1
 
                 if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
@@ -122,7 +122,7 @@ class RokdockSegmented extends HTMLElement {
                 }
             })
 
-            group.appendChild(btn)
+            group.appendChild(button)
         })
     }
 }

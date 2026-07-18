@@ -66,7 +66,7 @@ function startCountingServer(): Promise<{
 async function openAiSettings(mainWin: import('@playwright/test').Page): Promise<void> {
     await mainWin.getByRole('button', { name: 'File' }).click()
     await mainWin.getByRole('button', { name: /^Settings\.\.\./ }).click({ force: true })
-    await mainWin.getByRole('button', { name: 'AI (Beta)', exact: true }).click()
+    await mainWin.getByRole('button', { name: 'roBot (Beta)', exact: true }).click()
 }
 
 /** Adds an openai-compatible profile and closes Settings. */

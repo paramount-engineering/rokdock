@@ -14,7 +14,7 @@ let echoScript: string
 let failScript: string
 let hangScript: string
 
-function cmd(script: string): string {
+function buildCommand(script: string): string {
     return `"${NODE}" "${script}"`
 }
 
@@ -39,30 +39,30 @@ async function collect(req: ResolvedRequest): Promise<string> {
 
 describe('cliAdapter', () => {
     it('writes the prompt to stdin and streams stdout', async () => {
-        const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'hello cli' }], command: cmd(echoScript) }
+        const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'hello cli' }], command: buildCommand(echoScript) }
         expect((await collect(req)).trim()).toBe('hello cli')
     })
 
     it('prepends the system prompt to stdin when present', async () => {
-        const req: ResolvedRequest = { transport: 'cli', model: 'm', system: 'SYSTEM RULES', messages: [{ role: 'user', content: 'user question' }], command: cmd(echoScript) }
+        const req: ResolvedRequest = { transport: 'cli', model: 'm', system: 'SYSTEM RULES', messages: [{ role: 'user', content: 'user question' }], command: buildCommand(echoScript) }
         expect((await collect(req)).trim()).toBe('SYSTEM RULES\n\nuser question')
     })
 
     it('folds a multi-turn conversation onto stdin', async () => {
         const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [
             { role: 'user', content: 'q1' }, { role: 'assistant', content: 'a1' }, { role: 'user', content: 'q2' },
-        ], command: cmd(echoScript) }
+        ], command: buildCommand(echoScript) }
         expect((await collect(req)).trim()).toBe('User: q1\n\nAssistant: a1\n\nUser: q2')
     })
 
     it('throws on a non-zero exit', async () => {
-        const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'x' }], command: cmd(failScript) }
+        const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'x' }], command: buildCommand(failScript) }
         await expect(collect(req)).rejects.toThrow(/code 2/i)
     })
 
     it('aborts a running process', async () => {
         const controller = new AbortController()
-        const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'x' }], command: cmd(hangScript) }
+        const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'x' }], command: buildCommand(hangScript) }
         const iter = cliAdapter.stream(req, controller.signal)[Symbol.asyncIterator]()
         const next = iter.next()
         controller.abort()
@@ -73,7 +73,7 @@ describe('cliAdapter', () => {
         const envScript = path.join(dir, 'env.js')
         fs.writeFileSync(envScript, 'process.stdout.write(process.env.AI_TEST_VAR ?? "")')
         const req: ResolvedRequest = {
-            transport: 'cli', model: 'm', messages: [{ role: 'user', content: '' }], command: cmd(envScript),
+            transport: 'cli', model: 'm', messages: [{ role: 'user', content: '' }], command: buildCommand(envScript),
             env: { ...process.env, AI_TEST_VAR: 'xyz' } as Record<string, string>,
         }
         expect(await collect(req)).toBe('xyz')
@@ -85,7 +85,7 @@ describe('cliAdapter', () => {
     })
 
     it('stops a CLI that produces no output before the idle timeout, with a clear error', async () => {
-        const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'x' }], command: cmd(hangScript), idleTimeoutMs: 150 }
+        const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'x' }], command: buildCommand(hangScript), idleTimeoutMs: 150 }
         await expect(collect(req)).rejects.toThrow(/no output for/i)
     })
 })

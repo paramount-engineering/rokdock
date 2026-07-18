@@ -17,8 +17,9 @@ export function assertShellSafeModel(model: string): void {
     }
 }
 
-/** Every native Claude Code tool, denied so only our text protocol drives it. */
-const CLAUDE_DENYLIST = 'Task Bash BashOutput KillShell Glob Grep Read Edit Write NotebookEdit WebFetch WebSearch TodoWrite SlashCommand ExitPlanMode'
+/** Every native Claude Code tool, denied so only our tools drive it. AskUserQuestion is
+ *  included so roBot uses our ask_user (up to 12 options), not the native 4-option prompt. */
+const CLAUDE_DENYLIST = 'Task Bash BashOutput KillShell Glob Grep Read Edit Write NotebookEdit WebFetch WebSearch TodoWrite SlashCommand ExitPlanMode AskUserQuestion'
 
 /** Gemini deny-all policy: a global deny excludes every tool from the model entirely. */
 const GEMINI_DENY_POLICY = `[[rule]]
@@ -234,9 +235,12 @@ export const CLI_DEFINITIONS: Record<CliKind, CliDefinition> = {
             supportsSessionReuse: true,
             plan(opts): CliMcpPlan {
                 assertShellSafeModel(opts.model)
-                const available = opts.toolNames.map((name) => `rokdock-${name}`).join(' ')
                 const configPath = shellPath(`${opts.configDir}/${MCP_CONFIG_FILENAME}`)
-                const command = `copilot -s --no-ask-user --no-remote --no-remote-export${modelFlag('--model', opts.model)} --available-tools "${available}" --allow-tool rokdock --additional-mcp-config @"${configPath}"${sessionFlag(opts.session, '--session-id', '--session-id')}`
+                // --available-tools takes the bare server name to expose ALL of the server's tools.
+                // Enumerating per-tool ids (rokdock-<name>) silently exposes none once more than one
+                // tool is attached, so the model sees the tools but cannot call them and emits the
+                // raw function-call syntax as text. --allow-tool grants the whole server to match.
+                const command = `copilot -s --no-ask-user --no-remote --no-remote-export${modelFlag('--model', opts.model)} --available-tools "rokdock" --allow-tool rokdock --additional-mcp-config @"${configPath}"${sessionFlag(opts.session, '--session-id', '--session-id')}`
                 return { command, files: [mcpServerFile(opts, configPath)] }
             },
         },

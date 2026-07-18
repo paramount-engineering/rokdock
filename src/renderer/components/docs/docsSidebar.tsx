@@ -3,10 +3,12 @@
  *
  * Sections top to bottom:
  *  1. Search box (full-text). When a query is present, results replace the
- *     Favorites/Browse sections; clearing the box restores them.
+ *     Favorites/Notes/Browse sections; clearing the box restores them.
  *  2. What's New entry
- *  3. Favorites collapsible section
+ *  3. Favorites collapsible section (marks entries that also have a note)
  *  4. Browse section with the full DocsTree
+ *  4b. Notes: every page that currently has a note (collapsed by default, expansion remembered)
+ *  5. Frequently Viewed (shown once a page crosses the view threshold, collapsed by default, expansion remembered)
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -15,7 +17,7 @@ import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
 import type { DocsTreeNode, DocsLibraryEntry, DocsSearchResult } from '@shared/docs/types'
 import { escapeRegExp } from '@shared/escapeRegExp'
 import CollapsibleSection from '../common/collapsibleSection'
-import { DocsTree } from './docsTree'
+import { DocsTree, NoteMarker } from './docsTree'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -36,8 +38,10 @@ export interface DocsSidebarProps {
     onOpenSearchResult: (path: string, query: string) => void
     /** When set, injects this term into the sidebar search and focuses the input. */
     lookup?: { query: string; token: number } | null
-    /** Repo-relative paths that have a note, marked in the browse tree. */
+    /** Repo-relative paths that have a note, marked in the browse tree and Favorites. */
     notedPaths?: Set<string>
+    /** Pages that currently have a note, listed in their own Notes section. */
+    notedEntries?: DocsLibraryEntry[]
 }
 
 const SEARCH_DEBOUNCE_MS = 200
@@ -111,9 +115,11 @@ interface EntryRowProps {
     entry: DocsLibraryEntry
     isActive: boolean
     onClick: () => void
+    /** Show the sticky-note marker when this page has a note. */
+    noted?: boolean
 }
 
-function EntryRow({ entry, isActive, onClick }: EntryRowProps): React.JSX.Element {
+function EntryRow({ entry, isActive, onClick, noted }: EntryRowProps): React.JSX.Element {
     return (
         <div
             role="button"
@@ -128,6 +134,7 @@ function EntryRow({ entry, isActive, onClick }: EntryRowProps): React.JSX.Elemen
             }}
         >
             <span className="docs-fav-label">{entry.title}</span>
+            {noted && <NoteMarker />}
         </div>
     )
 }
@@ -157,6 +164,7 @@ export function DocsSidebar({
     onOpenSearchResult,
     lookup,
     notedPaths,
+    notedEntries,
 }: DocsSidebarProps): React.JSX.Element {
     const [query, setQuery] = useState('')
     const [results, setResults] = useState<DocsSearchResult[]>([])
@@ -264,6 +272,7 @@ export function DocsSidebar({
                                     entry={entry}
                                     isActive={entry.path === activePath}
                                     onClick={() => onOpenEntry(entry)}
+                                    noted={notedPaths?.has(entry.path) ?? false}
                                 />
                             ))
                         )}
@@ -279,15 +288,31 @@ export function DocsSidebar({
                         />
                     </CollapsibleSection>
 
-                    {/* 5. Frequently Viewed, at the bottom, shown once a page crosses the view threshold */}
+                    {/* 4b. Notes: every page that currently has a note (collapsed by default, expansion remembered) */}
+                    {notedEntries && notedEntries.length > 0 && (
+                        <CollapsibleSection title="Notes" id="docsNotes" defaultOpen={false}>
+                            {notedEntries.map(entry => (
+                                <EntryRow
+                                    key={entry.path}
+                                    entry={entry}
+                                    isActive={entry.path === activePath}
+                                    onClick={() => onOpenEntry(entry)}
+                                />
+                            ))}
+                        </CollapsibleSection>
+                    )}
+
+                    {/* 5. Frequently Viewed, at the bottom, shown once a page crosses the view threshold
+                          (collapsed by default, expansion remembered) */}
                     {frequentlyViewed.length > 0 && (
-                        <CollapsibleSection title="Frequently Viewed" defaultOpen={true}>
+                        <CollapsibleSection title="Frequently Viewed" id="docsFrequentlyViewed" defaultOpen={false}>
                             {frequentlyViewed.map(entry => (
                                 <EntryRow
                                     key={entry.path}
                                     entry={entry}
                                     isActive={entry.path === activePath}
                                     onClick={() => onOpenEntry(entry)}
+                                    noted={notedPaths?.has(entry.path) ?? false}
                                 />
                             ))}
                         </CollapsibleSection>

@@ -84,9 +84,11 @@ import { DEFAULT_SCREENSHOT_NAMING_FORMAT } from '../../shared/toolbarConstants'
 import { enumerateVideoInputs, applyCaptureDeviceReconcile } from '../utils/mediaDevices'
 import { resolveCaptureDeviceId, planCaptureDeviceReconcile } from '@shared/captureDeviceMatch'
 import { generateId } from '@shared/generateId'
+import { randomPortColor } from '@shared/ports'
 import { RokdockToggle, RokdockSelect, CollapsibleSettingsSection } from './rokdock/wrappers'
 import { resolveThemeMode } from '../styles/theme'
 import { AppearanceTab } from './settings/appearanceTab'
+import { roBot, LOGOTYPE_ASPECT, GLYPH_ASPECT } from './ai/roBotMark'
 import {
     resolveSyntaxTheme,
     syntaxPresetForMode,
@@ -109,7 +111,8 @@ const REMOTE_ACTION_GROUPS: Array<{ label: string; keys: string[] }> = [
 
 const SETTINGS_TAB_LABELS: Record<SettingsTab, string> = {
     appearance: 'Appearance',
-    ai: 'AI (Beta)',
+    // The AI tab renders the roBot wordmark instead of this text. The string is its accessible name.
+    ai: 'roBot (Beta)',
     deeplinks: 'Deeplinks',
     remote: 'Remote',
     devices: 'Devices',
@@ -270,6 +273,13 @@ export default function SettingsDialog() {
     const [resetScreenshotFolder, setResetScreenshotFolder] = useState(false)
     const [pendingDeviceDelete, setPendingDeviceDelete] = useState<{ id: string; name: string; ip: string } | null>(null)
     const [captureDevices, setCaptureDevices] = useState<Array<{ deviceId: string; label: string }>>([])
+    // The absolute folder screenshots land in when no custom folder is set, shown so the user
+    // knows where their files go and so Browse can open into it. Static per install; fetched once.
+    const [defaultScreenshotFolder, setDefaultScreenshotFolder] = useState('')
+
+    useEffect(() => {
+        window.rokdock.store.getDefaultScreenshotFolder().then(setDefaultScreenshotFolder).catch(() => {})
+    }, [])
 
     useEffect(() => {
         if (settingsDialogOpen) {
@@ -507,7 +517,7 @@ export default function SettingsDialog() {
     }
 
     const handleAddPort = () => {
-        setLocalPorts([...localPorts, { port: 0, label: '', color: '#81c784', enabled: true }])
+        setLocalPorts([...localPorts, { port: 0, label: '', color: randomPortColor(), enabled: true }])
     }
 
     const handleRemovePort = (idx: number) => {
@@ -658,13 +668,29 @@ export default function SettingsDialog() {
                     <button
                         type="button"
                         key={tab}
+                        // The AI tab shows the roBot brand wordmark in place of the "AI" text. The
+                        // wordmark SVG is decorative (aria-hidden), so the button carries the name.
+                        aria-label={tab === 'ai' ? SETTINGS_TAB_LABELS.ai : undefined}
                         style={{
                             ...styles.tab,
                             ...(activeTab === tab ? styles.tabActive : {})
                         }}
                         onClick={() => setActiveTab(tab)}
                     >
-                        {SETTINGS_TAB_LABELS[tab]}
+                        {tab === 'ai'
+                            ? (
+                                // Compose the mark from its parts and size it in em so "roBot" sits at
+                                // the same scale as the other tab labels (the baked wordmark ties the
+                                // icon and text at a fixed ratio, leaving the text off-scale here). Use
+                                // inline flow with vertical-align so "roBot" and "(Beta)" share the text
+                                // baseline. The icon (1em) is centered on the caps via a small offset.
+                                <span>
+                                    <roBot.Glyph style={{ height: '1em', width: `${GLYPH_ASPECT}em`, verticalAlign: '-0.15em', marginRight: '0.2em' }} />
+                                    <roBot.Logotype style={{ height: '0.8em', width: `${0.8 * LOGOTYPE_ASPECT}em`, verticalAlign: 'baseline' }} />
+                                    <span style={{ marginLeft: '0.25em', fontSize: '0.62em', verticalAlign: 'super', textTransform: 'uppercase', letterSpacing: '0.04em' }}>(Beta)</span>
+                                </span>
+                            )
+                            : SETTINGS_TAB_LABELS[tab]}
                     </button>
                 ))}
             </div>
@@ -678,7 +704,7 @@ export default function SettingsDialog() {
                     <div style={styles.section}>
                         <div style={styles.compactControlList}>
                             {localPorts.map((port, idx) => (
-                                <div key={`${port.port}-${port.label}-${port.color}`} style={styles.portRow}>
+                                <div key={idx} style={styles.portRow}>
                                     <input
                                         type="color"
                                         value={port.color}
@@ -984,20 +1010,23 @@ export default function SettingsDialog() {
                                         style={{ flex: 1, minWidth: 0 }}
                                         type="text"
                                         value={screenshotFolder}
-                                        placeholder="Default (app data folder)"
+                                        placeholder={defaultScreenshotFolder || 'Default folder'}
                                         onChange={e => setScreenshotFolder(e.target.value)}
                                     />
                                     <button
                                         className="rokdock-btn rokdock-btn-ghost"
                                         type="button"
                                         onClick={async () => {
-                                            const picked = await window.rokdock.dialog.pickFolder(screenshotFolder || undefined)
+                                            const picked = await window.rokdock.dialog.pickFolder(screenshotFolder || defaultScreenshotFolder || undefined)
                                             if (picked) setScreenshotFolder(picked)
                                         }}
                                     >
                                         Browse
                                     </button>
                                 </div>
+                                <span className="rokdock-hint">
+                                    Leave blank to save screenshots in the default folder shown above.
+                                </span>
                             </div>
                             <div style={FIELD_STYLE}>
                                 <label className="rokdock-label">Filename Format</label>

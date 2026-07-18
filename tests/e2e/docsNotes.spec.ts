@@ -8,6 +8,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { launchRokDockWithArgsAndUserData } from './helpers'
+import type { AppPreferences } from '@shared/types'
 
 const PAGE_ONE = 'docs/developer-program/getting-started/page-one.md'
 const PAGE_TWO = 'docs/developer-program/getting-started/page-two.md'
@@ -137,7 +138,7 @@ test('notes open, persist, and auto-show on return', async () => {
 
         // The pref should be persisted.
         const persistedNote = await win.evaluate(
-            (p) => window.rokdock.store.getPreferences().then(prefs => prefs.docsNotesByPath?.[p]),
+            (p) => window.rokdock.store.getPreferences().then((prefs: AppPreferences) => prefs.docsNotesByPath?.[p]),
             PAGE_ONE,
         )
         expect(persistedNote).toBe(noteText)

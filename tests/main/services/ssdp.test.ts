@@ -180,8 +180,8 @@ describe('fetchDeviceInfo inflight deduplication (part a)', () => {
         // Captures the response callback so we can fire it manually after stopDiscovery.
         let savedResponseCb: ((res: IncomingMessage) => void) | undefined
 
-        httpGetSpy = vi.spyOn(http, 'get').mockImplementation((_url, _opts, cb) => {
-            savedResponseCb = cb as (res: IncomingMessage) => void
+        httpGetSpy = vi.spyOn(http, 'get').mockImplementation((_url, _opts, callback) => {
+            savedResponseCb = callback as (res: IncomingMessage) => void
             const resEmitter = new EventEmitter()
             const req = new EventEmitter() as ClientRequest
             let _destroyed = false
@@ -222,7 +222,7 @@ describe('fetchDeviceInfo inflight deduplication (part a)', () => {
     it('only one device entry exists for an IP after two overlapping fetches', async () => {
         const resEmitters: EventEmitter[] = []
 
-        httpGetSpy = vi.spyOn(http, 'get').mockImplementation((_url, _opts, cb) => {
+        httpGetSpy = vi.spyOn(http, 'get').mockImplementation((_url, _opts, callback) => {
             const resEmitter = new EventEmitter()
             resEmitters.push(resEmitter)
             const req = new EventEmitter() as ClientRequest
@@ -235,9 +235,9 @@ describe('fetchDeviceInfo inflight deduplication (part a)', () => {
             })
             // Deliver the response after 10ms unless already destroyed.
             setTimeout(() => {
-                if (!_destroyed && cb) {
+                if (!_destroyed && callback) {
                     const res = resEmitter as unknown as IncomingMessage
-                    cb(res)
+                    callback(res)
                 }
             }, 10)
             return req

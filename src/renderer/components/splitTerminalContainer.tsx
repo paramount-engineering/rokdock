@@ -17,15 +17,22 @@ import React, { useRef, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import TerminalPane from './terminalPane'
 import PaneDivider from './paneDivider'
-import IconButton from './common/iconButton'
+import IconButton, { ICON_BUTTON_SIZE } from './common/iconButton'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faGear, faHexagon, faTableColumns } from '@fortawesome/free-solid-svg-icons'
+import { faGear, faTableColumns } from '@fortawesome/free-solid-svg-icons'
 
 const CONTAINER_STYLE: React.CSSProperties = { display: 'flex', height: '100%', overflow: 'hidden', position: 'relative' }
+const TOOLBAR_GAP = 2
+const TOOLBAR_PADDING_RIGHT = 6
 const TOOLBAR_WRAP_STYLE: React.CSSProperties = {
     position: 'absolute', top: 0, right: 0, zIndex: 4,
-    display: 'flex', alignItems: 'center', height: 30, paddingRight: 6, gap: 2
+    display: 'flex', alignItems: 'center', height: 30, paddingRight: TOOLBAR_PADDING_RIGHT, gap: TOOLBAR_GAP
 }
+// Width the tab bar must reserve so tabs and the right scroll caret clear the absolute
+// top-right toolbar. Derived from the real button footprint (so it can't drift): the
+// right padding plus one Gear button, plus a second button and the gap when Split shows.
+const TOOLBAR_RESERVE_GEAR = TOOLBAR_PADDING_RIGHT + ICON_BUTTON_SIZE.md
+const TOOLBAR_RESERVE_SPLIT_GEAR = TOOLBAR_RESERVE_GEAR + TOOLBAR_GAP + ICON_BUTTON_SIZE.md
 
 /**
  * Renders the terminal work area: one or two TerminalPane instances separated
@@ -57,8 +64,20 @@ export default function SplitTerminalContainer() {
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', height: '100%', opacity: 0.5, gap: 16
             }}>
-                <div style={{ fontSize: 56, color: 'var(--rokdock-brand-primary-light)', textShadow: `0 0 40px var(--rokdock-tab-glow)` }}>
-                    <FontAwesomeIcon icon={faHexagon} />
+                {/* Ghost mark echoing the app icon: its pointy-top hexagon with the 2x2 rounded-square
+                    grid knocked out (no ">_" prompt). Geometry matches resources/icons/icon.svg. */}
+                <div style={{ color: 'var(--rokdock-brand-primary-light)', filter: 'drop-shadow(0 0 26px var(--rokdock-tab-glow))', lineHeight: 0 }}>
+                    {/* The hexagon has generously rounded points (a rounded-corner path, so it keeps
+                        the app icon's bounds without an outward-growing stroke). The 2x2 grid uses the
+                        icon's exact square geometry, drawn as faint white panels that lighten the
+                        purple rather than punching hard holes. */}
+                    <svg width="76" height="76" viewBox="0 0 512 512" aria-hidden="true">
+                        <path d="M 294.1 41.9 L 417.9 113.1 Q 456 135 456.0 179.0 L 456.0 333.0 Q 456 377 417.9 398.9 L 294.1 470.1 Q 256 492 217.9 470.1 L 94.1 398.9 Q 56 377 56.0 333.0 L 56.0 179.0 Q 56 135 94.1 113.1 L 217.9 41.9 Q 256 20 294.1 41.9 Z" fill="currentColor" />
+                        <rect x="144" y="144" width="104" height="104" rx="21" fill="#ffffff" opacity="0.32" />
+                        <rect x="264" y="144" width="104" height="104" rx="21" fill="#ffffff" opacity="0.32" />
+                        <rect x="144" y="264" width="104" height="104" rx="21" fill="#ffffff" opacity="0.32" />
+                        <rect x="264" y="264" width="104" height="104" rx="21" fill="#ffffff" opacity="0.32" />
+                    </svg>
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--rokdock-text-dim)', letterSpacing: '0.3px' }}>
                     No Active Connections
@@ -71,6 +90,10 @@ export default function SplitTerminalContainer() {
     }
 
     const isSplit = paneB !== null
+    // The Split button shows only when there is a second tab to split and the view is not
+    // already split. It drives both the toolbar render and paneA's reserved width, so the two
+    // never drift apart.
+    const showSplitButton = !isSplit && tabs.length >= 2
 
     return (
         <div
@@ -100,6 +123,7 @@ export default function SplitTerminalContainer() {
                     paneId="a"
                     isFocused={focusedPaneId === 'a'}
                     onFocus={() => setFocusedPane('a')}
+                    toolbarReserve={isSplit ? 0 : (showSplitButton ? TOOLBAR_RESERVE_SPLIT_GEAR : TOOLBAR_RESERVE_GEAR)}
                 />
             </div>
             {isSplit && (
@@ -110,13 +134,14 @@ export default function SplitTerminalContainer() {
                             paneId="b"
                             isFocused={focusedPaneId === 'b'}
                             onFocus={() => setFocusedPane('b')}
+                            toolbarReserve={TOOLBAR_RESERVE_GEAR}
                         />
                     </div>
                 </>
             )}
             {tabs.length > 0 && (
                 <div style={TOOLBAR_WRAP_STYLE}>
-                    {!isSplit && tabs.length >= 2 && (
+                    {showSplitButton && (
                         <IconButton
                             title="Split terminal"
                             onClick={() => { if (focusedActiveTabId) splitTab(focusedActiveTabId) }}

@@ -55,22 +55,22 @@ const CSS = `
 const template = createTemplate(CSS, `<button part="button" type="button">${faSvg(faGear)}</button>`)
 
 class RokdockSettingsGear extends HTMLElement {
-    private btn!: HTMLButtonElement
+    private button!: HTMLButtonElement
 
     constructor() {
         super()
         const shadow = this.attachShadow({ mode: 'open' })
         shadow.appendChild(template.content.cloneNode(true))
-        this.btn = shadow.querySelector('button')!
+        this.button = shadow.querySelector('button')!
     }
 
     connectedCallback() {
-        this.btn.title = this.getAttribute('title') ?? 'Appearance settings'
-        this.btn.addEventListener('click', this.handleClick)
+        this.button.title = this.getAttribute('title') ?? 'Appearance settings'
+        this.button.addEventListener('click', this.handleClick)
     }
 
     disconnectedCallback() {
-        this.btn.removeEventListener('click', this.handleClick)
+        this.button.removeEventListener('click', this.handleClick)
     }
 
     private handleClick = () => {

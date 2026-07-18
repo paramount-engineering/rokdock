@@ -36,6 +36,8 @@ interface ConfirmDialogProps {
     confirmLabel?: string
     cancelLabel?: string
     destructive?: boolean
+    /** Disables the confirm button (e.g. while the dialog's input is invalid). */
+    confirmDisabled?: boolean
     width?: number
     children?: React.ReactNode
     onConfirm: () => void
@@ -54,6 +56,7 @@ export default function ConfirmDialog({
     confirmLabel = 'Confirm',
     cancelLabel = 'Cancel',
     destructive = false,
+    confirmDisabled = false,
     width = 420,
     children,
     onConfirm,
@@ -85,6 +88,7 @@ export default function ConfirmDialog({
                 <button
                     className={destructive ? 'rokdock-btn rokdock-btn-danger' : 'rokdock-btn rokdock-btn-primary'}
                     onClick={onConfirm}
+                    disabled={confirmDisabled}
                 >
                     {confirmLabel}
                 </button>

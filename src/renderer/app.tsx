@@ -26,6 +26,7 @@ import DevicePropertiesDialog from './components/devicePropertiesDialog'
 import SettingsDialog from './components/settingsDialog'
 import AboutDialog from './components/aboutDialog'
 import UpdatesDialog from './components/updatesDialog'
+import AiUiPrompt from './components/ai/aiUiPrompt'
 import CustomMenuBar from './components/customMenuBar'
 import type { UpdateCheckResult } from '@shared/updates'
 import type { AppearanceDraft } from '@shared/appearanceDraft'
@@ -33,6 +34,7 @@ import type { PanelState } from '@shared/types'
 import { setAppZoomLevel, stepAppZoom } from './utils/appZoom'
 import CaptureFloat from './components/captureFloat'
 import AiChatPanel from './components/ai/aiChatPanel'
+import { useTerminalOutputResponder } from './hooks/useTerminalOutputResponder'
 
 const BOOT_SPLASH_MIN_DURATION_MS = 1000
 const BOOT_FALLBACK_TIMEOUT_MS = 1500
@@ -80,6 +82,7 @@ export default function App() {
     const setRightPanelWidth = useAppStore(state => state.setRightPanelWidth)
     const setLeftSplitRatio = useAppStore(state => state.setLeftSplitRatio)
     const initAiChatStream = useAppStore(state => state.initAiChatStream)
+    useTerminalOutputResponder()
     const [aboutOpen, setAboutOpen] = useState(false)
     const [updatesOpen, setUpdatesOpen] = useState(false)
     const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null)
@@ -126,7 +129,10 @@ export default function App() {
         root.setProperty('--splash-card-start', 'var(--rokdock-bg-panel)')
         root.setProperty('--splash-card-end', 'var(--rokdock-bg-surface)')
         root.setProperty('--splash-card-border', 'var(--rokdock-border-light)')
+        root.setProperty('--splash-title', 'var(--rokdock-text-bright)')
         root.setProperty('--splash-subtitle', 'var(--rokdock-text-dim)')
+        root.setProperty('--splash-chips', 'var(--rokdock-text-dim)')
+        root.setProperty('--splash-status', 'var(--rokdock-text-muted)')
         root.setProperty('--splash-overlay-bg', 'var(--rokdock-overlay-bg)')
         void window.rokdock.window.setAuxThemeMode(themeMode).catch((err: unknown) => {
             console.error('Failed to sync aux window theme mode:', err)
@@ -541,6 +547,7 @@ export default function App() {
             {updatesOpen && (
                 <UpdatesDialog result={updateResult} onClose={() => setUpdatesOpen(false)} onRetry={runUpdateCheck} />
             )}
+            <AiUiPrompt />
             <CaptureFloat />
         </div>
     )

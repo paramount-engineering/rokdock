@@ -52,12 +52,30 @@ export interface AdapterToolkit {
 /** Maximum tool-call rounds per user turn, an upper bound on cost and runaway loops. */
 export const MAX_TOOL_ROUNDS = 5
 
+/**
+ * Optional per-call context the host threads into a tool handler. Portable: the host owns
+ * how any prompt is shown.
+ *  - confirm(summary): ask the user to approve a side effect. Resolves true to proceed.
+ *  - ask(question, options): offer the user a set of clickable choices. Resolves the chosen
+ *    option, or null if the user dismissed without choosing.
+ */
+export interface ToolCallContext {
+    confirm?(summary: string): Promise<boolean>
+    ask?(question: string, options: string[]): Promise<string | null>
+    /**
+     * Whether the host will actually prompt the user for a confirm(). When false, device-control
+     * confirmations are turned off (confirm() auto-approves without a dialog), so a tool should
+     * skip an optional disambiguation prompt and just act. Defaults to prompting when unset.
+     */
+    confirmationsEnabled?: boolean
+}
+
 /** A source of additional context. retrieve() supplies knowledge blocks. tools()/callTool() enable the native tool loop. */
 export interface ContextProvider {
     name: string
     retrieve?(request: AiRequest, signal: AbortSignal): Promise<ContextBlock[]>
     tools?(): ToolDef[]
-    callTool?(name: string, args: unknown, signal: AbortSignal): Promise<ToolResult>
+    callTool?(name: string, args: unknown, signal: AbortSignal, context?: ToolCallContext): Promise<ToolResult>
 }
 
 /** One turn in a multi-turn conversation. */

@@ -28,6 +28,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { faSvg } from '@shared/icons'
 import { findMatchingAudioDevice } from '@shared/captureDeviceMatch'
+import { videoFrameToPngDataUrl } from './utils/videoFrame'
 
 // Apply theme and await fonts before the body is revealed.
 void bootBundledTheme()
@@ -272,14 +273,15 @@ pinBtn.addEventListener('click', () => {
 
 screenshotBtn.addEventListener('click', () => {
     if (!videoEl.srcObject) return
-    const canvas = document.createElement('canvas')
-    canvas.width = videoEl.videoWidth
-    canvas.height = videoEl.videoHeight
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.drawImage(videoEl, 0, 0)
-    const dataUrl = canvas.toDataURL('image/png')
+    const dataUrl = videoFrameToPngDataUrl(videoEl)
+    if (!dataUrl) return
     void window.rokdock.capture.saveFrame(dataUrl)
+})
+
+// Answer roBot's HDMI screenshot-fallback frame grabs with this popout's current frame (or '' if
+// the stream is not live), so the fallback works while the capture is floated out of the dock.
+window.rokdock.capture.onGrabFrame((requestId: string) => {
+    window.rokdock.capture.frameGrabbed(requestId, videoEl.srcObject ? videoFrameToPngDataUrl(videoEl) : '')
 })
 
 // -- Close ---------------------------------------------------------------------

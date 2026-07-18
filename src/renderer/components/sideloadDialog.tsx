@@ -46,6 +46,8 @@ const DIALOG_CLOSE_BTN: CSSProperties = {
 interface SideloadDialogProps {
     device: Device | null
     onClose: () => void
+    /** When opened via a drag-drop onto the device card, the dropped package to pre-select. */
+    initialFile?: { filePath: string; fileName: string } | null
 }
 
 type Phase = 'idle' | 'installing' | 'done'
@@ -57,9 +59,9 @@ const ANIM_STYLE_ID = 'sideload-anim'
  */
 function ensureAnimStyles() {
     if (document.getElementById(ANIM_STYLE_ID)) return
-    const el = document.createElement('style')
-    el.id = ANIM_STYLE_ID
-    el.textContent = `
+    const styleElement = document.createElement('style')
+    styleElement.id = ANIM_STYLE_ID
+    styleElement.textContent = `
         @keyframes sideload-shimmer {
             0%   { transform: translateX(-200%) skewX(-20deg); opacity: 0; }
             20%  { opacity: 1; }
@@ -70,7 +72,7 @@ function ensureAnimStyles() {
             to { transform: rotate(360deg); }
         }
     `
-    document.head.appendChild(el)
+    document.head.appendChild(styleElement)
 }
 
 /**
@@ -78,7 +80,7 @@ function ensureAnimStyles() {
  * Manages the idle -> installing -> done phase state machine and surfaces
  * progress events from the main process as a progress bar.
  */
-export default function SideloadDialog({ device, onClose }: SideloadDialogProps) {
+export default function SideloadDialog({ device, onClose, initialFile }: SideloadDialogProps) {
     const deviceNicknames = useAppStore(state => state.deviceNicknames)
     const setDevicePropertiesDevice = useAppStore(state => state.setDevicePropertiesDevice)
 
@@ -91,16 +93,26 @@ export default function SideloadDialog({ device, onClose }: SideloadDialogProps)
 
     useEffect(() => { ensureAnimStyles() }, [])
 
+    // Reset everything when the dialog closes (device cleared).
     useEffect(() => {
-        if (!device) {
-            setPhase('idle')
-            setFilePath(null)
-            setFileName(null)
-            setProgress(0)
-            setStatus('')
-            setResult(null)
-        }
+        if (device) return
+        setPhase('idle')
+        setFilePath(null)
+        setFileName(null)
+        setProgress(0)
+        setStatus('')
+        setResult(null)
     }, [device])
+
+    // Pre-select the dropped package when opened via a drag-drop onto the device card.
+    // Keyed on initialFile alone (not device) so a background discovery refresh mid-dialog
+    // does not re-seed the file or wipe a completed install result.
+    useEffect(() => {
+        if (!initialFile) return
+        setFilePath(initialFile.filePath)
+        setFileName(initialFile.fileName)
+        setResult(null)
+    }, [initialFile])
 
     useEffect(() => {
         if (phase !== 'installing') return

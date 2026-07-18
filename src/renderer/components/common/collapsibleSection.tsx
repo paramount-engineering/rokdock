@@ -51,19 +51,28 @@ export default function CollapsibleSection({
 }: CollapsibleSectionProps) {
     const collapsedPanels = useAppStore(state => state.collapsedPanels)
     const toggleCollapsedPanel = useAppStore(state => state.toggleCollapsedPanel)
+    const expandedPanels = useAppStore(state => state.expandedPanels)
+    const toggleExpandedPanel = useAppStore(state => state.toggleExpandedPanel)
 
-    // When id is provided, derive state from the store; otherwise use local state.
-    // When controlledOpen is provided, it takes precedence over both.
+    // When id is provided, open/closed persists in the store, otherwise use local
+    // state. An open-by-default section (defaultOpen) persists via collapsedPanels
+    // (remembering what the user collapsed). A collapsed-by-default section persists
+    // via expandedPanels (remembering what the user expanded). controlledOpen, when
+    // provided, takes precedence over both.
     const [localOpen, setLocalOpen] = useState(defaultOpen)
+    const persistedOpen = defaultOpen
+        ? !collapsedPanels.includes(id ?? '')
+        : expandedPanels.includes(id ?? '')
     const open = controlledOpen !== undefined
         ? controlledOpen
-        : (id ? !collapsedPanels.includes(id) : localOpen)
+        : (id ? persistedOpen : localOpen)
 
     const handleToggle = () => {
         if (controlledOpen !== undefined) {
             onToggle?.()
         } else if (id) {
-            toggleCollapsedPanel(id)
+            if (defaultOpen) toggleCollapsedPanel(id)
+            else toggleExpandedPanel(id)
         } else {
             setLocalOpen(prev => !prev)
         }

@@ -20,7 +20,7 @@
 
 import net from 'net'
 import { EventEmitter } from 'events'
-import { tokenizeTerminalLine } from '../utils/terminalTokenizer'
+import { tokenizeTerminalLine } from '../../shared/terminalTokenizer'
 import type { TerminalLineChunk } from '../../shared/terminal'
 
 const SOCKET_CONNECT_TIMEOUT_MS = 10000
@@ -31,8 +31,13 @@ const READ_BUFFER_MAX_CHARS = 2_000_000
 
 /** A line of five or more '=' (with optional surrounding space) opening/closing a block. */
 const DIAGNOSTIC_RULE_RE = /^\s*={5,}\s*$/
-/** The header that opens a firmware diagnostic block, e.g. "Warning occurred while...". */
-const DIAGNOSTIC_HEADER_RE = /^(Warning|Error|Fatal) occurred\b/i
+/**
+ * The header that opens a firmware diagnostic block. Both the singular "Warning occurred
+ * while setting a field..." and the plural "Warnings occurred while creating XML component..."
+ * forms appear, so the trailing 's' is optional. It sits outside the capture group, so match[1]
+ * is always the bare severity word.
+ */
+const DIAGNOSTIC_HEADER_RE = /^(Warning|Error|Fatal)s? occurred\b/i
 /** Close a block after about this many lines if the closing rule never arrives. */
 const DIAGNOSTIC_BLOCK_MAX_LINES = 30
 

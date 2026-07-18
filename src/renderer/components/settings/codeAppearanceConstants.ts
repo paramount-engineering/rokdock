@@ -40,6 +40,7 @@ export const TERMINAL_THEME_OPTIONS: Array<{
     { value: 'oneLight', label: 'One Light', category: 'popular' },
     { value: 'oneDarkPro', label: 'One Dark Pro', category: 'popular' },
     { value: 'dracula', label: 'Dracula', category: 'popular' },
+    { value: 'alucard', label: 'Alucard', category: 'popular' },
     { value: 'nord', label: 'Nord', category: 'popular' },
     { value: 'solarizedDark', label: 'Solarized Dark', category: 'popular' },
     { value: 'solarizedLight', label: 'Solarized Light', category: 'popular' },

@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAppStore } from '../store/appStore'
 import { enumerateVideoInputs, applyCaptureDeviceReconcile } from '../utils/mediaDevices'
 import { findMatchingAudioDevice, planCaptureDeviceReconcile } from '@shared/captureDeviceMatch'
+import { videoFrameToPngDataUrl } from '../utils/videoFrame'
 
 export interface CaptureDevice {
     deviceId: string
@@ -247,6 +248,16 @@ export function useCaptureStream(active: boolean) {
         }
         setStreamActive(false)
     }, [])
+
+    // Answer on-demand frame-grab requests (roBot's screenshot fallback) while streaming, by
+    // sending back the current video frame as a PNG data URL (or '' if none is available).
+    useEffect(() => {
+        if (!streamActive) return
+        return window.rokdock.capture.onGrabFrame((requestId: string) => {
+            const video = videoRef.current
+            window.rokdock.capture.frameGrabbed(requestId, video ? videoFrameToPngDataUrl(video) : '')
+        })
+    }, [streamActive])
 
     return {
         videoRef,

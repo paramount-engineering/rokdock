@@ -167,3 +167,27 @@ export async function sendToolWindowCommand(
         win?.webContents.send(args.channel, args.command)
     }, { title, command, channel: TOOL_WINDOW_COMMAND_CHANNEL })
 }
+
+/**
+ * Runs an opener in the main window (e.g. `() => window.rokdock.svgExporter.openEditor()`),
+ * waits up to 8s for the new tool window to appear, and returns its loaded Page.
+ */
+export async function openToolWindow(
+    app: ElectronApplication,
+    mainWin: Page,
+    open: () => unknown
+): Promise<Page> {
+    const before = app.windows().length
+    await mainWin.evaluate(open)
+    const deadline = Date.now() + 8_000
+    while (Date.now() < deadline) {
+        const wins = app.windows()
+        if (wins.length > before) {
+            const win = wins[wins.length - 1]
+            await win.waitForLoadState('domcontentloaded')
+            return win
+        }
+        await new Promise<void>((resolve) => setTimeout(resolve, 100))
+    }
+    throw new Error('Tool window did not appear')
+}

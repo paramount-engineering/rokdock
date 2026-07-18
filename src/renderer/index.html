@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self';" />
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self';" />
     <title>RokDock</title>
     <style>
         :root {
@@ -24,7 +24,10 @@
             --splash-card-start: #26243d;
             --splash-card-end: #302d4a;
             --splash-card-border: #686492;
+            --splash-title: #ffffff;
             --splash-subtitle: #dde2f7;
+            --splash-chips: #cbd5ff;
+            --splash-status: #e8ecff;
             --splash-overlay-bg: #121427;
             --range-fill: #8A6FE0;
             --range-track: rgba(255, 255, 255, 0.18);
@@ -69,17 +72,6 @@
         ::selection {
             background: var(--selection-bg);
             color: var(--selection-text);
-        }
-
-        /* Ensure highlighted text in terminal search input stays legible */
-        .terminal-search-input::selection {
-            background: var(--rokdock-search-highlight-color);
-            color: var(--rokdock-bg-base);
-        }
-
-        .terminal-search-input::-moz-selection {
-            background: var(--rokdock-search-highlight-color);
-            color: var(--rokdock-bg-base);
         }
 
         /* Kill Chromium UA focus/active styling on all interactive elements */
@@ -296,7 +288,7 @@
         #boot-splash-title {
             font-size: 16px;
             font-weight: 700;
-            color: #ffffff;
+            color: var(--splash-title);
             letter-spacing: 0.3px;
         }
 
@@ -328,7 +320,7 @@
             margin-top: 4px;
             /* Room for platform + Electron + Node line, or two short lines if narrow */
             min-height: 32px;
-            color: #cbd5ff;
+            color: var(--splash-chips);
             font-size: 10px;
             line-height: 1.45;
             letter-spacing: 0.2px;
@@ -342,7 +334,7 @@
             margin-top: 8px;
             min-height: 22px;
             line-height: 1.3;
-            color: #e8ecff;
+            color: var(--splash-status);
             font-size: 10px;
             letter-spacing: 1.1px;
             text-transform: uppercase;
@@ -433,25 +425,33 @@
             <div id="boot-splash-strip"></div>
             <div id="boot-splash-body">
                 <div id="boot-splash-logo-wrap">
-                    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+                    <!-- Canonical RokDock icon (keep in sync with resources/icons/icon.svg).
+                         Uses boot- prefixed ids so it never collides with the About window's
+                         copy of the same icon, which shares this document. -->
+                    <svg width="64" height="64" viewBox="0 0 512 512" fill="none" aria-hidden="true">
                         <defs>
-                            <linearGradient id="bootHexGrad" x1="0" y1="0" x2="64" y2="64">
-                                <stop offset="0%" stop-color="var(--brand-purple-light)" />
-                                <stop offset="100%" stop-color="var(--brand-purple-base)" />
+                            <linearGradient id="bootHexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#8A5CF6" />
+                                <stop offset="100%" stop-color="#4A23A8" />
                             </linearGradient>
-                            <filter id="bootGlow">
-                                <feGaussianBlur stdDeviation="3" result="blur" />
-                                <feMerge>
-                                    <feMergeNode in="blur" />
-                                    <feMergeNode in="SourceGraphic" />
-                                </feMerge>
+                            <linearGradient id="bootHexStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#B69CFF" />
+                                <stop offset="100%" stop-color="#4A23A8" />
+                            </linearGradient>
+                            <filter id="bootPromptShadow" x="-30%" y="-30%" width="160%" height="160%">
+                                <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#160a33" flood-opacity="0.45" />
                             </filter>
                         </defs>
-                        <path d="M32 4 L56 18 L56 46 L32 60 L8 46 L8 18 Z" fill="url(#bootHexGrad)"
-                            stroke="var(--brand-purple-light)" stroke-width="1.5" filter="url(#bootGlow)" />
-                        <text x="32" y="38" text-anchor="middle" font-size="22"
-                            font-family="'JetBrains Mono', 'Cascadia Code', 'Fira Code', Consolas, Menlo, Monaco, 'Ubuntu Mono', ui-monospace, monospace" font-weight="bold"
-                            fill="#fff">&gt;_</text>
+                        <path d="M256 20 L456 135 L456 377 L256 492 L56 377 L56 135 Z" fill="url(#bootHexGrad)"
+                            stroke="url(#bootHexStroke)" stroke-width="8" />
+                        <path d="M256 44 L436 148 L436 364 L256 468 L76 364 L76 148 Z" fill="none"
+                            stroke="rgba(255,255,255,0.26)" stroke-width="3" />
+                        <rect x="144" y="144" width="104" height="104" rx="21" ry="21" fill="#ffffff" opacity="0.16" />
+                        <rect x="264" y="144" width="104" height="104" rx="21" ry="21" fill="#ffffff" opacity="0.16" />
+                        <rect x="144" y="264" width="104" height="104" rx="21" ry="21" fill="#ffffff" opacity="0.16" />
+                        <rect x="264" y="264" width="104" height="104" rx="21" ry="21" fill="#ffffff" opacity="0.16" />
+                        <text x="256" y="312" text-anchor="middle" font-family="'Consolas', 'Courier New', monospace"
+                            font-size="196" font-weight="bold" fill="#ffffff" filter="url(#bootPromptShadow)">&gt;_</text>
                     </svg>
                 </div>
                 <div id="boot-splash-title">RokDock</div>

@@ -6,16 +6,17 @@
  * registry in toolWindow.ts tracks at most one live window per scope. Each window
  * has its own Export PNG enabled state tracked via a per-window WeakMap record.
  *
- * SVG-to-PNG conversion workflow:
+ * SVG conversion workflow:
  *  1. User imports an SVG file (via dialog or drag-and-drop paste as text).
  *  2. The renderer rasterizes the SVG to a canvas data URL at the desired size.
- *  3. The main process quantizes the RGBA PNG to an indexed palette (compressPng)
- *     for Roku-compatible file sizes.
- *  4. User saves the optimized PNG via a native save dialog.
+ *  3. For PNG, the main process quantizes the RGBA image to an indexed palette
+ *     (compressPng) for Roku-compatible file sizes. For WebP, the renderer encodes
+ *     the full-color raster with the browser's lossy WebP encoder (no main step).
+ *  4. User saves the result via a native save dialog (save-image, PNG or WebP).
  *
- * The 'Export PNG' menu item is disabled until an SVG has been loaded. Each window
- * tracks its own loaded flag and menu reference in SvgWindowState so the two scopes
- * manage their Export PNG state independently.
+ * The Export menu item is disabled until an SVG has been loaded. Each window tracks
+ * its own loaded flag and menu reference in SvgWindowState so the two scopes manage
+ * their Export state independently.
  */
 
 import { BrowserWindow, dialog, ipcMain, Menu } from 'electron'
@@ -38,6 +39,7 @@ import {
     type ToolWindowScope
 } from '../toolWindow'
 import { dataUrlToBuffer } from '../../utils/dataUrl'
+import { parseSvgDimensions } from '../../utils/svgDimensions'
 import type { IpcContext, IpcResult } from '../types'
 import { sendToolWindowCommand } from '../toolWindowCommand'
 import type { SvgConverterCommand } from '../../../shared/toolWindowCommands'
@@ -121,7 +123,7 @@ function buildSvgExporterMenu(win: BrowserWindow): Menu {
             submenu: [
                 { label: 'Import SVG...', accelerator: 'CmdOrCtrl+O', click: () => sendCommand({ type: 'import' }) },
                 { type: 'separator' },
-                { label: 'Export PNG...', accelerator: 'CmdOrCtrl+S', enabled: false, id: 'export-png', click: () => sendCommand({ type: 'export' }) },
+                { label: 'Export...', accelerator: 'CmdOrCtrl+S', enabled: false, id: 'export-png', click: () => sendCommand({ type: 'export' }) },
                 { type: 'separator' },
                 isMac
                     ? { role: 'close' as const }
@@ -164,29 +166,6 @@ function createSvgWindow(context: IpcContext, sourceZoomLevel: number | undefine
     // Register before loading the entry so svg-exporter:get-initial-data resolves this window's scope.
     setScopedToolWindow('svg', scope, win)
     return win
-}
-
-/**
- * Extracts the intrinsic width and height from an SVG string.
- * Tries explicit width/height attributes first, then falls back to the viewBox attribute.
- * @param svgText - The raw SVG markup string.
- * @returns { width, height } in pixels; returns { 0, 0 } if dimensions cannot be determined.
- */
-function parseSvgDimensions(svgText: string): { width: number; height: number } {
-    // Try width/height attributes on root <svg>
-    const widthMatch = svgText.match(/<svg[^>]*\bwidth=["'](\d+(?:\.\d+)?)(px)?["']/i)
-    const heightMatch = svgText.match(/<svg[^>]*\bheight=["'](\d+(?:\.\d+)?)(px)?["']/i)
-    if (widthMatch && heightMatch) {
-        return { width: parseFloat(widthMatch[1]), height: parseFloat(heightMatch[1]) }
-    }
-
-    // Fallback to viewBox
-    const vbMatch = svgText.match(/<svg[^>]*\bviewBox=["'][\s]*[\d.]+[\s]+[\d.]+[\s]+([\d.]+)[\s]+([\d.]+)["']/i)
-    if (vbMatch) {
-        return { width: parseFloat(vbMatch[1]), height: parseFloat(vbMatch[2]) }
-    }
-
-    return { width: 0, height: 0 }
 }
 
 /**
@@ -323,32 +302,36 @@ export function registerSvgExporterHandlers(context: IpcContext): void {
     })
 
     /**
-     * Saves an already-quantized PNG to disk via a native Save dialog.
+     * Saves an already-encoded image (PNG or WebP) to disk via a native Save dialog.
      * The bytes are written directly from the data URL - no re-compression is applied,
      * so the saved file size exactly matches the size shown in the UI.
-     * @param pngDataUrl - Base64 PNG data URL of the quantized image to save.
+     * @param dataUrl - Base64 image data URL (PNG or WebP) to save.
      * @param defaultName - Default filename for the Save dialog.
+     * @param format - The image format, which selects the dialog file filter.
      * @returns {IpcResult} ok: true on success; ok: false if canceled, invalid data, or write fails.
      */
-    ipcMain.handle('svg-exporter:save-png', async (event, pngDataUrl: unknown, defaultName: unknown): Promise<IpcResult> => {
+    ipcMain.handle('svg-exporter:save-image', async (event, dataUrl: unknown, defaultName: unknown, format: unknown): Promise<IpcResult> => {
         const win = BrowserWindow.fromWebContents(event.sender)
         if (!win) return { ok: false, error: 'SVG Converter window is not open.' }
         const state = getWindowState(win)
         if (state.dialogInFlight) return { ok: false, error: 'A dialog is already open.' }
         state.dialogInFlight = true
         try {
-            if (typeof pngDataUrl !== 'string' || !pngDataUrl.startsWith('data:image')) {
+            if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) {
                 return { ok: false, error: 'Invalid image data.' }
             }
-            const buffer = dataUrlToBuffer(pngDataUrl)
+            const buffer = dataUrlToBuffer(dataUrl)
 
-            const saveName = typeof defaultName === 'string' && defaultName ? defaultName : 'export.png'
+            const isWebp = format === 'webp'
+            const saveName = typeof defaultName === 'string' && defaultName
+                ? defaultName
+                : (isWebp ? 'export.webp' : 'export.png')
+            const filter = isWebp
+                ? { name: 'WebP Images', extensions: ['webp'] }
+                : { name: 'PNG Images', extensions: ['png'] }
             const result = await dialog.showSaveDialog(win, {
                 defaultPath: saveName,
-                filters: [
-                    { name: 'PNG Images', extensions: ['png'] },
-                    { name: 'All Files', extensions: ['*'] }
-                ]
+                filters: [filter, { name: 'All Files', extensions: ['*'] }]
             })
             if (result.canceled || !result.filePath) return { ok: false, error: 'Export canceled.' }
 

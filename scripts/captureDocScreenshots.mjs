@@ -72,16 +72,16 @@ try {
     await main.getByRole('button', { name: /^Settings\.\.\./ }).click({ force: true })
     await main.locator('.rokdock-dialog-header .rokdock-title').waitFor({ state: 'visible', timeout: 8000 })
     await main.waitForTimeout(400)
-    // Enumerate tab buttons by their visible labels and capture the dialog element.
-    // The label is what the tab button shows; name is the output filename ("AI (Beta)"
-    // is not a valid file basename, so it maps to settings-ai).
+    // Enumerate tab buttons by their accessible name and capture the dialog element. The label is
+    // the tab's accessible name (the AI tab shows the roBot wordmark, so its name comes from the
+    // button's aria-label, "roBot (Beta)"). name is the output filename basename.
     const settingsTabs = [
         { label: 'Appearance', name: 'appearance' },
         { label: 'Devices', name: 'devices' },
         { label: 'Remote', name: 'remote' },
         { label: 'Deeplinks', name: 'deeplinks' },
         { label: 'Capture', name: 'capture' },
-        { label: 'AI (Beta)', name: 'ai' },
+        { label: 'roBot (Beta)', name: 'ai' },
         { label: 'Advanced', name: 'advanced' },
     ]
     for (const { label, name } of settingsTabs) {
@@ -234,7 +234,7 @@ try {
         await main.waitForTimeout(800)
         const panel = main.locator('[data-testid="ai-chat-panel"]')
         await panel.waitFor({ state: 'visible', timeout: 8000 })
-        await main.getByText('AI Chat', { exact: false }).first().click({ timeout: 4000 }).catch(() => {})
+        await main.locator('[data-testid="ai-chat-toggle"]').first().click({ timeout: 4000 }).catch(() => {})
         await main.waitForTimeout(600)
         await shotEl(main, '[data-testid="ai-chat-panel"]', 'ai-chat-panel')
     }

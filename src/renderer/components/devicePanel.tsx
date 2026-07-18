@@ -143,9 +143,9 @@ export default function DevicePanel() {
 
         const cardEls = [...(listRef.current?.querySelectorAll('[data-device-ip]') ?? [])] as HTMLElement[]
         const candidates = cardEls
-            .map((el) => ({
-                ip: el.dataset.deviceIp || '',
-                centerY: el.getBoundingClientRect().top + (el.getBoundingClientRect().height / 2)
+            .map((element) => ({
+                ip: element.dataset.deviceIp || '',
+                centerY: element.getBoundingClientRect().top + (element.getBoundingClientRect().height / 2)
             }))
             .filter(({ ip }) => !!ip && ip !== drag.ip)
 

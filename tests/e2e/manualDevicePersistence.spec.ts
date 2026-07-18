@@ -16,6 +16,7 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { launchRokDockWithArgsAndUserData } from './helpers'
+import type { DeviceInfo } from '@shared/device'
 
 const UNREACHABLE_IP = '10.0.0.99'
 
@@ -45,7 +46,7 @@ test('a manually-added device with credentials survives a restart', async () => 
     try {
         await second.mainWin.waitForTimeout(500)
         const devices = await second.mainWin.evaluate(() => window.rokdock.discovery.getDevices())
-        expect(devices.some((d) => d.ip === UNREACHABLE_IP)).toBe(true)
+        expect(devices.some((d: DeviceInfo) => d.ip === UNREACHABLE_IP)).toBe(true)
     } finally {
         await second.app.close()
         fs.rmSync(userData, { recursive: true, force: true })

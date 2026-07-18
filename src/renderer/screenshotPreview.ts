@@ -41,6 +41,7 @@ import {
     measureTickFractions,
     type MeasurePoint
 } from './screenshotPreviewGeometry'
+import { videoFrameToPngDataUrl } from './utils/videoFrame'
 import type {
     OnionOverlayMenuEntryForPreview,
     ScreenshotHistoryEntryForPreview,
@@ -189,10 +190,10 @@ function showPlaceholder(visible: boolean): void {
 function renderHistoryPanel(): void {
     historyPanel.innerHTML = ''
     screenshotHistoryEntries.forEach((entry) => {
-        const btn = document.createElement('button')
-        btn.className = 'history-item'
-        btn.type = 'button'
-        btn.setAttribute('role', 'menuitem')
+        const button = document.createElement('button')
+        button.className = 'history-item'
+        button.type = 'button'
+        button.setAttribute('role', 'menuitem')
         const thumb = document.createElement('img')
         thumb.className = 'thumb'
         thumb.src = entry.thumbnailDataUrl
@@ -200,10 +201,10 @@ function renderHistoryPanel(): void {
         const label = document.createElement('span')
         label.className = 'label'
         label.textContent = entry.label
-        btn.appendChild(thumb)
-        btn.appendChild(label)
-        btn.addEventListener('click', () => { void showHistoryEntry(entry) })
-        historyPanel.appendChild(btn)
+        button.appendChild(thumb)
+        button.appendChild(label)
+        button.addEventListener('click', () => { void showHistoryEntry(entry) })
+        historyPanel.appendChild(button)
     })
     historyBtn.style.display = screenshotHistoryEntries.length ? '' : 'none'
 }
@@ -266,11 +267,11 @@ function openOverlayFlyout(items: FlyoutItem[], triggerEl: HTMLElement): void {
         onionHistoryFlyout.appendChild(empty)
     } else {
         items.forEach((item) => {
-            const btn = document.createElement('button')
-            btn.type = 'button'
-            btn.className = 'onion-preset-item'
-            btn.setAttribute('role', 'menuitem')
-            btn.title = item.label
+            const button = document.createElement('button')
+            button.type = 'button'
+            button.className = 'onion-preset-item'
+            button.setAttribute('role', 'menuitem')
+            button.title = item.label
             if (item.thumb) {
                 const thumb = document.createElement('img')
                 thumb.className = 'onion-preset-thumb'
@@ -278,19 +279,19 @@ function openOverlayFlyout(items: FlyoutItem[], triggerEl: HTMLElement): void {
                 thumb.loading = 'lazy'
                 thumb.decoding = 'async'
                 thumb.src = item.thumb
-                btn.appendChild(thumb)
+                button.appendChild(thumb)
             } else {
                 const placeholder = document.createElement('span')
                 placeholder.className = 'onion-preset-thumb-ph'
                 placeholder.setAttribute('aria-hidden', 'true')
-                btn.appendChild(placeholder)
+                button.appendChild(placeholder)
             }
-            const labelEl = document.createElement('span')
-            labelEl.className = 'onion-preset-label'
-            labelEl.textContent = item.label
-            btn.appendChild(labelEl)
-            btn.addEventListener('click', item.action)
-            onionHistoryFlyout.appendChild(btn)
+            const labelElement = document.createElement('span')
+            labelElement.className = 'onion-preset-label'
+            labelElement.textContent = item.label
+            button.appendChild(labelElement)
+            button.addEventListener('click', item.action)
+            onionHistoryFlyout.appendChild(button)
         })
     }
     const rect = triggerEl.getBoundingClientRect()
@@ -316,22 +317,22 @@ function openOverlayFlyout(items: FlyoutItem[], triggerEl: HTMLElement): void {
 }
 
 function appendFlyoutTrigger(panel: HTMLElement, label: string, getItems: () => FlyoutItem[]): void {
-    const btn = document.createElement('button')
-    btn.type = 'button'
-    btn.className = 'onion-flyout-trigger'
-    btn.setAttribute('role', 'menuitem')
-    btn.setAttribute('aria-haspopup', 'true')
-    const labelEl = document.createElement('span')
-    labelEl.className = 'onion-preset-label'
-    labelEl.textContent = label
-    btn.appendChild(labelEl)
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'onion-flyout-trigger'
+    button.setAttribute('role', 'menuitem')
+    button.setAttribute('aria-haspopup', 'true')
+    const labelElement = document.createElement('span')
+    labelElement.className = 'onion-preset-label'
+    labelElement.textContent = label
+    button.appendChild(labelElement)
     const chevron = document.createElement('span')
     chevron.className = 'flyout-chevron'
     chevron.innerHTML = chevronRightSvg
-    btn.appendChild(chevron)
-    btn.addEventListener('mouseenter', () => { cancelFlyoutClose(); openOverlayFlyout(getItems(), btn) })
-    btn.addEventListener('mouseleave', () => scheduleFlyoutClose())
-    panel.appendChild(btn)
+    button.appendChild(chevron)
+    button.addEventListener('mouseenter', () => { cancelFlyoutClose(); openOverlayFlyout(getItems(), button) })
+    button.addEventListener('mouseleave', () => scheduleFlyoutClose())
+    panel.appendChild(button)
 }
 
 function renderOnionPresetsPanel(): void {
@@ -566,8 +567,8 @@ const pointInRect = (x: number, y: number, rect: DOMRect): boolean =>
     x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
 
 const canPan = (): boolean => {
-    const el = captureActive ? captureVideo : shot
-    return el.clientWidth > viewport.clientWidth || el.clientHeight > viewport.clientHeight
+    const element = captureActive ? captureVideo : shot
+    return element.clientWidth > viewport.clientWidth || element.clientHeight > viewport.clientHeight
 }
 
 function updateOverlayDim(): void {
@@ -667,8 +668,8 @@ function fitToViewport(): void {
 
 function clientToNaturalOnShot(clientX: number, clientY: number): MeasurePoint | null {
     if (!naturalWidth || !naturalHeight) return null
-    const el = captureActive ? captureVideo : shot
-    const rect = el.getBoundingClientRect()
+    const element = captureActive ? captureVideo : shot
+    const rect = element.getBoundingClientRect()
     if (rect.width < 1 || rect.height < 1) return null
     return {
         nx: clamp((clientX - rect.left) * (naturalWidth / rect.width), 0, naturalWidth),
@@ -683,9 +684,9 @@ function redrawMeasureOverlay(): void {
         measureLabel.textContent = ''
         return
     }
-    const el = captureActive ? captureVideo : shot
-    const w = el.clientWidth
-    const h = el.clientHeight
+    const element = captureActive ? captureVideo : shot
+    const w = element.clientWidth
+    const h = element.clientHeight
     if (w < 1 || h < 1) return
     measureSvg.setAttribute('width', String(w))
     measureSvg.setAttribute('height', String(h))
@@ -746,8 +747,8 @@ function exitMeasureModeUi(): void {
 function hitMeasureEndpoint(point: MeasurePoint | null): 'start' | 'end' | null {
     if (!measureStart || !measureEnd || !point) return null
     const threshold = 8
-    const el = captureActive ? captureVideo : shot
-    const rect = el.getBoundingClientRect()
+    const element = captureActive ? captureVideo : shot
+    const rect = element.getBoundingClientRect()
     if (rect.width < 1 || rect.height < 1) return null
     const sx = (measureStart.nx / naturalWidth) * rect.width
     const sy = (measureStart.ny / naturalHeight) * rect.height
@@ -883,11 +884,11 @@ onionOpacity.addEventListener('input', () => {
 
 // -- Copy hotkeys + Escape -------------------------------------------------------
 
-function isCopyHotkeyTarget(el: EventTarget | null): boolean {
-    if (!el || el === document.body) return false
-    const tag = (el as HTMLElement).tagName
+function isCopyHotkeyTarget(target: EventTarget | null): boolean {
+    if (!target || target === document.body) return false
+    const tag = (target as HTMLElement).tagName
     if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'OPTION') return true
-    return !!(el as HTMLElement).isContentEditable
+    return !!(target as HTMLElement).isContentEditable
 }
 
 window.addEventListener('keydown', (e) => {
@@ -1021,17 +1022,11 @@ function updateCaptureToggleBtn(): void {
 }
 
 async function captureFrameToShot(): Promise<void> {
-    if (!captureVideo.videoWidth || !captureVideo.videoHeight) {
+    const dataUrl = videoFrameToPngDataUrl(captureVideo)
+    if (!dataUrl) {
         showToast('No video frame available')
         return
     }
-    const canvas = document.createElement('canvas')
-    canvas.width = captureVideo.videoWidth
-    canvas.height = captureVideo.videoHeight
-    const ctx = canvas.getContext('2d')
-    if (!ctx) { showToast('Canvas unavailable.'); return }
-    ctx.drawImage(captureVideo, 0, 0)
-    const dataUrl = canvas.toDataURL('image/png')
     try {
         const result = await window.rokdock.capture.saveFrame(dataUrl)
         if (!result.ok) { showToast('Failed to save frame'); return }
@@ -1048,6 +1043,12 @@ async function captureFrameToShot(): Promise<void> {
         showToast('Failed to save frame')
     }
 }
+
+// Answer roBot's HDMI screenshot-fallback frame grabs with the capture feed's current frame when
+// this window is in capture mode (or '' otherwise), so the fallback works from the preview window.
+window.rokdock.capture.onGrabFrame((requestId: string) => {
+    window.rokdock.capture.frameGrabbed(requestId, captureActive ? videoFrameToPngDataUrl(captureVideo) : '')
+})
 
 function showCaptureUi(): void {
     document.body.classList.add('capture-active')
@@ -1081,8 +1082,8 @@ captureVideo.addEventListener('loadedmetadata', () => {
     captureNaturalWidth = captureVideo.videoWidth || 0
     captureNaturalHeight = captureVideo.videoHeight || 0
     if (!captureActive || !captureNaturalWidth || !captureNaturalHeight) return
-    window.rokdock.store.getPreferences().then((prefs: AppPreferences) => {
-        const aspect = prefs.captureAspectRatio || 'auto'
+    window.rokdock.store.getPreferences().then((preferences: AppPreferences) => {
+        const aspect = preferences.captureAspectRatio || 'auto'
         if (aspect === '16:9') {
             captureNaturalWidth = Math.max(captureNaturalWidth, Math.round(captureNaturalHeight * (16 / 9)))
             captureNaturalHeight = Math.round(captureNaturalWidth / (16 / 9))

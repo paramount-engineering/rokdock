@@ -16,9 +16,20 @@ export interface DocSource {
 /**
  * One turn in a conversation, with optional source attribution for the UI layer.
  * Extends the portable core turn shape (role + content) with RokDock-specific metadata.
+ * `image` is display-only, a captured screenshot shown inline. It is never sent to the model.
  */
 export interface ChatMessage extends CoreChatMessage {
     sources?: DocSource[]
+    image?: { thumbnailDataUrl: string; deviceIp: string; path: string }
+}
+
+/** A screenshot roBot captured, pushed to the chat for inline display (never sent to the model). */
+export interface AiChatImage {
+    thumbnailDataUrl: string
+    /** Saved file path, so a click can open this exact shot in the viewer. */
+    path: string
+    deviceIp: string
+    deviceName: string
 }
 
 /** Renderer-safe profile. The key itself is never included. hasKey reports its presence. */
@@ -66,3 +77,17 @@ export interface RedactionPreview {
     text: string
     replacements: Array<{ label: string; count: number }>
 }
+
+/**
+ * A prompt the AI stream (main) asks the renderer to present to the user, awaiting a reply.
+ * `confirm` gates a state-changing tool action; `choice` lets the assistant offer clickable
+ * options instead of the user typing an answer. Keyed by requestId for the response.
+ */
+export type AiUiRequest =
+    | { requestId: string; kind: 'confirm'; summary: string }
+    | { requestId: string; kind: 'choice'; question: string; options: string[] }
+
+/** The user's reply to an AiUiRequest, sent back to main by requestId. */
+export type AiUiResponse =
+    | { requestId: string; kind: 'confirm'; choice: 'deny' | 'once' | 'chat' }
+    | { requestId: string; kind: 'choice'; value: string | null }

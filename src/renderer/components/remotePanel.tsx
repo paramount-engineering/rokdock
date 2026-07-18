@@ -269,7 +269,7 @@ export default function RemotePanel({ extraSection }: RemotePanelProps = {}) {
                     the remote itself is already inert via its own `disabled` attribute, and
                     the section config gears (e.g. Configure deeplinks) must stay clickable
                     since they are device-independent. */}
-                <div style={disabled ? { opacity: 0.45 } : undefined}>
+                <div style={{ flexShrink: 0, ...(disabled ? { opacity: 0.45 } : {}) }}>
                 <CollapsibleSection
                     title="Remote"
                     id="remote"
@@ -433,7 +433,11 @@ function buildStyles(themeMode: 'dark' | 'light'): Record<string, React.CSSPrope
             flex: 1,
             minHeight: 0,
             overflowX: 'hidden',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            // Column layout so a docked AI Chat (extraSection) can grow into the space
+            // below the fixed Remote/Scripts/Deeplinks sections instead of leaving a gap.
+            display: 'flex',
+            flexDirection: 'column'
         },
         noDevice: {
             padding: '10px 12px',

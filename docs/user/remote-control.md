@@ -1,4 +1,4 @@
-# Remote Control
+# Roku Virtual Remote (ECP Remote Control)
 
 RokDock includes a virtual Roku remote panel on the right side of the app.
 
@@ -9,7 +9,7 @@ At the top of the panel, choose the target device from the device dropdown.
 - Remote commands and deeplink launches use this selected device.
 - Opening a terminal tab for a device usually aligns remote target selection to that device.
 
-![The Remote panel with a device selected: a full-color Roku remote with power, back, home, the directional pad with OK, playback controls, and a "Type to send..." text input](images/remote-live.png)
+![The Remote panel with a device selected: a full-color Roku remote with power, back, home, the directional pad with OK, playback controls, and a "Type to send..." text input](images/control-remote.png)
 *The Remote panel with a device selected. The on-screen remote is active and ready to send ECP commands.*
 
 ## On-Screen Remote Buttons
@@ -52,7 +52,7 @@ All other actions (Power, Instant Replay, Options, Rewind, Play/Pause, Fast Forw
 
 All key bindings are configurable. Open Settings > Remote from the gear icon in the Remote section header, or from the main Settings dialog.
 
-![Settings > Remote tab showing the keyboard binding editor](images/settings-remote.png)
+![Settings > Remote tab showing the keyboard binding editor](images/control-remote-settings.png)
 *The Settings > Remote tab. Click any row to record a new key for that action.*
 
 ## Text Entry Overlay

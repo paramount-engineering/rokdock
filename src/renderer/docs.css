@@ -1398,15 +1398,16 @@
     font-weight: 700;
 }
 
-/* Matched text highlighted on the opened page (CSS Custom Highlight API). All hits
-   get the base tint; the one the find bar is parked on gets a stronger tint. */
+/* Matched text highlighted on the opened page (CSS Custom Highlight API). Shares the
+   app-wide subtle amber search tokens (terminal + docs) so highlighting is consistent.
+   All hits get the base tint; the one the find bar is parked on gets the stronger tint. */
 ::highlight(docs-search-hit) {
-    background-color: color-mix(in srgb, var(--rokdock-link) 24%, transparent);
+    background-color: var(--rokdock-search-highlight-match);
     color: var(--rokdock-text-bright);
 }
 
 ::highlight(docs-search-hit-current) {
-    background-color: color-mix(in srgb, var(--rokdock-link) 55%, transparent);
+    background-color: var(--rokdock-search-highlight-active);
     color: var(--rokdock-text-bright);
 }
 
@@ -1558,23 +1559,34 @@
     padding: 8px 11px 9px;
     display: flex;
     flex-direction: column;
+    color: #3f3a23;
+}
+
+/* The tilted "paper" is a backdrop layer rather than an ancestor of the textarea.
+   Chromium mispositions a textarea caret when it sits inside a transformed
+   (composited) element, so the rotation lives here on a sibling layer and the
+   content (close button, textarea) sits upright on top with a caret that tracks
+   every line. The note still reads as a tilted sticky note. */
+.docs-note-paper {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
     /* Warm paper, lit from above: lighter yellow at the top, deepening toward
        the bottom. */
     background: linear-gradient(168deg, #fdf3a3 0%, #fdf0a6 48%, #fbe78a 100%);
-    color: #3f3a23;
     border-radius: 2px 2px 3px 3px;
     transform: rotate(-1.4deg);
-    /* Pivot from the stuck-down top edge when it straightens on focus. */
     transform-origin: 50% 0;
     box-shadow:
         0 1px 1px rgba(60, 50, 10, 0.18),
         0 10px 22px -8px rgba(40, 33, 5, 0.4);
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    transition: box-shadow 0.18s ease;
 }
 
 /* Soft sheen near the top edge: light from above, plus a hint of the adhesive
    band that holds a real sticky note down. */
-.docs-note::before {
+.docs-note-paper::before {
     content: '';
     position: absolute;
     inset: 0 0 auto 0;
@@ -1584,9 +1596,9 @@
     pointer-events: none;
 }
 
-/* Focusing the note lifts it with a larger shadow while keeping its tilt. The
-   lift is the focus cue. */
-.docs-note:focus-within {
+/* Focusing the note lifts the paper with a larger shadow. The lift is the focus
+   cue. */
+.docs-note:focus-within .docs-note-paper {
     box-shadow:
         0 2px 4px rgba(60, 50, 10, 0.2),
         0 24px 44px -10px rgba(40, 33, 5, 0.5);
@@ -1595,7 +1607,7 @@
 /* Peeled bottom-right corner: a clipped triangle of the page's underside,
    gradient-shaded so the crease sits in shadow and the lifted tip catches the
    light, with a soft drop-shadow along the crease so it reads as raised. */
-.docs-note::after {
+.docs-note-paper::after {
     content: '';
     position: absolute;
     bottom: 0;
@@ -1609,9 +1621,17 @@
 
 .docs-note-close {
     position: absolute;
-    top: 6px;
-    right: 8px;
-    padding: 2px;
+    top: 3px;
+    right: 4px;
+    /* Above the textarea (z-index 1), which overlaps this corner and would otherwise sit on top and
+       steal the clicks. A comfortable 24px target with the small glyph centered inside it. */
+    z-index: 2;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
     background: none;
     border: none;
     cursor: pointer;
@@ -1626,6 +1646,8 @@
 
 .docs-note-text {
     flex: 1;
+    position: relative;
+    z-index: 1;
     background: transparent;
     border: none;
     outline: none;

@@ -587,6 +587,15 @@ export function DocsView(): React.JSX.Element {
     const [quickOpenVisible, setQuickOpenVisible] = useState(false)
     const quickOpenPages = useMemo(() => (tree ? flattenPages(tree.roots) : []), [tree])
 
+    // Pages that currently have a note, resolved to {path, title} for the sidebar's
+    // Notes section. Reuses the flattened page list and reacts to notedPaths.
+    const notedEntries = useMemo(
+        () => quickOpenPages
+            .filter(page => notes.notedPaths.has(page.path))
+            .map(page => ({ path: page.path, title: page.title })),
+        [quickOpenPages, notes.notedPaths],
+    )
+
     const isFav = activePath !== null && isFavorite(activePath)
     const breadcrumb = useMemo(
         () => (activePath ? computeBreadcrumb(roots, activePath) : []),
@@ -758,6 +767,7 @@ export function DocsView(): React.JSX.Element {
                 onOpenSearchResult={openSearchResult}
                 lookup={lookupTerm}
                 notedPaths={notes.notedPaths}
+                notedEntries={notedEntries}
             />
         )
     }

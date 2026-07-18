@@ -20,7 +20,7 @@
  * since the /plugin_install endpoint requires developer mode.
  */
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronRight, faLock, faUnlock } from '@fortawesome/free-solid-svg-icons'
 import { useAppStore, createTabInfo, type Device } from '../../store/appStore'
@@ -128,6 +128,12 @@ export default function DeviceCard({
     const [hovered, setHovered] = useState(false)
     const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
     const [sideloadOpen, setSideloadOpen] = useState(false)
+    // Drag-and-drop sideload: dropping a single .zip/.pkg onto the card opens the
+    // SideloadDialog pre-loaded with that package (reusing the whole install + progress flow).
+    const [dragActive, setDragActive] = useState(false)
+    const [dropError, setDropError] = useState<string | null>(null)
+    const [droppedFile, setDroppedFile] = useState<{ filePath: string; fileName: string } | null>(null)
+    const dropErrorTimer = useRef<number | null>(null)
     const addTab = useAppStore((state) => state.addTab)
     const remoteTargetIp = useAppStore((state) => state.remoteTargetIp)
     const setRemoteTargetIp = useAppStore((state) => state.setRemoteTargetIp)
@@ -154,6 +160,70 @@ export default function DeviceCard({
     const isRemoteTarget = remoteTargetIp === device.ip
     const devHasAuth = deviceHasAuth[device.ip]
     const canSideload = device.developerEnabled !== false && !!deviceHasAuth[device.ip]
+    // Accent for the drag-drop affordance: red on a rejection, brand on a droppable card,
+    // muted when the card can't be sideloaded. Drives both the dashed border and its tint.
+    const dropAccent = dropError
+        ? 'var(--rokdock-state-error)'
+        : canSideload ? 'var(--rokdock-brand-primary)' : 'var(--rokdock-text-muted)'
+
+    // Clear the transient drop-error timer on unmount.
+    useEffect(() => () => { if (dropErrorTimer.current !== null) window.clearTimeout(dropErrorTimer.current) }, [])
+
+    /** True when an OS file (not an internal element drag) is dragged over the card. */
+    const isFileDrag = (event: React.DragEvent): boolean => event.dataTransfer.types.includes('Files')
+
+    /** Shows a transient rejection message on the card, auto-clearing after a few seconds. */
+    const flashDropError = (message: string) => {
+        setDropError(message)
+        if (dropErrorTimer.current !== null) window.clearTimeout(dropErrorTimer.current)
+        dropErrorTimer.current = window.setTimeout(() => setDropError(null), 2800)
+    }
+
+    const handleFileDragOver = (event: React.DragEvent) => {
+        if (!isFileDrag(event)) return
+        event.preventDefault()
+        event.dataTransfer.dropEffect = canSideload ? 'copy' : 'none'
+        setDragActive(true)
+    }
+
+    const handleFileDragLeave = (event: React.DragEvent) => {
+        // Ignore leaving into a child. Only clear when the pointer exits the whole card.
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+        setDragActive(false)
+    }
+
+    /**
+     * Validates a package dropped on the card and, if it passes the same gating as the
+     * menu action, opens the SideloadDialog pre-loaded with it. Rejections surface as a
+     * transient message rather than proceeding.
+     */
+    const handleFileDrop = (event: React.DragEvent) => {
+        if (!isFileDrag(event)) return
+        event.preventDefault()
+        setDragActive(false)
+        const files = Array.from(event.dataTransfer.files)
+        if (files.length !== 1) {
+            flashDropError('Drop a single .zip or .pkg package')
+            return
+        }
+        const file = files[0]!
+        const name = file.name.toLowerCase()
+        if (!name.endsWith('.zip') && !name.endsWith('.pkg')) {
+            flashDropError('Only .zip or .pkg packages')
+            return
+        }
+        if (!canSideload) {
+            flashDropError(!deviceHasAuth[device.ip] ? 'No credentials set (Device Properties)' : 'Developer mode not detected')
+            return
+        }
+        const filePath = window.rokdock.sideload.getDroppedFilePath(file)
+        if (!filePath) {
+            flashDropError('Could not read the dropped file')
+            return
+        }
+        setDroppedFile({ filePath, fileName: file.name })
+        setSideloadOpen(true)
+    }
 
     /** Opens a new terminal tab connected to this device on the given port. */
     const handleConnect = async (port: number) => {
@@ -204,6 +274,7 @@ export default function DeviceCard({
                 data-device-ip={device.ip}
                 style={{
                     ...styles.card,
+                    position: 'relative',
                     ...(dragged ? styles.cardDragging : {}),
                     ...(expanded ? styles.cardExpanded : {}),
                     ...(hovered && !expanded ? styles.cardHover : {}),
@@ -213,7 +284,47 @@ export default function DeviceCard({
                 }}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
+                onDragOver={handleFileDragOver}
+                onDragLeave={handleFileDragLeave}
+                onDrop={handleFileDrop}
             >
+                {(dragActive || dropError) && (
+                    <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 5,
+                        pointerEvents: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        padding: 6,
+                        borderRadius: 'var(--rokdock-radius-md)',
+                        border: `1.5px dashed ${dropAccent}`,
+                        // Keep the device identity readable during a drag: a faint state tint,
+                        // the dashed border, and only a gentle 1px blur so the card reads as a
+                        // soft drop target without hiding the name/IP. The message rides in its
+                        // own opaque chip so it stays crisp on top.
+                        background: `color-mix(in srgb, ${dropAccent} 10%, transparent)`,
+                        backdropFilter: 'blur(1px)',
+                        WebkitBackdropFilter: 'blur(1px)'
+                    }}>
+                        <span style={{
+                            fontSize: 'var(--rokdock-font-xs)',
+                            fontWeight: 600,
+                            lineHeight: 1.2,
+                            padding: '3px 8px',
+                            borderRadius: 'var(--rokdock-radius-sm)',
+                            background: 'var(--rokdock-bg-surface)',
+                            border: '1px solid var(--rokdock-border)',
+                            color: dropError ? 'var(--rokdock-error-text)' : canSideload ? 'var(--rokdock-brand-primary-light)' : 'var(--rokdock-text-muted)'
+                        }}>
+                            {dropError ?? (canSideload
+                                ? 'Drop .zip / .pkg to sideload'
+                                : !deviceHasAuth[device.ip] ? 'No credentials set' : 'Developer mode not detected')}
+                        </span>
+                    </div>
+                )}
                 <div
                     style={styles.cardHeader}
                     onPointerDown={(event) => {
@@ -306,7 +417,7 @@ export default function DeviceCard({
                 onCancel={() => setShowRemoveConfirm(false)}
                 onConfirm={() => { void handleRemoveManualDevice() }}
             />
-            <SideloadDialog device={sideloadOpen ? device : null} onClose={() => setSideloadOpen(false)} />
+            <SideloadDialog device={sideloadOpen ? device : null} initialFile={droppedFile} onClose={() => { setSideloadOpen(false); setDroppedFile(null) }} />
         </>
     )
 }

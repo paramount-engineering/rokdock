@@ -1,0 +1,61 @@
+# MkDocs Material config for the RokDock user documentation site.
+#
+# This publishes docs/user/ as a static documentation site (GitHub Pages). It is
+# isolated from the app's Node/Vite toolchain: no npm dependency, its own build.
+# Build locally with: pip install mkdocs-material && mkdocs build --strict
+#
+# Pages is enabled only on the public mirror (paramount-engineering). The deploy
+# workflow (.github/workflows/docs.yml) is manual (workflow_dispatch) until the
+# first public release, so nothing auto-publishes before the flip.
+site_name: RokDock
+site_description: "Free cross-platform desktop app for Roku development: device discovery, BrightScript debug terminal, sideloading, screenshots, deeplinks, and an AI assistant with Gemini, Claude, Copilot, and Codex."
+site_url: https://paramount-engineering.github.io/rokdock/
+repo_url: https://github.com/paramount-engineering/rokdock
+repo_name: paramount-engineering/rokdock
+edit_uri: edit/main/docs/user/
+docs_dir: docs/user
+site_dir: site
+
+theme:
+  name: material
+  custom_dir: overrides
+  palette:
+    scheme: slate
+    primary: deep purple
+    accent: purple
+  features:
+    - navigation.tracking
+    - navigation.top
+    - navigation.sections
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Devices: devices.md
+  - Debug Terminal: terminal.md
+  - Sideloading: sideload.md
+  - Remote Control: remote-control.md
+  - Screenshots: screenshot-preview.md
+  - Deeplinks: deeplinks.md
+  - Capture Preview: capture-preview.md
+  - Tools:
+      - Automation Scripts: script-editor.md
+      - 9-Patch Editor: ninepatch-editor.md
+      - SVG Converter: svg-converter.md
+      - JSON Viewer: json-viewer.md
+      - Developer Docs: developer-docs.md
+  - AI Assistant: ai.md
+  - Settings: settings.md
+  - Themes: themes.md
+  - Keyboard Shortcuts: keyboard-shortcuts.md

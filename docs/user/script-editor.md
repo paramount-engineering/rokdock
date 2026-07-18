@@ -1,12 +1,9 @@
-# Script Editor
+# Roku Device Automation Scripts and RASP
 
 RokDock includes a Script Editor for creating and running automation scripts against Roku devices. Scripts are sequences of typed steps that execute via ECP (External Control Protocol). Open it from **Tools > Script Editor** in the menu bar. The editor opens in a separate window. It also opens on its own outside the dock, via its installer shortcut, by double-clicking a `.rasp` or `.rscript` file, or with `RokDock --tool script [path]`. See [Launching Tools Directly](getting-started.md#launching-tools-directly).
 
 ![Script Editor window showing a Steps list with PRESS Home, PAUSE, LAUNCH app:12, SCREEN, and PLAYER steps; toolbar with New, Save, Import, Export, Paste RASP, Copy RASP, Record, Play, and Stop buttons; Record Delays toggle and Key Wait control above the step list; and Variables and Scripts panels on the right sidebar.](images/script-editor.png)
 *The Script Editor with a sample script loaded and the Scripts library open in the right panel.*
-
-![The Script Editor running a script against a device: the step list shows step 1 (Press Home) complete and step 2 (Pause) running, the device bar has the Roku Ultra selected with the embedded remote, and the execution log at the bottom streams "Starting playback", "Running step 1", "Step 1 complete", "Running step 2"](images/script-editor-running.png)
-*A script executing against a device. The completed step shows a check, the running step is marked, and the execution log streams progress at the bottom.*
 
 ## Scripts
 

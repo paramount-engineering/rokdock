@@ -88,7 +88,7 @@ const defaults: StoreSchema = {
         fontSize: 12,
         fontFamily: '',
         terminalFallbackColor: '#e0e0e0',
-        terminalUseThemeBackground: false,
+        terminalUseThemeBackground: true,
         terminalSyntaxThemePreset: 'rokdockDark',
         terminalSyntaxThemeCustomColors: {},
         terminalCommandHistory: [],
@@ -98,6 +98,7 @@ const defaults: StoreSchema = {
         aiProfiles: [],
         aiActiveProfileId: null,
         aiCliOverrides: {},
+        aiConfirmDeviceControl: true,
         discoveryScanIntervalMs: 60000,
         discoveryRequestTimeoutMs: 5000,
         devAppPollIntervalMs: 3000,
@@ -110,6 +111,7 @@ const defaults: StoreSchema = {
         screenshotOnionOverlayHistory: [],
         splitRatio: 0.5,
         collapsedPanels: ['scripts'],
+        expandedPanels: [],
         captureDeviceId: null,
         captureDeviceLabel: null,
         captureMuted: true,
@@ -274,11 +276,11 @@ export class StoreService {
     /**
      * Merges partial preference updates into the stored preferences object.
      *
-     * @param prefs - Partial preferences to apply.
+     * @param preferences - Partial preferences to apply.
      */
-    setPreferences(prefs: Partial<StoreSchema['preferences']>) {
+    setPreferences(preferences: Partial<StoreSchema['preferences']>) {
         const current = this.getPreferences()
-        this.store.set('preferences', { ...current, ...prefs })
+        this.store.set('preferences', { ...current, ...preferences })
     }
 
     /**

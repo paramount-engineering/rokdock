@@ -61,6 +61,7 @@ input[type=number]{-moz-appearance:textfield}
 .inp{height:20px;flex:1;width:0;border:1px solid var(--rokdock-border);border-radius:4px;background:var(--rokdock-bg-input);color:var(--rokdock-text-primary);font-size:var(--rokdock-font-xs);padding:0 5px;outline:none;font-family:var(--rokdock-font-mono);text-align:center;min-width:0;transition:border-color .1s ease,box-shadow .1s ease}
 .inp:focus{border-color:var(--rokdock-brand-primary);box-shadow:0 0 0 2px var(--rokdock-brand-primary-faded)}
 .lbl-sep{font-size:var(--rokdock-font-xs);color:var(--rokdock-text-muted);flex-shrink:0}
+.size-aspect-row{margin-top:8px;margin-bottom:0}
 
 /* Row layout for toggle options */
 .opt-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
@@ -68,6 +69,8 @@ input[type=number]{-moz-appearance:textfield}
 .opt-label{font-size:var(--rokdock-font-xs);color:var(--rokdock-text-dim);flex:1}
 .opt-state{font-size:var(--rokdock-font-xxs);color:var(--rokdock-text-muted);min-width:18px}
 .opt-hint{font-size:var(--rokdock-font-xxs);color:var(--rokdock-text-muted);font-style:italic;margin-top:2px;margin-bottom:6px}
+.webp-quality-slider{width:110px;accent-color:var(--rokdock-brand-primary);cursor:pointer}
+.opt-value{font-size:var(--rokdock-font-xxs);color:var(--rokdock-text-dim);min-width:22px;text-align:right}
 
 /* Export footer */
 .export-footer{padding:10px 12px;border-top:1px solid var(--rokdock-border-light);flex-shrink:0}

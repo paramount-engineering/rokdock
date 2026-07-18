@@ -1,8 +1,8 @@
-# Screenshot Preview
+# Roku Device Screenshots: Capture, Compare, Measure
 
 RokDock includes a dedicated screenshot preview window for capturing and inspecting device screenshots. The preview opens as a separate window with its own toolbar, zoom controls, measurement tools, and comparison overlay support.
 
-![The Screenshot Preview window showing a captured device frame (a channel grid UI): the top toolbar with refresh, auto-refresh, save, copy, measure, overlays, capture-feed, and history controls, a Full HD safe-zone overlay with measurement guides over the image, and the zoom dock with the zoom and comparison-opacity sliders at the bottom](images/screenshot-preview.png)
+![The Screenshot Preview window showing a captured device frame: the top toolbar with refresh, auto-refresh, save, copy, measure, overlays, capture-feed, and history controls, a Full HD safe-zone overlay with measurement guides over the image, and the zoom dock with the zoom and comparison-opacity sliders at the bottom](images/capture-viewer-safezone.webp)
 *The Screenshot Preview window with a captured device frame, a safe-zone overlay and measurement guides applied, and the zoom and comparison controls in the bottom dock.*
 
 ![The Screenshot Preview with the Overlays dropdown open over a device frame: the menu shows Load image, Built-in, Recent, and Screenshot History, with the Built-in submenu expanded to TV safe zones, Rule of thirds, Aspect ratio, and Column grid (each in 1080p and 720p), alongside the comparison-opacity slider in the bottom dock](images/screenshot-preview-overlay.png)

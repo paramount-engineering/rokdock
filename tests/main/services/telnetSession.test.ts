@@ -356,6 +356,21 @@ describe('tokenizeWithDiagnosticState - false-positive prevention', () => {
         expect(chunks[1]!.tokens[0]!.kind).toBe('warning')
     })
 
+    it('a plural "Warnings occurred" XML-component header opens a warning block', () => {
+        const svc = new TelnetSessionService()
+        const sess = makeDiagSession()
+        tokenizeDiag(svc, sess, RULE)
+        const chunks = tokenizeDiag(svc, sess, 'Warnings occurred while creating XML component SpotlightContentGroup')
+        expect(sess.diagnosticBlock!.severity).toBe('warning')
+        expect(chunks).toHaveLength(2)
+        expect(chunks[0]!.tokens[0]!.kind).toBe('warning') // opening rule
+        expect(chunks[1]!.tokens[0]!.kind).toBe('warning') // header
+
+        // The "-- Tried to set nonexistent field ..." detail lines are tinted too.
+        const detail = tokenizeDiag(svc, sess, '-- Tried to set nonexistent field "badgeFormat" of a "MetadataGroup" node')
+        expect(detail[0]!.tokens[0]!.kind).toBe('warning')
+    })
+
     it('a standalone rule (no header follows) is emitted as a plain separator', () => {
         const svc = new TelnetSessionService()
         const sess = makeDiagSession()

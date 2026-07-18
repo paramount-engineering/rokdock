@@ -1,0 +1,21 @@
+# RokDock
+
+> RokDock is a free, cross-platform desktop app for Roku development: device discovery, a BrightScript debug terminal, remote control, channel sideloading, device screenshots, deeplink testing, automation scripting, an offline Roku docs browser, and a built-in AI assistant with Gemini, Claude, Copilot, and Codex.
+
+RokDock runs on Windows, macOS, and Linux. It is aimed at Roku, BrightScript, and SceneGraph developers who want the common device workflows in one native app instead of a mix of telnet, browser forms, and scripts. The AI assistant is opt-in and provider-agnostic: connect Google Gemini, Anthropic Claude, GitHub Copilot, OpenAI Codex, any OpenAI-compatible endpoint, or a fully local model (Ollama, LM Studio). It reads the official Roku documentation, explains BrightScript debugger output, and redacts device IPs, names, and serials before sending anything.
+
+## Docs
+
+- [Getting Started](https://paramount-engineering.github.io/rokdock/getting-started/): install and first launch
+- [Roku Device Discovery and Developer Mode](https://paramount-engineering.github.io/rokdock/devices/): find devices and enable developer mode
+- [Roku Debug Terminal](https://paramount-engineering.github.io/rokdock/terminal/): BrightScript telnet console with highlighting
+- [Sideloading a Roku Channel](https://paramount-engineering.github.io/rokdock/sideload/): install a .zip or .pkg to a device
+- [Roku Virtual Remote](https://paramount-engineering.github.io/rokdock/remote-control/): ECP remote control
+- [Roku Device Screenshots](https://paramount-engineering.github.io/rokdock/screenshot-preview/): capture, compare, measure
+- [Roku Deeplink Testing](https://paramount-engineering.github.io/rokdock/deeplinks/): launch and input presets
+- [Roku Device Automation Scripts](https://paramount-engineering.github.io/rokdock/script-editor/): RASP-style scripted sequences
+- [Roku Developer Documentation Browser](https://paramount-engineering.github.io/rokdock/developer-docs/): the official docs, offline, in-app
+
+## AI
+
+- [AI Assistant for Roku Development](https://paramount-engineering.github.io/rokdock/ai/): connect Gemini, Claude, Copilot, Codex, or a local model; grounded in the Roku docs with per-prompt redaction

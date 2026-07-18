@@ -272,14 +272,20 @@ function renderShape(): void {
     const x = pad, y = pad, w = current.width, h = current.height
     const bw = current.borderEnabled ? current.borderWidth : 0
 
-    function drawPath(context: CanvasRenderingContext2D): void {
+    // Build the shape path, optionally inset by `inset` on every side. Insetting keeps a rounded
+    // corner concentric (its radius shrinks by the same amount), so the region between inset 0 and
+    // inset bw is a uniform-width border ring. Returns false when the inset collapses the shape.
+    function drawShape(context: CanvasRenderingContext2D, inset: number): boolean {
+        const iw = w - inset * 2, ih = h - inset * 2
+        if (iw <= 0 || ih <= 0) return false
+        context.beginPath()
         if (current.shape === 'ellipse') {
-            context.beginPath()
-            context.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2)
+            context.ellipse(x + w / 2, y + h / 2, iw / 2, ih / 2, 0, 0, Math.PI * 2)
         } else {
-            context.beginPath()
-            context.roundRect(x, y, w, h, Math.min(current.cornerRadius, w / 2, h / 2))
+            const radius = Math.max(0, Math.min(current.cornerRadius, w / 2, h / 2) - inset)
+            context.roundRect(x + inset, y + inset, iw, ih, radius)
         }
+        return true
     }
 
     if (current.shadowEnabled) {
@@ -292,7 +298,7 @@ function renderShape(): void {
         octx.shadowBlur = current.shadowBlur
         octx.shadowColor = hexToRgba(current.shadowColor, current.shadowOpacity)
         octx.fillStyle = 'rgba(0,0,0,1)'
-        drawPath(octx)
+        drawShape(octx, 0)
         octx.fill()
         octx.shadowColor = 'transparent'
         octx.shadowBlur = 0
@@ -300,27 +306,37 @@ function renderShape(): void {
         octx.shadowOffsetY = 0
         octx.globalCompositeOperation = 'destination-out'
         octx.fillStyle = 'rgba(0,0,0,1)'
-        drawPath(octx)
+        drawShape(octx, 0)
         octx.fill()
         ctx.drawImage(oc, 0, 0)
     }
 
-    if (current.fillEnabled) {
-        ctx.save()
-        ctx.fillStyle = hexToRgba(current.fillColor, current.fillOpacity)
-        drawPath(ctx)
-        ctx.fill()
-        ctx.restore()
-    }
-
+    // Border plus fill as concentric regions. Drawing the border as an inner stroke left its
+    // anti-aliased inner edge sitting over the fill, so the fill bled through the border at rounded
+    // corners. Instead fill the whole shape with the border color, then knock out an inset interior
+    // (corner radius reduced to stay concentric) and paint the fill there. The border/fill boundary
+    // is then one clean clip edge, and the fill sits on transparent so its own opacity is honored.
     if (bw > 0) {
         ctx.save()
-        drawPath(ctx)
+        drawShape(ctx, 0)
         ctx.clip()
-        ctx.strokeStyle = hexToRgba(current.borderColor, current.borderOpacity)
-        ctx.lineWidth = bw * 2
-        drawPath(ctx)
-        ctx.stroke()
+        ctx.fillStyle = hexToRgba(current.borderColor, current.borderOpacity)
+        ctx.fillRect(0, 0, tw, th)
+        if (drawShape(ctx, bw)) {
+            ctx.clip()
+            ctx.clearRect(0, 0, tw, th)
+            if (current.fillEnabled) {
+                ctx.fillStyle = hexToRgba(current.fillColor, current.fillOpacity)
+                ctx.fillRect(0, 0, tw, th)
+            }
+        }
+        ctx.restore()
+    } else if (current.fillEnabled) {
+        ctx.save()
+        drawShape(ctx, 0)
+        ctx.clip()
+        ctx.fillStyle = hexToRgba(current.fillColor, current.fillOpacity)
+        ctx.fillRect(0, 0, tw, th)
         ctx.restore()
     }
 
@@ -376,8 +392,8 @@ function isDrag(axis: string, type: string, index: number, edge: string): boolea
 function renderZoneOverlay(): void {
     const w = canvas.width, h = canvas.height
     const dpr = window.devicePixelRatio || 1
-    const zf = state.zoom / 100
-    const scale = dpr * zf
+    const zoomFactor = state.zoom / 100
+    const scale = dpr * zoomFactor
     const margin = ZONE_MARGIN
     const cssW = w + 2 + margin * 2, cssH = h + 2 + margin * 2
     zoneOverlay.width = Math.round(cssW * scale)
@@ -391,15 +407,15 @@ function renderZoneOverlay(): void {
     overlayCtx.clearRect(0, 0, cssW, cssH)
     const ox = margin + 1, oy = margin + 1
     const current = state
-    const lw = Math.max(0.5, 1 / zf)
-    const dash = [Math.max(3, 5 / zf), Math.max(2, 3 / zf)]
-    const hr = 4 / zf
+    const lw = Math.max(0.5, 1 / zoomFactor)
+    const dash = [Math.max(3, 5 / zoomFactor), Math.max(2, 3 / zoomFactor)]
+    const hr = 4 / zoomFactor
 
     function drawHandle(hx: number, hy: number, zc: { handle: string; glow: string }, hov: boolean, drag: boolean): void {
         const radius = hr
         if (hov || drag) {
             overlayCtx.beginPath()
-            overlayCtx.arc(hx, hy, radius + 3 / zf, 0, Math.PI * 2)
+            overlayCtx.arc(hx, hy, radius + 3 / zoomFactor, 0, Math.PI * 2)
             overlayCtx.fillStyle = zc.glow
             overlayCtx.fill()
         }
@@ -407,7 +423,7 @@ function renderZoneOverlay(): void {
         overlayCtx.arc(hx, hy, radius, 0, Math.PI * 2)
         overlayCtx.fillStyle = (hov || drag) ? zc.handle : 'rgba(14,14,26,0.85)'
         overlayCtx.fill()
-        overlayCtx.lineWidth = Math.max(0.5, 1.2 / zf)
+        overlayCtx.lineWidth = Math.max(0.5, 1.2 / zoomFactor)
         overlayCtx.strokeStyle = zc.handle
         overlayCtx.stroke()
         if (!hov && !drag) {
@@ -421,7 +437,7 @@ function renderZoneOverlay(): void {
     function drawGuide(x1: number, y1: number, x2: number, y2: number, zc: { handle: string; glow: string }): void {
         overlayCtx.setLineDash([])
         overlayCtx.strokeStyle = zc.glow
-        overlayCtx.lineWidth = Math.max(0.5, 1.5 / zf)
+        overlayCtx.lineWidth = Math.max(0.5, 1.5 / zoomFactor)
         overlayCtx.beginPath()
         overlayCtx.moveTo(x1, y1)
         overlayCtx.lineTo(x2, y2)
@@ -556,7 +572,7 @@ zoneOverlay.addEventListener('mousemove', e => {
 
 // Canvas pan
 
-interface PanState { sx: number; sy: number; sl: number; st: number }
+interface PanState { sx: number; sy: number; scrollLeft: number; scrollTop: number }
 let panState: PanState | null = null
 
 viewport.addEventListener('mousedown', e => {
@@ -564,15 +580,15 @@ viewport.addEventListener('mousedown', e => {
     if ((e.target as HTMLElement).closest('.zoom-dock')) return
     if (panState) return
     if (dragTarget) return
-    panState = { sx: e.clientX, sy: e.clientY, sl: viewport.scrollLeft, st: viewport.scrollTop }
+    panState = { sx: e.clientX, sy: e.clientY, scrollLeft: viewport.scrollLeft, scrollTop: viewport.scrollTop }
     viewport.classList.add('dragging')
     e.preventDefault()
 })
 
 document.addEventListener('mousemove', e => {
     if (!panState) return
-    viewport.scrollLeft = panState.sl - (e.clientX - panState.sx)
-    viewport.scrollTop = panState.st - (e.clientY - panState.sy)
+    viewport.scrollLeft = panState.scrollLeft - (e.clientX - panState.sx)
+    viewport.scrollTop = panState.scrollTop - (e.clientY - panState.sy)
 })
 
 document.addEventListener('mouseup', () => {
@@ -622,12 +638,12 @@ zoneOverlay.addEventListener('mouseleave', () => {
 // Zoom dock
 
 function applyZoom(): void {
-    const zf = state.zoom / 100
-    canvasContainer.style.transform = 'scale(' + zf + ')'
+    const zoomFactor = state.zoom / 100
+    canvasContainer.style.transform = 'scale(' + zoomFactor + ')'
     const zm = ZONE_MARGIN
     const uw = canvas.width + 2 + zm * 2, uh = canvas.height + 2 + zm * 2
-    zoomSizer.style.width = (uw * zf) + 'px'
-    zoomSizer.style.height = (uh * zf) + 'px'
+    zoomSizer.style.width = (uw * zoomFactor) + 'px'
+    zoomSizer.style.height = (uh * zoomFactor) + 'px'
     zoomDock.setAttribute('value', String(Math.round(state.zoom)))
     updateCanvasMargin()
 }
@@ -736,11 +752,11 @@ function addZoneSub(parent: HTMLElement, title: string, axis: 'x' | 'y', zones: 
         const ii = entry.querySelectorAll('.inp') as NodeListOf<HTMLInputElement>
         rr.forEach(range => syncPct(range))
 
-        function zLive(sv: number | null, ev: number | null): void {
+        function zLive(startValue: number | null, endValue: number | null): void {
             const zones2 = axis === 'x' ? state.stretchX : state.stretchY
             const z2 = zones2[i]
-            if (sv != null) { z2.start = Math.min(sv, z2.end - 1); rr[0].value = String(z2.start); ii[0].value = String(z2.start); syncPct(rr[0]) }
-            if (ev != null) { z2.end = Math.max(ev, z2.start + 1); rr[1].value = String(z2.end); ii[1].value = String(z2.end); syncPct(rr[1]) }
+            if (startValue != null) { z2.start = Math.min(startValue, z2.end - 1); rr[0].value = String(z2.start); ii[0].value = String(z2.start); syncPct(rr[0]) }
+            if (endValue != null) { z2.end = Math.max(endValue, z2.start + 1); rr[1].value = String(z2.end); ii[1].value = String(z2.end); syncPct(rr[1]) }
             label720.textContent = '(' + String(Math.round(z2.start * S720)) + ' - ' + String(Math.round(z2.end * S720)) + ' @720p)'
             renderBorderPixels()
             renderZoneOverlay()
@@ -841,12 +857,12 @@ function addPadSub(parent: HTMLElement, title: string, axis: 'x' | 'y', pad: Zon
     parent.appendChild(div)
 }
 
-function applyZoneChange(axis: 'x' | 'y', idx: number, sv: number | null, ev: number | null): void {
+function applyZoneChange(axis: 'x' | 'y', idx: number, startValue: number | null, endValue: number | null): void {
     pushUndo()
     const zones = axis === 'x' ? state.stretchX : state.stretchY
     const zone = zones[idx]
-    if (sv != null) zone.start = Math.min(sv, zone.end - 1)
-    if (ev != null) zone.end = Math.max(ev, zone.start + 1)
+    if (startValue != null) zone.start = Math.min(startValue, zone.end - 1)
+    if (endValue != null) zone.end = Math.max(endValue, zone.start + 1)
     renderBorderPixels()
     renderZoneOverlay()
     rebuildZones()
@@ -1010,26 +1026,26 @@ pvPosterToggle.addEventListener('click', () => {
 
 // Preview rendering
 
-function draw9(dc: CanvasRenderingContext2D, sc: HTMLCanvasElement, zones: { stretchX: Zone[]; stretchY: Zone[] }, tw: number, th: number): { fw: number; fh: number } {
+function draw9(destContext: CanvasRenderingContext2D, sourceCanvas: HTMLCanvasElement, zones: { stretchX: Zone[]; stretchY: Zone[] }, tw: number, th: number): { fw: number; fh: number } {
     if (!zones.stretchX.length || !zones.stretchY.length) {
-        dc.drawImage(sc, 0, 0, tw, th)
-        return { fw: sc.width, fh: sc.height }
+        destContext.drawImage(sourceCanvas, 0, 0, tw, th)
+        return { fw: sourceCanvas.width, fh: sourceCanvas.height }
     }
-    const cs = bseg(zones.stretchX, sc.width)
-    const rs = bseg(zones.stretchY, sc.height)
-    const sw = cs.filter((seg: Segment) => seg.stretchable).reduce((sum: number, seg: Segment) => sum + seg.length, 0)
-    const fw = cs.filter((seg: Segment) => !seg.stretchable).reduce((sum: number, seg: Segment) => sum + seg.length, 0)
-    const sh = rs.filter((seg: Segment) => seg.stretchable).reduce((sum: number, seg: Segment) => sum + seg.length, 0)
-    const fh = rs.filter((seg: Segment) => !seg.stretchable).reduce((sum: number, seg: Segment) => sum + seg.length, 0)
+    const columnSegments = bseg(zones.stretchX, sourceCanvas.width)
+    const rowSegments = bseg(zones.stretchY, sourceCanvas.height)
+    const sw = columnSegments.filter((seg: Segment) => seg.stretchable).reduce((sum: number, seg: Segment) => sum + seg.length, 0)
+    const fw = columnSegments.filter((seg: Segment) => !seg.stretchable).reduce((sum: number, seg: Segment) => sum + seg.length, 0)
+    const sh = rowSegments.filter((seg: Segment) => seg.stretchable).reduce((sum: number, seg: Segment) => sum + seg.length, 0)
+    const fh = rowSegments.filter((seg: Segment) => !seg.stretchable).reduce((sum: number, seg: Segment) => sum + seg.length, 0)
     const ew = Math.max(0, tw - fw)
     const eh = Math.max(0, th - fh)
     let dy = 0
-    for (const row of rs) {
+    for (const row of rowSegments) {
         const dh = row.stretchable ? (sh > 0 ? Math.round(row.length / sh * eh) : 0) : row.length
         let dx = 0
-        for (const col of cs) {
+        for (const col of columnSegments) {
             const dw = col.stretchable ? (sw > 0 ? Math.round(col.length / sw * ew) : 0) : col.length
-            if (dw > 0 && dh > 0) dc.drawImage(sc, col.position, row.position, col.length, row.length, dx, dy, dw, dh)
+            if (dw > 0 && dh > 0) destContext.drawImage(sourceCanvas, col.position, row.position, col.length, row.length, dx, dy, dw, dh)
             dx += dw
         }
         dy += dh
@@ -1158,26 +1174,26 @@ function drawPv(id: string, tw: number, th: number, isBtn: boolean, is720: boole
             const alpha = sd[i + 3]
             if (alpha > 0) { rSum += sd[i] * alpha; gSum += sd[i + 1] * alpha; bSum += sd[i + 2] * alpha; aSum += alpha }
         }
-        let txtColor = isLightTheme() ? '#1a1a2e' : '#f4f6ff'
+        let textColor = isLightTheme() ? '#1a1a2e' : '#f4f6ff'
         if (aSum > 0) {
             const red = rSum / aSum, green = gSum / aSum, blue = bSum / aSum
             const lum = 0.299 * red + 0.587 * green + 0.114 * blue
-            txtColor = lum > 140 ? '#1a1a2e' : '#f4f6ff'
+            textColor = lum > 140 ? '#1a1a2e' : '#f4f6ff'
         }
         const fs = th > 40 ? 14 : 10
         context.font = '600 ' + String(fs) + 'px -apple-system,BlinkMacSystemFont,sans-serif'
         const label = 'Not a Real Button'
-        let txt = label
-        if (cw > 0 && context.measureText(txt).width > cw) {
-            while (txt.length > 0 && context.measureText(txt + '...').width > cw) txt = txt.slice(0, -1)
-            txt += '...'
+        let text = label
+        if (cw > 0 && context.measureText(text).width > cw) {
+            while (text.length > 0 && context.measureText(text + '...').width > cw) text = text.slice(0, -1)
+            text += '...'
         }
-        const metrics = context.measureText(txt)
+        const metrics = context.measureText(text)
         const textY = cy + ch / 2 + (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2
-        context.fillStyle = txtColor; context.textAlign = 'center'; context.textBaseline = 'alphabetic'
+        context.fillStyle = textColor; context.textAlign = 'center'; context.textBaseline = 'alphabetic'
         context.save()
         if (cw > 0 && ch > 0) { context.beginPath(); context.rect(cx, cy, cw, ch); context.clip() }
-        context.fillText(txt, cx + cw / 2, textY)
+        context.fillText(text, cx + cw / 2, textY)
         context.restore()
     }
 }
@@ -1351,11 +1367,11 @@ function build9PatchDataUrl(src: HTMLCanvasElement, zones: { stretchX: Zone[]; s
 // Build a 720p-scaled copy of the editor canvas and the matching 720p-scaled
 // zones. Shared by the 720p preview and both export paths.
 function make720Source(): { src: HTMLCanvasElement; zones: DrawPvState } {
-    const sc = document.createElement('canvas')
-    sc.width = Math.round(canvas.width * S720); sc.height = Math.round(canvas.height * S720)
-    ;(sc.getContext('2d') as CanvasRenderingContext2D).drawImage(canvas, 0, 0, sc.width, sc.height)
+    const sourceCanvas = document.createElement('canvas')
+    sourceCanvas.width = Math.round(canvas.width * S720); sourceCanvas.height = Math.round(canvas.height * S720)
+    ;(sourceCanvas.getContext('2d') as CanvasRenderingContext2D).drawImage(canvas, 0, 0, sourceCanvas.width, sourceCanvas.height)
     return {
-        src: sc,
+        src: sourceCanvas,
         zones: {
             stretchX: scaleZones720(state.stretchX),
             stretchY: scaleZones720(state.stretchY),
@@ -1398,10 +1414,10 @@ function triggerExport(): void {
 function centerCanvas(): void {
     const margin = parseFloat(zoomSizer.style.margin) || 200
     const zm = ZONE_MARGIN
-    const zf = state.zoom / 100
+    const zoomFactor = state.zoom / 100
     const uw = canvas.width + 2 + zm * 2, uh = canvas.height + 2 + zm * 2
     const ox = uw / 2 - (zm + 1), oy = uh / 2 - (zm + 1)
-    const cx = margin + ox * zf, cy = margin + oy * zf
+    const cx = margin + ox * zoomFactor, cy = margin + oy * zoomFactor
     viewport.scrollLeft = Math.max(0, Math.min(viewport.scrollWidth - viewport.clientWidth, cx - viewport.clientWidth / 2))
     viewport.scrollTop = Math.max(0, Math.min(viewport.scrollHeight - viewport.clientHeight, cy - viewport.clientHeight / 2))
 }

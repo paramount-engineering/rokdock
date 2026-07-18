@@ -132,6 +132,30 @@ describe('AiService', () => {
         expect(preview.replacements).toContainEqual({ label: 'ip', count: 2 })
     })
 
+    it('redactForActiveProfile scrubs device values when the active profile has redaction on', async () => {
+        const { createEngine } = captureEngine()
+        const svc = new AiService(fakeProfileStore(remoteProfile) as never, ssdp, fakeStore(remoteProfile) as never, { createEngine })
+        const out = await svc.redactForActiveProfile('connect to 10.0.0.5 on R')
+        expect(out).not.toContain('10.0.0.5')
+        expect(out).toContain('[ip]')
+    })
+
+    it('redactForActiveProfile passes text through when redaction is off', async () => {
+        const localProfile: AiProfile = { ...remoteProfile, id: 'p2', isLocal: true, redactionEnabled: false }
+        const { createEngine } = captureEngine()
+        const svc = new AiService(fakeProfileStore(localProfile) as never, ssdp, fakeStore(localProfile) as never, { createEngine })
+        const out = await svc.redactForActiveProfile('connect to 10.0.0.5 on R')
+        expect(out).toBe('connect to 10.0.0.5 on R')
+    })
+
+    it('redactForActiveProfile fails closed (redacts) when there is no resolvable active profile', async () => {
+        const { createEngine } = captureEngine()
+        const svc = new AiService(fakeProfileStore(null) as never, ssdp, fakeStore() as never, { createEngine })
+        const out = await svc.redactForActiveProfile('connect to 10.0.0.5')
+        expect(out).not.toContain('10.0.0.5')
+        expect(out).toContain('[ip]')
+    })
+
     it('injects the chat system prompt on stream when the request omits one', async () => {
         const seen: AiRequest[] = []
         const createEngine = () => ({
@@ -173,16 +197,16 @@ describe('AiService', () => {
 
 // Minimal doubles. The real composition root wires SSDP/StoreService; here we inject just enough.
 function deps(detected: string[], overrides: Record<string, unknown> = {}) {
-    const prefs: Record<string, unknown> = { aiProfiles: [], aiActiveProfileId: null, aiCliOverrides: overrides }
-    const store = { getPreferences: () => prefs, setPreferences: (patch: Record<string, unknown>) => Object.assign(prefs, patch) }
+    const preferences: Record<string, unknown> = { aiProfiles: [], aiActiveProfileId: null, aiCliOverrides: overrides }
+    const store = { getPreferences: () => preferences, setPreferences: (patch: Record<string, unknown>) => Object.assign(preferences, patch) }
     const profileStore = {
         listProfiles: () => [],
         getProfile: () => undefined,
         getKey: () => undefined,
-        getActiveId: () => prefs.aiActiveProfileId as string | null,
-        setActiveId: (id: string | null) => { prefs.aiActiveProfileId = id },
-        getCliOverrides: () => prefs.aiCliOverrides as Record<string, unknown>,
-        setCliOverride: (k: string, overrideValue: unknown) => { (prefs.aiCliOverrides as Record<string, unknown>)[k] = overrideValue },
+        getActiveId: () => preferences.aiActiveProfileId as string | null,
+        setActiveId: (id: string | null) => { preferences.aiActiveProfileId = id },
+        getCliOverrides: () => preferences.aiCliOverrides as Record<string, unknown>,
+        setCliOverride: (k: string, overrideValue: unknown) => { (preferences.aiCliOverrides as Record<string, unknown>)[k] = overrideValue },
     }
     const ssdpDouble = {} as never
     return new AiService(profileStore as never, ssdpDouble, store as never, {
@@ -239,15 +263,15 @@ describe('AiService detected CLI providers', () => {
         // the engine config with a cliPolicyFilePath, and the file is written with deny-all content.
         const policyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-policy-'))
         const { configs, createEngine } = captureEngine()
-        const prefs: Record<string, unknown> = { aiProfiles: [], aiActiveProfileId: 'cli:gemini', aiCliOverrides: {} }
-        const store = { getManualDevices: () => [], getPreferences: () => prefs, setPreferences: (patch: Record<string, unknown>) => Object.assign(prefs, patch) }
+        const preferences: Record<string, unknown> = { aiProfiles: [], aiActiveProfileId: 'cli:gemini', aiCliOverrides: {} }
+        const store = { getManualDevices: () => [], getPreferences: () => preferences, setPreferences: (patch: Record<string, unknown>) => Object.assign(preferences, patch) }
         const profileStore = {
             listProfiles: () => [],
             getProfile: () => undefined,
             getKey: () => undefined,
-            getActiveId: () => prefs.aiActiveProfileId as string | null,
-            setActiveId: (id: string | null) => { prefs.aiActiveProfileId = id },
-            getCliOverrides: () => prefs.aiCliOverrides as Record<string, unknown>,
+            getActiveId: () => preferences.aiActiveProfileId as string | null,
+            setActiveId: (id: string | null) => { preferences.aiActiveProfileId = id },
+            getCliOverrides: () => preferences.aiCliOverrides as Record<string, unknown>,
             setCliOverride: vi.fn(),
         }
         const svc = new AiService(profileStore as never, ssdp, store as never, {

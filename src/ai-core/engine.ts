@@ -7,12 +7,12 @@
  * nothing about Roku.
  */
 import type {
-    AiEngineConfig, AiRequest, AiStreamChunk, AiActivityChunk, AiResult, AiDryRun, ResolvedRequest, RedactSecrets, RedactionReplacement, ContextBlock, ChatMessage, AdapterToolkit, ToolDef,
+    AiEngineConfig, AiRequest, AiStreamChunk, AiActivityChunk, AiResult, AiDryRun, ResolvedRequest, RedactSecrets, RedactionReplacement, ContextBlock, ChatMessage, AdapterToolkit, ToolDef, ToolCallContext,
 } from './types'
 import { redact } from './redaction'
 import { foldMessages } from './transcript'
 import { buildCliCommand } from './adapters/cliRegistry'
-import { buildToolRouting } from './toolRouting'
+import { buildToolRouting, dispatchTool } from './toolRouting'
 
 function mergeSecrets(base: RedactSecrets, extra?: Partial<RedactSecrets>): RedactSecrets {
     if (!extra) return base
@@ -90,23 +90,19 @@ export function createAiEngine(config: AiEngineConfig) {
         return { ...base, transport: 'http', baseUrl: config.baseUrl, apiKey: config.apiKey }
     }
 
-    function buildToolkit(): AdapterToolkit | undefined {
+    function buildToolkit(toolContext?: ToolCallContext): AdapterToolkit | undefined {
         const { specs, ownerByToolName } = buildToolRouting(config.providers ?? [])
         if (specs.length === 0) return undefined
         return {
             specs,
-            async call(name, args, signal) {
-                const owner = ownerByToolName.get(name)
-                if (!owner?.callTool) return { content: `Unknown tool: ${name}`, isError: true }
-                return owner.callTool(name, args, signal)
-            },
+            call: (name, args, signal) => dispatchTool(ownerByToolName, name, args, signal, toolContext),
         }
     }
 
-    async function* stream(request: AiRequest, signal: AbortSignal): AsyncIterable<AiStreamChunk | AiActivityChunk> {
+    async function* stream(request: AiRequest, signal: AbortSignal, toolContext?: ToolCallContext): AsyncIterable<AiStreamChunk | AiActivityChunk> {
         // CLI transports drive tools via the MCP bridge natively; the adapter single-spawns with
         // no toolkit. HTTP adapters use a native function-calling loop and need the toolkit.
-        const toolkit = config.transport === 'http' ? buildToolkit() : undefined
+        const toolkit = config.transport === 'http' ? buildToolkit(toolContext) : undefined
         const resolved = await resolve(request, signal)
         for await (const event of config.adapter.stream(resolved, signal, toolkit)) {
             if (typeof event === 'string') yield { delta: event }

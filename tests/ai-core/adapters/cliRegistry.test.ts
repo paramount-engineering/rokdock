@@ -10,11 +10,11 @@ describe('cliRegistry', () => {
 
     it('builds claude with the model flag and the native-tool denylist', () => {
         const command = buildCliCommand('claude', 'claude-opus-4-8')
-        expect(command).toBe('claude -p --model claude-opus-4-8 --disallowedTools "Task Bash BashOutput KillShell Glob Grep Read Edit Write NotebookEdit WebFetch WebSearch TodoWrite SlashCommand ExitPlanMode"')
+        expect(command).toBe('claude -p --model claude-opus-4-8 --disallowedTools "Task Bash BashOutput KillShell Glob Grep Read Edit Write NotebookEdit WebFetch WebSearch TodoWrite SlashCommand ExitPlanMode AskUserQuestion"')
     })
 
     it('omits the model flag when the model is empty', () => {
-        expect(buildCliCommand('claude', '')).toBe('claude -p --disallowedTools "Task Bash BashOutput KillShell Glob Grep Read Edit Write NotebookEdit WebFetch WebSearch TodoWrite SlashCommand ExitPlanMode"')
+        expect(buildCliCommand('claude', '')).toBe('claude -p --disallowedTools "Task Bash BashOutput KillShell Glob Grep Read Edit Write NotebookEdit WebFetch WebSearch TodoWrite SlashCommand ExitPlanMode AskUserQuestion"')
         expect(buildCliCommand('codex', '')).toBe('codex exec -s read-only --skip-git-repo-check')
         expect(buildCliCommand('copilot', '')).toBe('copilot -s --no-ask-user --available-tools "" --no-remote --no-remote-export')
     })
@@ -133,7 +133,9 @@ describe('copilot mcp.plan', () => {
     it('disables built-ins via the MCP whitelist and allows the rokdock server without a prompt', () => {
         const plan = CLI_DEFINITIONS.copilot.mcp!.plan(opts)
         expect(plan.command).toContain('copilot -s --no-ask-user --no-remote --no-remote-export')
-        expect(plan.command).toContain('--available-tools "rokdock-search_docs rokdock-fetch_page"')
+        // The whole server is whitelisted by name. Enumerating per-tool ids (rokdock-<name>)
+        // exposes none once more than one tool is attached (verified live against the CLI).
+        expect(plan.command).toContain('--available-tools "rokdock"')
         expect(plan.command).toContain('--allow-tool rokdock')
         expect(plan.command).toContain('--additional-mcp-config @"C:/tmp/req-x/mcp.json"')
         expect(plan.command).not.toContain('--available-tools ""')

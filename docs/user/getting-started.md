@@ -1,4 +1,4 @@
-# Getting Started
+# Getting Started with RokDock
 
 RokDock is a desktop app for Roku development workflows: device discovery, terminal sessions, remote control, deeplinks, and JSON inspection.
 
@@ -12,7 +12,7 @@ RokDock is a desktop app for Roku development workflows: device discovery, termi
 
 ## Install From Artifacts
 
-Use a packaged build from `dist/`:
+Most users should grab a packaged build. Download the latest from the [Releases](https://github.com/paramount-engineering/rokdock/releases) page and pick the artifact for your platform:
 
 - Windows:
   - `RokDock-<version>-Setup-win-x64.exe` (installer)
@@ -22,6 +22,7 @@ Use a packaged build from `dist/`:
   - `RokDock-<version>-mac-<arch>.zip`
 - Linux:
   - `RokDock-<version>-linux-x64.AppImage`
+  - `RokDock-<version>-linux-x64.deb`
 
 ## Run From Source
 
@@ -49,14 +50,14 @@ npm run build
 
 ## Main layout
 
-![The RokDock workspace: the device panel, AI Chat panel, and docked HDMI capture preview on the left, a tabbed BrightScript debug terminal in the center, and the Remote / Scripts / Deeplinks control rail on the right](images/workspace-overview.webp)
+![The RokDock workspace: the device panel, roBot panel, and docked HDMI capture preview on the left, a tabbed BrightScript debug terminal in the center, and the Remote / Scripts / Deeplinks control rail on the right](images/dock-hero.png)
 
 RokDock arranges its workspace around a top menu bar and a set of panels:
 
 - **Device panel (left).** Discovered and manually-added devices, with connect actions, refresh, and add-device controls. See [Devices](devices.md).
 - **Terminal workspace (center).** Tabbed telnet terminal sessions. Before you connect a device it shows a "No Active Connections" prompt. See [Terminal](terminal.md).
 - **Control rail (right).** The virtual [Remote](remote-control.md), saved automation [Scripts](script-editor.md), and the [Deeplinks](deeplinks.md) launcher.
-- **AI Chat (Beta).** A dockable assistant that appears once you configure an AI provider. It can sit in the left column, in the right rail, or as a drawer below the terminal. See [AI Chat](ai.md).
+- **roBot (Beta).** A dockable assistant that appears once you configure and activate an AI provider. It can sit in the left column, in the right rail, or as a drawer below the terminal. See [roBot](ai.md).
 - **Capture preview.** A live HDMI [capture](capture-preview.md) feed, shown when a capture device is configured in Settings. It can dock in either side column, float as a Picture-in-Picture overlay, or open in its own window.
 
 The menu bar also holds the theme toggle and the panel-toggle buttons, and both side panels can be collapsed and reopened from their edge triggers or the View menu.
@@ -88,9 +89,9 @@ A tool launched this way runs in its own window and can coexist with the same to
 
 RokDock can display a live video feed from an HDMI capture device. The capture preview can be docked in a side panel, floated as a PiP overlay, or opened in a separate window. Configure the capture device in **Settings > Capture**. See [Capture Preview](capture-preview.md) for details.
 
-## AI Chat (Beta)
+## roBot (Beta)
 
-RokDock has an opt-in AI assistant. After you configure a provider in **Settings > AI (Beta)**, an AI Chat panel becomes available (dockable on the left, middle, or right) and an "Explain this" action appears for terminal selections. AI is off until a provider is configured. See [AI Chat](ai.md) for details.
+RokDock has an opt-in AI assistant named roBot. After you configure a provider in **Settings > AI (Beta)** and set one as the active provider, the roBot panel becomes available (dockable on the left, middle, or right) and an "Ask roBot" action appears for terminal selections. AI is off until an active provider is set, and auto-detected CLI providers must be activated with **Set active**. See [roBot](ai.md) for details.
 
 ## Open Common Screens
 

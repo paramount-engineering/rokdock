@@ -33,6 +33,12 @@ export interface ActiveAppInfo {
     name: string
 }
 
+/** An installed channel: its ECP app id and display name. */
+export interface InstalledApp {
+    id: string
+    name: string
+}
+
 const ECP_REQUEST_TIMEOUT_MS = 5000
 
 /**
@@ -110,6 +116,16 @@ export function ecpRequest(ip: string, method: string, path: string): Promise<st
         })
         req.end()
     })
+}
+
+/**
+ * Extract an app id and display name from a parsed ECP `<app>` node (the shape shared by
+ * /query/active-app and /query/apps). A bare string node is a name with no id.
+ */
+function parseAppNode(node: unknown): InstalledApp {
+    if (typeof node === 'string') return { id: '', name: node }
+    const record = (node ?? {}) as Record<string, unknown>
+    return { id: String(record['@_id'] ?? record.id ?? ''), name: String(record['#text'] ?? record.name ?? '') }
 }
 
 /**
@@ -232,9 +248,22 @@ export class EcpService {
         const xml = await ecpRequest(ip, 'GET', '/query/active-app')
         const parsed = xmlParser.parse(xml)
         const appNode = parsed?.['active-app']?.app ?? parsed?.['active-app']?.App ?? {}
-        const id = String(appNode?.['@_id'] ?? appNode?.id ?? '')
-        const name = typeof appNode === 'string' ? appNode : (appNode?.['#text'] ?? appNode?.name ?? '')
-        return { id, name: String(name) }
+        return parseAppNode(appNode)
+    }
+
+    /**
+     * Queries the channels installed on the device from `/query/apps`, returning each app's
+     * id and display name. Shared by the AI device tools, the script editor, and the deeplink UI.
+     *
+     * @param ip - Target Roku IP address.
+     * @returns Installed apps as `{ id, name }`, excluding any entry missing an id.
+     */
+    async queryApps(ip: string): Promise<InstalledApp[]> {
+        const xml = await ecpRequest(ip, 'GET', '/query/apps')
+        const parsed = xmlParser.parse(xml) as { apps?: { app?: unknown } }
+        const raw = parsed?.apps?.app
+        const list = Array.isArray(raw) ? raw : raw ? [raw] : []
+        return list.map(parseAppNode).filter(app => app.id)
     }
 
     /**
@@ -245,6 +274,22 @@ export class EcpService {
      */
     async launchApp(ip: string, channelId: string | number): Promise<void> {
         await ecpRequest(ip, 'POST', `/launch/${encodeURIComponent(String(channelId))}`)
+    }
+
+    /**
+     * Terminates a running channel via ECP `/exit-app/<id>/true` (the `/true` forces a full
+     * terminate even for Instant Resume apps). Requires Roku OS 13.0 or later with "Control by
+     * mobile apps" enabled. Per the official ECP docs it only acts on apps installed under your
+     * developer account (the sideloaded "dev" channel, or a production/beta app linked to that
+     * account), so it is a no-op for store apps you do not own (observed: it does not terminate
+     * Netflix). Pair with launchApp to cold-restart an already-running channel you own. For a
+     * store app, background it with a Home keypress before launching instead.
+     *
+     * @param ip - Target Roku IP address.
+     * @param channelId - The channel ID to terminate.
+     */
+    async exitApp(ip: string, channelId: string | number): Promise<void> {
+        await ecpRequest(ip, 'POST', `/exit-app/${encodeURIComponent(String(channelId))}/true`)
     }
 
     /**

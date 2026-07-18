@@ -106,7 +106,7 @@ test.describe('AI engine wiring', () => {
         const mainWin = launched.mainWin
 
         await openSettings(mainWin)
-        await mainWin.getByRole('button', { name: 'AI (Beta)', exact: true }).click()
+        await mainWin.getByRole('button', { name: 'roBot (Beta)', exact: true }).click()
         await addOpenAiProfile(mainWin, 'Fake Local', fake.url)
 
         // The new provider appears as a row. Test it from its own row (no need to make it active).
@@ -116,11 +116,27 @@ test.describe('AI engine wiring', () => {
         await expect(mainWin.getByTestId('ai-redaction-preview')).toContainText('Sent to the provider', { timeout: 5000 })
     })
 
+    test('editing a provider closes when focus moves to another control in the list', async () => {
+        const mainWin = launched.mainWin
+
+        await openSettings(mainWin)
+        await mainWin.getByRole('button', { name: 'roBot (Beta)', exact: true }).click()
+        await addOpenAiProfile(mainWin, 'EditFocus', fake.url)
+
+        // Open the edit form for that provider.
+        await mainWin.getByRole('button', { name: 'Edit EditFocus' }).click()
+        await expect(mainWin.getByText('Edit Provider', { exact: true })).toBeVisible()
+
+        // Moving focus onto a row control (its Test button) dismisses the stale edit form.
+        await mainWin.getByTestId('ai-row-test').click()
+        await expect(mainWin.getByText('Edit Provider', { exact: true })).toHaveCount(0)
+    })
+
     test('per-row Test surfaces an error when the provider is unreachable', async () => {
         const mainWin = launched.mainWin
 
         await openSettings(mainWin)
-        await mainWin.getByRole('button', { name: 'AI (Beta)', exact: true }).click()
+        await mainWin.getByRole('button', { name: 'roBot (Beta)', exact: true }).click()
         await addOpenAiProfile(mainWin, 'Broken', errorServer.url)
 
         await mainWin.getByTestId('ai-row-test').click()
@@ -132,7 +148,7 @@ test.describe('AI engine wiring', () => {
         const mainWin = launched.mainWin
 
         await openSettings(mainWin)
-        await mainWin.getByRole('button', { name: 'AI (Beta)', exact: true }).click()
+        await mainWin.getByRole('button', { name: 'roBot (Beta)', exact: true }).click()
         await addOpenAiProfile(mainWin, 'Alpha', fake.url)
         await addOpenAiProfile(mainWin, 'Bravo', fake.url)
 
@@ -153,7 +169,7 @@ test.describe('AI engine wiring', () => {
 
         // Configure a provider.
         await openSettings(mainWin)
-        await mainWin.getByRole('button', { name: 'AI (Beta)', exact: true }).click()
+        await mainWin.getByRole('button', { name: 'roBot (Beta)', exact: true }).click()
         await addOpenAiProfile(mainWin, 'Fake Local', fake.url)
         // Wait for the save to complete: the profile row appears with the Active badge
         // only after saveProfile IPC resolves and the tab re-queries the list.
@@ -172,5 +188,22 @@ test.describe('AI engine wiring', () => {
 
         // The fake server streams "OK" back as the assistant reply.
         await expect(mainWin.getByTestId('ai-chat-message').last()).toContainText('OK', { timeout: 10000 })
+    })
+
+    test('the roBot panel settings gear opens Settings on the AI tab', async () => {
+        const mainWin = launched.mainWin
+
+        // Configure a provider so the chat panel appears, then close Settings.
+        await openSettings(mainWin)
+        await mainWin.getByRole('button', { name: 'roBot (Beta)', exact: true }).click()
+        await addOpenAiProfile(mainWin, 'GearProvider', fake.url)
+        await expect(mainWin.getByTestId('ai-active-badge')).toBeVisible({ timeout: 5000 })
+        await mainWin.getByRole('button', { name: 'Cancel', exact: true }).click()
+
+        // The panel's settings gear reopens Settings on the AI tab (its Device control
+        // toggle, unique to that tab, is shown).
+        await mainWin.getByTestId('ai-chat-toggle').click()
+        await mainWin.getByTestId('ai-chat-settings').click()
+        await expect(mainWin.getByTestId('ai-confirm-device-control-toggle')).toBeVisible({ timeout: 5000 })
     })
 })

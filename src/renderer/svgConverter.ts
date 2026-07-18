@@ -24,11 +24,23 @@ let intrinsicHeight = 0
 let fsDitherOn = true
 let colorCount = 64
 let lightBgOn = false
+let maintainAspect = true                    // lock W/H to the source aspect ratio when one is edited
 let renderTimer: ReturnType<typeof setTimeout> | null = null
-let quantizeTimer: ReturnType<typeof setTimeout> | null = null
-let cleanDataUrl: string | null = null       // clean SVG render - always the quantization source
-let quantizedDataUrl: string | null = null   // last quantized result - used directly for export
+let previewTimer: ReturnType<typeof setTimeout> | null = null
+let cleanDataUrl: string | null = null       // clean SVG render at the output size - the quantization/export source
+let exportDataUrl: string | null = null   // last export-ready result (PNG or WebP), saved directly
+let exportFormat: 'png' | 'webp' = 'png'
+let webpQuality = 80                        // lossy WebP quality (1-100)
 let zoom = 100
+let logicalW = 0                            // output width in CSS px, drives the preview layout (not the backing store)
+let logicalH = 0
+let svgImage: HTMLImageElement | null = null // the current (recolored) SVG, re-rasterized on demand at any size
+let lastDisplaySs = 0                        // supersample factor the visible canvas was last rendered at
+// The visible preview is rendered at display resolution so the vector stays crisp at any zoom. Export,
+// quantization, and the size estimate all use this offscreen canvas at the true output size instead.
+const exportCanvas = document.createElement('canvas')
+const exportCtx = exportCanvas.getContext('2d') as CanvasRenderingContext2D
+const MAX_DISPLAY_DIM = 4096                 // cap the preview backing store so output size times zoom cannot explode memory
 
 // --- Presets ---
 // Preset scale factors relative to FHD (1080p) baseline
@@ -61,9 +73,16 @@ const optsSection     = document.getElementById('optsSection') as HTMLElement
 const pillRow         = document.getElementById('pillRow') as HTMLElement
 const inpW            = document.getElementById('inpW') as HTMLInputElement
 const inpH            = document.getElementById('inpH') as HTMLInputElement
+const togAspect       = document.getElementById('togAspect') as HTMLElement
 const togDither       = document.getElementById('togDither') as HTMLElement
 const togLightBg      = document.getElementById('togLightBg') as HTMLElement
 const colorPillRow    = document.getElementById('colorPillRow') as HTMLElement
+const formatPillRow   = document.getElementById('formatPillRow') as HTMLElement
+const pngOptions      = document.getElementById('pngOptions') as HTMLElement
+const webpOptions     = document.getElementById('webpOptions') as HTMLElement
+const webpQualityInput = document.getElementById('webpQuality') as HTMLInputElement
+const webpQualityVal  = document.getElementById('webpQualityVal') as HTMLElement
+const exportBtnLabel  = document.getElementById('exportBtnLabel') as HTMLElement
 const estSize         = document.getElementById('estSize') as HTMLElement
 const colorCollapsible = document.getElementById('colorCollapsible') as HTMLElement
 const colorList       = document.getElementById('colorList') as HTMLElement
@@ -89,35 +108,65 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     })
 }
 
+// Supersample factor for the visible canvas: enough backing pixels to stay crisp at the current
+// zoom and device pixel ratio, capped so a large output times a high zoom cannot blow up memory.
+function displaySupersample(): number {
+    const zoomFactor = zoom / 100
+    const dpr = window.devicePixelRatio || 1
+    const want = Math.max(1, Math.ceil(zoomFactor * dpr))
+    const cap = Math.max(1, Math.floor(MAX_DISPLAY_DIM / Math.max(logicalW || 1, logicalH || 1)))
+    return Math.min(want, cap)
+}
+
+// Draw the visible preview at display resolution (output size times supersample) so the SVG renders
+// crisply at any zoom. A cheap redraw of the already-loaded image, so it is also called on zoom change.
+function renderDisplayRaster(): void {
+    if (!svgImage || !logicalW || !logicalH) return
+    const ss = displaySupersample()
+    lastDisplaySs = ss
+    canvas.width = logicalW * ss
+    canvas.height = logicalH * ss
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(svgImage, 0, 0, canvas.width, canvas.height)
+    canvas.style.width = logicalW + 'px'
+    canvas.style.height = logicalH + 'px'
+}
+
 async function renderSvg(): Promise<void> {
     if (!svgText) return
     const targetW = parseInt(inpW.value) || 1920
     const targetH = parseInt(inpH.value) || 1080
-    const prevW = canvas.width
+    const prevW = logicalW
 
     const blob = new Blob([svgText], { type: 'image/svg+xml' })
     const url = URL.createObjectURL(blob)
     try {
         const img = await loadImage(url)
         URL.revokeObjectURL(url)
+        svgImage = img
+        logicalW = targetW
+        logicalH = targetH
 
+        // Export/quantization/size source: the true output size, 2x supersampled for clean anti-aliasing.
         const superCanvas = new OffscreenCanvas(targetW * 2, targetH * 2)
         superCanvas.getContext('2d')!.drawImage(img, 0, 0, targetW * 2, targetH * 2)
+        exportCanvas.width = targetW
+        exportCanvas.height = targetH
+        exportCtx.clearRect(0, 0, targetW, targetH)
+        exportCtx.drawImage(superCanvas, 0, 0, targetW, targetH)
+        cleanDataUrl = exportCanvas.toDataURL('image/png')
 
-        canvas.width = targetW
-        canvas.height = targetH
-        ctx.drawImage(superCanvas, 0, 0, targetW, targetH)
-
-        // Compensate zoom so the visual size stays the same after resolution change
+        // Compensate zoom so the visual size stays the same after a resolution change.
         if (prevW && prevW !== targetW) {
             zoom = Math.max(10, Math.min(1000, zoom * (prevW / targetW)))
             if (Math.abs(zoom - 100) < 3) zoom = 100
         }
 
-        cleanDataUrl = canvas.toDataURL('image/png')
+        // Visible preview: crisp vector at the (possibly zoom-compensated) display resolution.
+        renderDisplayRaster()
         applyZoom()
         requestAnimationFrame(centerCanvas)
-        scheduleQuantize()
+        scheduleExportPreview()
     } catch {
         URL.revokeObjectURL(url)
     }
@@ -128,25 +177,55 @@ function scheduleRender(): void {
     renderTimer = setTimeout(renderSvg, 400)
 }
 
-// --- Quantize preview ---
-let quantizeGen = 0
+// --- Export preview ---
+// One generation counter guards both preview paths so a newer request always wins.
+let previewGen = 0
 
-function scheduleQuantize(): void {
-    if (quantizeTimer !== null) clearTimeout(quantizeTimer)
-    quantizeTimer = setTimeout(quantizePreview, 300)
+/** Human-readable byte size (bytes under 1 KB, else rounded KB). */
+function formatBytes(bytes: number): string {
+    return bytes < 1024 ? bytes + ' B' : Math.round(bytes / 1024) + ' KB'
+}
+
+/** Decoded byte length of a base64 data URL. */
+function dataUrlByteLength(dataUrl: string): number {
+    const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
+    return atob(base64).length
+}
+
+/** Shared preview preamble. Returns a generation id, or -1 when there is nothing to preview. */
+function beginPreview(): number {
+    if (!svgText || !cleanDataUrl) { estSize.textContent = ''; return -1 }
+    // Clear any overlay a superseded PNG quantize left behind (it skips its own remove on
+    // the stale-return). quantizePreview re-shows it below; the WebP path never needs it.
+    loadingOverlay.classList.remove('show')
+    estSize.textContent = 'Processing...'
+    exportDataUrl = null
+    setExportEnabled(false)
+    return ++previewGen
+}
+
+/** Shared preview tail: record the export-ready data URL, show its size, enable export. */
+function finishPreview(dataUrl: string, bytes: number): void {
+    exportDataUrl = dataUrl
+    estSize.textContent = formatBytes(bytes)
+    setExportEnabled(true)
+}
+
+function scheduleExportPreview(): void {
+    if (previewTimer !== null) clearTimeout(previewTimer)
+    previewTimer = setTimeout(() => {
+        if (exportFormat === 'webp') void encodeWebpPreview()
+        else void quantizePreview()
+    }, 300)
 }
 
 async function quantizePreview(): Promise<void> {
-    if (!svgText || !cleanDataUrl) { estSize.textContent = ''; return }
-    const gen = ++quantizeGen
-    estSize.textContent = 'Processing...'
+    const gen = beginPreview()
+    if (gen === -1) return
     loadingOverlay.classList.add('show')
-    quantizedDataUrl = null
-    setExportEnabled(false)
 
-    const rawDataUrl = cleanDataUrl
-    const result = await window.rokdock.svgExporter.quantize(rawDataUrl, colorCount, fsDitherOn)
-    if (gen !== quantizeGen) return // stale result - a newer quantize is in flight
+    const result = await window.rokdock.svgExporter.quantize(cleanDataUrl!, colorCount, fsDitherOn)
+    if (gen !== previewGen) return // stale result - a newer request is in flight
     loadingOverlay.classList.remove('show')
     if (!result.ok || !result.dataUrl) {
         estSize.textContent = ''
@@ -154,26 +233,37 @@ async function quantizePreview(): Promise<void> {
         return
     }
 
-    // Draw quantized result into canvas so preview exactly matches export
-    try {
-        const img = await loadImage(result.dataUrl)
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(img, 0, 0)
-    } catch { /* ignore draw errors */ }
+    finishPreview(result.dataUrl, result.sizeBytes ?? 0)
+}
 
-    quantizedDataUrl = result.dataUrl
-    const bytes = result.sizeBytes ?? 0
-    estSize.textContent = bytes < 1024 ? bytes + ' B' : Math.round(bytes / 1024) + ' KB'
-    setExportEnabled(true)
+/**
+ * Encodes the output-size raster to lossy WebP at the chosen quality using the browser's native
+ * canvas encoder (no quantization: WebP handles gradients well). Encodes the offscreen export
+ * canvas, not the visible preview, so the file reflects the chosen output size regardless of zoom.
+ */
+async function encodeWebpPreview(): Promise<void> {
+    const gen = beginPreview()
+    if (gen === -1) return
+
+    const dataUrl = exportCanvas.toDataURL('image/webp', webpQuality / 100)
+    if (gen !== previewGen) return
+    // A browser without WebP encode support falls back to PNG. Guard against that.
+    if (!dataUrl.startsWith('data:image/webp')) {
+        estSize.textContent = 'WebP not supported'
+        setExportEnabled(false)
+        return
+    }
+    finishPreview(dataUrl, dataUrlByteLength(dataUrl))
 }
 
 // --- Zoom ---
 function applyZoom(): void {
-    if (!canvas.width) return
-    const zf = zoom / 100
-    canvasContainer.style.transform = 'scale(' + zf + ')'
-    zoomSizer.style.width = (canvas.width * zf) + 'px'
-    zoomSizer.style.height = (canvas.height * zf) + 'px'
+    if (!logicalW) return
+    const zoomFactor = zoom / 100
+    canvasContainer.style.transform = 'scale(' + zoomFactor + ')'
+    // Layout tracks the logical output size (the canvas CSS box), not the supersampled backing store.
+    zoomSizer.style.width = (logicalW * zoomFactor) + 'px'
+    zoomSizer.style.height = (logicalH * zoomFactor) + 'px'
     zoomDock.setAttribute('value', String(Math.round(zoom)))
     updateCanvasMargin()
 }
@@ -204,6 +294,9 @@ function setZoom(value: number): void {
     const fy = sh > 0 ? (viewport.scrollTop / sh) : 0.5
     zoom = Math.max(10, Math.min(1000, value))
     if (Math.abs(zoom - 100) < 3) zoom = 100
+    // Re-rasterize the preview when the zoom crosses into a higher supersample tier, so zooming in
+    // stays crisp (the vector is re-rendered rather than the existing bitmap being stretched).
+    if (displaySupersample() !== lastDisplaySs) renderDisplayRaster()
     applyZoom()
     const sw2 = viewport.scrollWidth - viewport.clientWidth
     const sh2 = viewport.scrollHeight - viewport.clientHeight
@@ -213,17 +306,17 @@ function setZoom(value: number): void {
 
 function centerCanvas(): void {
     const margin = parseFloat(zoomSizer.style.margin) || 200
-    const zf = zoom / 100
-    const cx = margin + (canvas.width / 2) * zf
-    const cy = margin + (canvas.height / 2) * zf
+    const zoomFactor = zoom / 100
+    const cx = margin + (logicalW / 2) * zoomFactor
+    const cy = margin + (logicalH / 2) * zoomFactor
     viewport.scrollLeft = Math.max(0, Math.min(viewport.scrollWidth - viewport.clientWidth, cx - viewport.clientWidth / 2))
     viewport.scrollTop = Math.max(0, Math.min(viewport.scrollHeight - viewport.clientHeight, cy - viewport.clientHeight / 2))
 }
 
 function zoomFit(): void {
-    if (!canvas.width || !canvas.height) return
+    if (!logicalW || !logicalH) return
     const vr = viewport.getBoundingClientRect()
-    const cw = canvas.width, ch = canvas.height
+    const cw = logicalW, ch = logicalH
     setZoom(Math.max(10, Math.min(1000, Math.min((vr.width - 40) / cw, (vr.height - 40) / ch) * 100)))
     requestAnimationFrame(centerCanvas)
 }
@@ -242,19 +335,19 @@ viewport.addEventListener('wheel', e => {
 }, { passive: false })
 
 // --- Canvas drag (pan) ---
-interface PanState { sx: number; sy: number; sl: number; st: number }
+interface PanState { sx: number; sy: number; scrollLeft: number; scrollTop: number }
 let panState: PanState | null = null
 viewport.addEventListener('mousedown', e => {
     if (e.button !== 0 || !svgText) return
     if ((e.target as HTMLElement).closest('.zoom-dock-wrap') || (e.target as HTMLElement).closest('.drop-zone')) return
-    panState = { sx: e.clientX, sy: e.clientY, sl: viewport.scrollLeft, st: viewport.scrollTop }
+    panState = { sx: e.clientX, sy: e.clientY, scrollLeft: viewport.scrollLeft, scrollTop: viewport.scrollTop }
     viewport.classList.add('dragging')
     e.preventDefault()
 })
 document.addEventListener('mousemove', e => {
     if (!panState) return
-    viewport.scrollLeft = panState.sl - (e.clientX - panState.sx)
-    viewport.scrollTop = panState.st - (e.clientY - panState.sy)
+    viewport.scrollLeft = panState.scrollLeft - (e.clientX - panState.sx)
+    viewport.scrollTop = panState.scrollTop - (e.clientY - panState.sy)
 })
 document.addEventListener('mouseup', () => {
     if (panState) { panState = null; viewport.classList.remove('dragging') }
@@ -278,28 +371,105 @@ pillRow.addEventListener('click', (e) => {
 })
 
 // --- W/H inputs ---
-function onSizeInput(): void {
-    pillRow.querySelectorAll('.pill').forEach(pill => (pill as HTMLElement).classList.toggle('active', (pill as HTMLButtonElement).dataset.preset === 'custom'))
+// The source aspect ratio the "maintain aspect ratio" lock enforces. Null when the SVG has no
+// known intrinsic dimensions, in which case the lock cannot derive a ratio and does nothing.
+function aspectRatio(): number | null {
+    if (intrinsicWidth > 0 && intrinsicHeight > 0) return intrinsicWidth / intrinsicHeight
+    return null
+}
+
+// When the lock is on, recompute the OTHER dimension from the one just edited so the source
+// aspect ratio is preserved. Skips an unparseable/empty field so clearing a box does not write
+// NaN into its partner. Returns whether it changed a value.
+function syncLinkedDimension(source: 'w' | 'h'): boolean {
+    if (!maintainAspect) return false
+    const ratio = aspectRatio()
+    if (!ratio) return false
+    if (source === 'w') {
+        const width = parseInt(inpW.value)
+        if (!(width > 0)) return false
+        const next = String(Math.max(1, Math.round(width / ratio)))
+        if (inpH.value === next) return false
+        inpH.value = next
+    } else {
+        const height = parseInt(inpH.value)
+        if (!(height > 0)) return false
+        const next = String(Math.max(1, Math.round(height * ratio)))
+        if (inpW.value === next) return false
+        inpW.value = next
+    }
+    return true
+}
+
+function onSizeInput(source: 'w' | 'h'): void {
+    syncLinkedDimension(source)
+    setActivePill(pillRow, pill => pill.dataset.preset === 'custom')
     scheduleRender()
 }
-inpW.addEventListener('input', onSizeInput)
-inpH.addEventListener('input', onSizeInput)
+inpW.addEventListener('input', () => onSizeInput('w'))
+inpH.addEventListener('input', () => onSizeInput('h'))
+
+// Re-locking conforms the height to the source aspect ratio from the current width.
+togAspect.addEventListener('rokdock-change', (e) => {
+    maintainAspect = (e as CustomEvent<{ checked: boolean }>).detail.checked
+    if (maintainAspect && syncLinkedDimension('w')) scheduleRender()
+})
+
+// The lock needs a source ratio to enforce. Disable the toggle when the SVG has no intrinsic
+// dimensions, so it does not present as a working control that silently does nothing.
+function updateAspectToggleEnabled(): void {
+    if (aspectRatio() !== null) togAspect.removeAttribute('disabled')
+    else togAspect.setAttribute('disabled', '')
+}
 
 // --- Color count pills ---
+/** Marks the pill in `row` matching the predicate active and clears the rest. */
+function setActivePill(row: HTMLElement, isActive: (pill: HTMLButtonElement) => boolean): void {
+    row.querySelectorAll('.pill').forEach(pill => (pill as HTMLElement).classList.toggle('active', isActive(pill as HTMLButtonElement)))
+}
+
 function setColorPreset(count: number): void {
     colorCount = count
-    colorPillRow.querySelectorAll('.pill').forEach(pill => (pill as HTMLElement).classList.toggle('active', parseInt((pill as HTMLButtonElement).dataset.colors ?? '0') === count))
-    scheduleQuantize()
+    setActivePill(colorPillRow, pill => parseInt(pill.dataset.colors ?? '0') === count)
+    scheduleExportPreview()
 }
 colorPillRow.querySelectorAll('.pill').forEach(pill => {
     pill.addEventListener('click', () => setColorPreset(parseInt((pill as HTMLButtonElement).dataset.colors ?? '0')))
 })
 setColorPreset(64)
 
+// --- Export format (PNG vs WebP) + WebP quality ---
+function updateExportUi(): void {
+    const isWebp = exportFormat === 'webp'
+    pngOptions.style.display = isWebp ? 'none' : ''
+    webpOptions.style.display = isWebp ? '' : 'none'
+    exportBtnLabel.textContent = isWebp ? 'Export WebP...' : 'Export PNG...'
+    exportBtn.title = isWebp ? 'Export WebP' : 'Export PNG'
+}
+
+formatPillRow.querySelectorAll('.pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+        const format = (pill as HTMLButtonElement).dataset.format === 'webp' ? 'webp' : 'png'
+        if (format === exportFormat) return
+        exportFormat = format
+        setActivePill(formatPillRow, other => other.dataset.format === format)
+        updateExportUi()
+        scheduleExportPreview()
+    })
+})
+
+webpQualityInput.addEventListener('input', () => {
+    webpQuality = parseInt(webpQualityInput.value) || 80
+    webpQualityVal.textContent = String(webpQuality)
+    scheduleExportPreview()
+})
+
+updateExportUi()
+
 // --- FS Dither toggle ---
 togDither.addEventListener('rokdock-change', (e) => {
     fsDitherOn = (e as CustomEvent<{ checked: boolean }>).detail.checked
-    scheduleQuantize()
+    scheduleExportPreview()
 })
 
 // --- Light background toggle ---
@@ -348,24 +518,39 @@ function hasOverrides(): boolean {
     return Object.keys(colorMap).length > 0 || !!currentColorOverride
 }
 
+// A gradient <stop>'s stop-color paint, which renders as the SVG default (black) when no
+// value is present. extractColors surfaces that default and applyRecolor injects it, so both
+// sides use this one predicate to agree on exactly which elements get the implicit treatment.
+function isStopColorPaint(element: Element, attr: string): boolean {
+    return attr === 'stop-color' && element.localName === 'stop'
+}
+
 // Scan all elements' paint attributes and inline styles for distinct colors.
 function extractColors(svg: string): { colors: string[]; usesCurrent: boolean } {
     const doc = svgParser.parseFromString(svg, 'image/svg+xml')
     if (doc.getElementsByTagName('parsererror').length) return { colors: [], usesCurrent: false }
     const seen: Record<string, boolean> = {}, order: string[] = []
     let usesCurrent = false
-    const els = doc.getElementsByTagName('*')
-    for (let i = 0; i < els.length; i++) {
-        const el = els[i]
+    const elements = doc.getElementsByTagName('*')
+    for (let i = 0; i < elements.length; i++) {
+        const element = elements[i]
         for (const [attr, prop, fallback] of PAINT_PROPS) {
-            const style = (el as HTMLElement).style ? (el as HTMLElement).style as unknown as Record<string, string> : null
-            const vals: (string | null)[] = [el.getAttribute(attr), style ? style[prop] : null]
-            for (const raw of vals) {
+            const style = (element as HTMLElement).style ? (element as HTMLElement).style as unknown as Record<string, string> : null
+            const rawValues: (string | null)[] = [element.getAttribute(attr), style ? style[prop] : null]
+            let sawExplicit = false
+            for (const raw of rawValues) {
                 if (raw == null || raw === '') continue
+                sawExplicit = true
                 const normalized = normalizeColor(raw, fallback)
                 if (!normalized) continue
                 if (normalized === 'currentColor') { usesCurrent = true; continue }
                 if (!seen[normalized]) { seen[normalized] = true; order.push(normalized) }
+            }
+            // A <stop> with no explicit stop-color renders as the SVG default (black), so
+            // surface that default. Otherwise a gradient exported without stop-color (common
+            // from design tools) offers no swatch and cannot be recolored at all.
+            if (!sawExplicit && fallback && isStopColorPaint(element, attr)) {
+                if (!seen[fallback]) { seen[fallback] = true; order.push(fallback) }
             }
         }
     }
@@ -382,20 +567,25 @@ function applyRecolor(svg: string): string {
     // currentColor resolves against the inherited CSS color property.
     // Setting it on the root remaps every currentColor paint, including ones in <style> blocks.
     if (svgUsesCurrentColor && currentColorOverride) root.style.color = currentColorOverride
-    const els = doc.getElementsByTagName('*')
-    for (let i = 0; i < els.length; i++) {
-        const el = els[i]
+    const elements = doc.getElementsByTagName('*')
+    for (let i = 0; i < elements.length; i++) {
+        const element = elements[i]
         for (const [attr, prop, fallback] of PAINT_PROPS) {
-            const av = el.getAttribute(attr)
-            if (av) {
-                const normalized = normalizeColor(av, fallback)
-                if (normalized && normalized !== 'currentColor' && colorMap[normalized]) el.setAttribute(attr, colorMap[normalized])
+            const attrValue = element.getAttribute(attr)
+            if (attrValue) {
+                const normalized = normalizeColor(attrValue, fallback)
+                if (normalized && normalized !== 'currentColor' && colorMap[normalized]) element.setAttribute(attr, colorMap[normalized])
             }
-            const elStyle = (el as HTMLElement).style ? (el as HTMLElement).style as unknown as Record<string, string> : null
-            const sv = elStyle ? elStyle[prop] : null
-            if (sv) {
-                const normalized = normalizeColor(sv, fallback)
-                if (normalized && normalized !== 'currentColor' && colorMap[normalized]) elStyle![prop] = colorMap[normalized]
+            const elementStyle = (element as HTMLElement).style ? (element as HTMLElement).style as unknown as Record<string, string> : null
+            const styleValue = elementStyle ? elementStyle[prop] : null
+            if (styleValue) {
+                const normalized = normalizeColor(styleValue, fallback)
+                if (normalized && normalized !== 'currentColor' && colorMap[normalized]) elementStyle![prop] = colorMap[normalized]
+            }
+            // A bare <stop> (no explicit stop-color) is implicit black; inject the override
+            // so the surfaced default (see extractColors) actually recolors the gradient.
+            if (!attrValue && !styleValue && fallback && isStopColorPaint(element, attr) && colorMap[fallback]) {
+                element.setAttribute(attr, colorMap[fallback])
             }
         }
     }
@@ -484,7 +674,7 @@ async function doImport(): Promise<void> {
 
 function onSvgImported(result: SvgImportResult): void {
     cleanDataUrl = null
-    quantizedDataUrl = null
+    exportDataUrl = null
     originalSvgText = result.svgText
     colorMap = {}
     currentColorOverride = null
@@ -493,6 +683,7 @@ function onSvgImported(result: SvgImportResult): void {
     buildColorSection()
     intrinsicWidth = result.intrinsicWidth || 0
     intrinsicHeight = result.intrinsicHeight || 0
+    updateAspectToggleEnabled()
 
     // Show loaded state
     viewport.classList.remove('empty')
@@ -524,9 +715,10 @@ function onSvgImported(result: SvgImportResult): void {
 
 // --- Export flow ---
 async function doExport(): Promise<void> {
-    if (!quantizedDataUrl) return
-    const baseName = (toolbarFilename.textContent ?? '').replace(/\.svg$/i, '') + '.png'
-    await window.rokdock.svgExporter.savePng(quantizedDataUrl, baseName)
+    if (!exportDataUrl) return
+    const stem = (toolbarFilename.textContent ?? '').replace(/\.svg$/i, '')
+    const baseName = `${stem}.${exportFormat}`
+    await window.rokdock.svgExporter.saveImage(exportDataUrl, baseName, exportFormat)
 }
 
 // Main drives Import/Export through the typed tool-window command channel.
@@ -595,7 +787,7 @@ function hideCtx(): void { ctxMenu.classList.remove('show') }
 document.addEventListener('contextmenu', (e) => {
     if (viewport.contains(e.target as Node)) {
         e.preventDefault()
-        ctxExport.classList.toggle('disabled', !quantizedDataUrl)
+        ctxExport.classList.toggle('disabled', !exportDataUrl)
         ctxMenu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px'
         ctxMenu.style.top = Math.min(e.clientY, window.innerHeight - 80) + 'px'
         ctxMenu.classList.add('show')

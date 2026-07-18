@@ -5,6 +5,7 @@ import {
     findEnclosingSpan,
     sortJsonValue,
     reindentJson,
+    lineIndentAt,
     decodeNestedJson,
     utf8ByteLength,
     isJsonlContent,
@@ -171,6 +172,53 @@ describe('reindentJson', () => {
     it('does not indent the first line', () => {
         const result = reindentJson('[\n  1\n]', '\t')
         expect(result.startsWith('[')).toBe(true)
+    })
+})
+
+// lineIndentAt
+
+describe('lineIndentAt', () => {
+    it('returns the leading whitespace of the line, not the offset column', () => {
+        const text = '{\n  "appConfig": {\n    "b": 1\n  }\n}'
+        // The brace of appConfig's value sits late on line 2, after `  "appConfig": `.
+        const braceIndex = text.indexOf('{', 1)
+        expect(lineIndentAt(text, braceIndex)).toBe('  ')
+    })
+
+    it('returns empty indent for an offset on the first line', () => {
+        expect(lineIndentAt('{\n  "a": 1\n}', 0)).toBe('')
+    })
+
+    it('handles tab indentation', () => {
+        const text = '{\n\t"a": 1\n}'
+        expect(lineIndentAt(text, text.indexOf('"a"'))).toBe('\t')
+    })
+})
+
+// sort-at-cursor reindent (regression: nested value indentation)
+
+describe('sort reindent for a nested value', () => {
+    it('indents sorted nested keys one level deeper than the key, not under the bracket column', () => {
+        const text = [
+            '{',
+            '  "appConfig": {',
+            '    "z_key": "1",',
+            '    "a_key": "2"',
+            '  }',
+            '}'
+        ].join('\n')
+        // Mirror doSortAtCursor: find the object at the cursor, sort it, reindent to the line indent.
+        const span = findEnclosingSpan(text, text.indexOf('z_key'))!
+        const sorted = sortJsonValue(text.substring(span.start, span.end + 1))!
+        const replacement = reindentJson(sorted, lineIndentAt(text, span.start))
+        // Keys at 4 spaces (parent 2 + one level), closing brace back at 2. NOT pushed to the
+        // bracket column (which was the bug: keys landed ~15 spaces in).
+        expect(replacement).toBe([
+            '{',
+            '    "a_key": "2",',
+            '    "z_key": "1"',
+            '  }'
+        ].join('\n'))
     })
 })
 

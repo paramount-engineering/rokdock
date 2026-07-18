@@ -1,4 +1,4 @@
-# Devices
+# Roku Device Discovery and Developer Mode
 
 This page covers Roku device discovery, manual devices, connection behavior, and device-level settings.
 
@@ -28,7 +28,7 @@ The Add Device dialog fields:
 
 If a password is provided, a username is also required. RokDock stores credentials encrypted for use in authenticated operations.
 
-![The Devices panel with several discovered Rokus; the Roku Ultra card is expanded, showing a green online dot, model label, IP, the per-port connect buttons (BrightScript Debug 8085, Commands 8080, Screensaver 8087), and Connect Remote Panel, Sideload App, Properties, and Remove actions](images/device-card-connected.png)
+![The Devices panel with several discovered Rokus; the Roku Ultra card is expanded, showing a green online dot, model label, IP, the per-port connect buttons (BrightScript Debug 8085, Commands 8080, Screensaver 8087), and Connect Remote Panel, Sideload App, Properties, and Remove actions](images/connect-card-expanded.png)
 *An expanded device card: online dot, model, IP, per-port connect buttons, and the device actions.*
 
 ## Device Card Details

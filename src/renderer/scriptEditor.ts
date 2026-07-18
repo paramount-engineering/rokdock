@@ -961,7 +961,7 @@ async function getInitialData(): Promise<InitialData> {
 function updateDeviceIndicator(): void {
     const remoteElement = document.getElementById('remote-component') as HTMLElement
     const dot = document.getElementById('keys-dot') as HTMLElement
-    const txt = document.getElementById('keys-status-text') as HTMLElement
+    const statusText = document.getElementById('keys-status-text') as HTMLElement
     if (selectedDeviceIp) {
         remoteElement.setAttribute('device', selectedDeviceIp)
     } else {
@@ -970,10 +970,10 @@ function updateDeviceIndicator(): void {
     const keysActive = remoteElement.hasAttribute('keys-active')
     if (keysActive) {
         dot.classList.add('connected')
-        txt.textContent = 'Keys on'
+        statusText.textContent = 'Keys on'
     } else {
         dot.classList.remove('connected')
-        txt.textContent = selectedDeviceIp ? 'Keys off' : 'No device'
+        statusText.textContent = selectedDeviceIp ? 'Keys off' : 'No device'
     }
 }
 

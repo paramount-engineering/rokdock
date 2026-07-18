@@ -1,4 +1,4 @@
-# Capture Preview
+# HDMI Capture Preview for Roku
 
 RokDock can display a live video feed from an HDMI capture device (a USB or HDMI capture card connected to your computer). This is distinct from the Roku device screenshot feature, which captures a still image over the network. See [Screenshot Preview](screenshot-preview.md) for that.
 
@@ -53,7 +53,7 @@ Controls in the popout toolbar:
 
 In fullscreen mode the toolbar hides automatically and reappears briefly when you move the mouse.
 
-![The live HDMI capture feed shown as a Picture-in-Picture float over the dock: a floating panel in the lower right with its own toolbar (mute, pop out, dock) showing the Roku home screen streamed from the capture device](images/capture-live.webp)
+![The live HDMI capture feed as a Picture-in-Picture float with its own toolbar (mute, pop out, dock), showing the device feed streamed from the capture card](images/capture-pip.webp)
 *The live HDMI capture feed as a Picture-in-Picture float over the dock. The same feed can also be docked in a side panel or popped out into its own window.*
 
 ## Audio

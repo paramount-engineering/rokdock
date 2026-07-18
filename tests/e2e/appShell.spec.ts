@@ -132,6 +132,15 @@ test('settings dialog: open, edit screenshot naming format, save, and close', as
     const namingInput = mainWin.getByPlaceholder(DEFAULT_SCREENSHOT_NAMING_FORMAT, { exact: true })
     await namingInput.waitFor({ state: 'visible', timeout: 8_000 })
 
+    // The Screenshot Folder field shows the real default folder path as its placeholder (the
+    // default lives under userData/screenshot-history), not an opaque "Default (app data folder)",
+    // so the user can see where screenshots land. Read-only: do not edit this real-path field.
+    const folderInput = mainWin.getByPlaceholder(/screenshot-history/)
+    await folderInput.waitFor({ state: 'visible', timeout: 8_000 })
+    const folderPlaceholder = await folderInput.getAttribute('placeholder')
+    expect(folderPlaceholder).toMatch(/screenshot-history/)
+    expect(folderPlaceholder).not.toBe('Default (app data folder)')
+
     // Edit the naming format. This directly calls setScreenshotNamingFormat
     // which calls persistPreference, starting the 300ms coalescing timer.
     const originalValue = await namingInput.inputValue()

@@ -1,4 +1,4 @@
-# JSON Viewer
+# JSON Viewer and Editor
 
 The JSON Viewer is a tabbed code editor for reading, editing, and saving JSON. It is backed by CodeMirror 6 with JSON syntax highlighting, line numbers, code folding, inline parse-error markers, and a persistent status bar.
 

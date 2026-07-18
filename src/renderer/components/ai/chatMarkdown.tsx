@@ -12,15 +12,23 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { hasRokuSymbolShape } from '../../../shared/docs/docSymbols'
 import { highlightToHtml } from '../../docs/highlight/staticHighlight'
+import { highlightConsoleToHtml } from './terminalConsoleHighlight'
+import { resolveSyntaxTheme } from '../../styles/terminalSyntaxThemes'
+import { resolveThemeMode } from '../../styles/theme'
+import { useAppStore } from '../../store/appStore'
 
 const IDENTIFIER_RE = /[A-Za-z][A-Za-z0-9]*/g
 // Stable identity so streaming re-renders do not reinstall the remark pipeline.
 const REMARK_PLUGINS = [remarkGfm]
 
 /**
- * A fenced code block with syntax highlighting (shared staticHighlight pipeline,
- * inline-styled with the live theme vars) and a hover Copy button. The button
+ * A fenced code block with syntax highlighting and a hover Copy button. The button
  * sits on a non-scrolling wrapper so it stays pinned while wide code scrolls.
+ *
+ * A 'roku-console' fence (emitted by the terminal "Ask roBot" action) is
+ * highlighted with the terminal's own tokenizer and active syntax theme so the echo
+ * matches the terminal exactly. Every other language uses the shared staticHighlight
+ * pipeline (correct for real source, e.g. the assistant's BrightScript blocks).
  */
 function ChatCodeBlock({ code, language }: { code: string; language: string }): React.JSX.Element {
     const [copied, setCopied] = React.useState(false)
@@ -33,8 +41,20 @@ function ChatCodeBlock({ code, language }: { code: string; language: string }): 
         }).catch(() => { /* clipboard unavailable or denied: stay idle */ })
     }
     React.useEffect(() => () => { if (resetTimer.current !== null) window.clearTimeout(resetTimer.current) }, [])
-    // Re-highlight only when the code or language changes, not on unrelated re-renders.
-    const html = React.useMemo(() => highlightToHtml(code, language), [code, language])
+    const syntaxPreset = useAppStore(state => state.terminalSyntaxThemePreset)
+    const syntaxCustom = useAppStore(state => state.terminalSyntaxThemeCustomColors)
+    const themeMode = resolveThemeMode(useAppStore(state => state.themeMode))
+    const syntaxTheme = React.useMemo(
+        () => resolveSyntaxTheme(syntaxPreset, themeMode, syntaxCustom),
+        [syntaxPreset, themeMode, syntaxCustom],
+    )
+    // Re-highlight only when the inputs change, not on unrelated re-renders.
+    const html = React.useMemo(
+        () => language === 'roku-console'
+            ? highlightConsoleToHtml(code, syntaxTheme)
+            : highlightToHtml(code, language),
+        [code, language, syntaxTheme],
+    )
     return (
         <div className="ai-chat-code-wrap">
             <button

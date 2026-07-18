@@ -267,7 +267,7 @@ class RokdockZoomDock extends HTMLElement {
     /** Call from outside after toggling display on slotted extra elements. */
     updateExtraVisibility() {
         const hasVisible = this.extraSlot.assignedElements().some(
-            el => (el as HTMLElement).style.display !== 'none'
+            element => (element as HTMLElement).style.display !== 'none'
         )
         this.classList.toggle('has-extra', hasVisible)
     }

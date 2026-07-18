@@ -1,4 +1,5 @@
 name: Release
+run-name: Release ${{ github.ref_name }}
 
 # Builds RokDock installers for every desktop platform on native GitHub runners
 # and attaches them, plus the electron-updater manifests (latest-mac.yml,

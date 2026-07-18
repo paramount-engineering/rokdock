@@ -32,6 +32,14 @@ import { app, BrowserWindow, Menu } from 'electron'
 import { revealWindow } from './focusPolicy'
 import { installGlobalErrorHandlers, registerRendererErrorBridge } from './utils/errorReporting'
 
+// From-source (non-packaged) runs get a distinct userData folder ("RokDock Dev") so a dev
+// build's state (config, sessions, caches) can never scribble on the installed app's, and
+// the two are never confused (the old implicit "rokdock" vs "RokDock" split was a case
+// near-collision). Packaged builds keep "RokDock" via electron-builder's productName. This
+// must run before the single-instance lock and any getPath('userData'), or the prior name
+// is already baked into the resolved path.
+if (!app.isPackaged) app.setName('RokDock Dev')
+
 // Register uncaughtException/unhandledRejection handlers before any other setup
 // so errors during startup are captured and shown as a friendly dialog instead of
 // Electron's raw "A JavaScript error occurred in the main process" crash dialog.

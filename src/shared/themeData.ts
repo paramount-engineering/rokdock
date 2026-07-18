@@ -77,7 +77,7 @@ export const darkTheme = {
         btnText: '#ffffff',
 
         // Global CSS tokens (synced to document via useEffect in App.tsx)
-        selectionBg: 'rgba(58, 28, 135, 0.45)',
+        selectionBg: 'rgba(138, 111, 224, 0.40)',
         selectionText: '#fff',
         focusBorder: 'rgba(90, 58, 176, 0.6)',
         focusShadow: 'rgba(58, 28, 135, 0.2)',
@@ -162,12 +162,11 @@ export const darkTheme = {
         emptyIconColor: 'rgba(200,208,230,.3)',
         emptyTitle: 'rgba(200,208,230,.5)',
 
-        // Search highlighting
-        searchHighlightActive: 'rgba(250,204,21,.45)',
-        searchHighlightMatch: 'rgba(250,204,21,.25)',
-        searchLineBg: 'rgba(250,204,21,.08)',
-        searchLineActiveBg: 'rgba(250,204,21,.2)',
-        searchHighlightColor: '#ffe45c',
+        // Search highlighting (subtle amber, shared by the terminal and Developer Docs)
+        searchHighlightActive: 'rgba(250,204,21,.34)',
+        searchHighlightMatch: 'rgba(250,204,21,.16)',
+        searchLineBg: 'rgba(250,204,21,.06)',
+        searchLineActiveBg: 'rgba(250,204,21,.16)',
 
         // Measure tool
         measureLine: '#bef264',
@@ -280,7 +279,7 @@ export const lightTheme: Theme = {
         btnGhostHover: 'rgba(0, 0, 0, 0.06)',
         btnText: '#ffffff',
 
-        selectionBg: 'rgba(58, 28, 135, 0.25)',
+        selectionBg: 'rgba(120, 92, 224, 0.38)',
         selectionText: '#1a1a2e',
         focusBorder: 'rgba(90, 58, 176, 0.5)',
         focusShadow: 'rgba(58, 28, 135, 0.15)',
@@ -364,12 +363,11 @@ export const lightTheme: Theme = {
         emptyIconColor: 'rgba(40,46,64,.35)',
         emptyTitle: 'rgba(40,46,64,.5)',
 
-        // Search highlighting
-        searchHighlightActive: 'rgba(250,204,21,.45)',
-        searchHighlightMatch: 'rgba(250,204,21,.25)',
-        searchLineBg: 'rgba(250,204,21,.08)',
-        searchLineActiveBg: 'rgba(250,204,21,.2)',
-        searchHighlightColor: '#ffe45c',
+        // Search highlighting (subtle amber, shared by the terminal and Developer Docs)
+        searchHighlightActive: 'rgba(250,204,21,.34)',
+        searchHighlightMatch: 'rgba(250,204,21,.16)',
+        searchLineBg: 'rgba(250,204,21,.06)',
+        searchLineActiveBg: 'rgba(250,204,21,.16)',
 
         // Measure tool
         measureLine: '#6d28d9',
@@ -655,7 +653,6 @@ export function toCSSVars(theme: Theme, opts: { monoFont?: string; tint?: Tint; 
         '--rokdock-search-highlight-match': colors.searchHighlightMatch,
         '--rokdock-search-line-bg': colors.searchLineBg,
         '--rokdock-search-line-active-bg': colors.searchLineActiveBg,
-        '--rokdock-search-highlight-color': colors.searchHighlightColor,
 
         // Measure
         '--rokdock-measure-line': colors.measureLine,

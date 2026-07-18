@@ -16,6 +16,8 @@
   <img alt="Claude" src="https://img.shields.io/badge/Claude-D97757?logo=anthropic&logoColor=white" />
   <img alt="Gemini" src="https://img.shields.io/badge/Gemini-8E75B2?logo=googlegemini&logoColor=white" />
   <img alt="OpenAI" src="https://img.shields.io/badge/OpenAI-412991?logo=openai&logoColor=white" />
+  <img alt="Codex" src="https://img.shields.io/badge/Codex-1A1A1A?logo=openai&logoColor=white" />
+  <img alt="GitHub Copilot" src="https://img.shields.io/badge/Copilot-000000?logo=githubcopilot&logoColor=white" />
   <img alt="Ollama" src="https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white" />
 </p>
 <p align="center">
@@ -42,7 +44,7 @@ It is for Roku channel developers who are tired of juggling a telnet client, the
 RokDock is one tool for all of it.
 
 <p align="center">
-  <img src="docs/user/images/workspace-overview.webp" alt="The RokDock workspace: the device panel, AI Chat panel, and HDMI capture preview on the left, a BrightScript debug terminal in the center, and the Remote / Scripts / Deeplinks rail on the right" width="860" />
+  <img src="docs/user/images/dock-hero.png" alt="The RokDock workspace: the device panel, roBot panel, and HDMI capture preview on the left, a BrightScript debug terminal in the center, and the Remote / Scripts / Deeplinks rail on the right" width="860" />
 </p>
 
 ## Features
@@ -81,7 +83,7 @@ RokDock is one tool for all of it.
 - **Developer Docs** - an in-app browser for the official Roku documentation, with
   full-text search, a What's New change feed, browser-style history, and an offline
   cache.
-- **AI Chat (Beta)** - an opt-in assistant with swappable providers (Anthropic,
+- **roBot (Beta)** - an opt-in assistant with swappable providers (Anthropic,
   Gemini, OpenAI-compatible, or a local CLI such as Claude, Copilot, Gemini, or
   Codex) and per-prompt redaction of device IPs, names, and serials.
 
@@ -136,7 +138,7 @@ Full guides for every screen and feature live in [docs/user/](docs/user/):
 - [9-Patch Editor](docs/user/ninepatch-editor.md) - stretchable image assets
 - [SVG Converter](docs/user/svg-converter.md) - SVG to quantized PNG
 - [Developer Docs](docs/user/developer-docs.md) - the in-app Roku documentation browser
-- [AI Chat](docs/user/ai.md) - the AI assistant and provider configuration
+- [roBot](docs/user/ai.md) - the AI assistant and provider configuration
 - [Settings](docs/user/settings.md) - the full settings reference, tab by tab
 - [Keyboard Shortcuts](docs/user/keyboard-shortcuts.md) - the shortcut reference
 - [Themes](docs/user/themes.md) - app theme, syntax themes, and fonts
@@ -205,23 +207,37 @@ npm run dist:linux    # Linux (AppImage + deb)
 
 ## Screenshots
 
-A connected debug terminal at a BrightScript breakpoint, with tokenized output and
-detected links.
+The debug terminal, tokenized and themed, with a JSON payload detected and ready to
+open in the editor.
 
-![Debug terminal](docs/user/images/terminal-live.png)
+![Debug terminal with a highlighted, clickable JSON payload](docs/user/images/terminal-json-highlighted.webp)
 
-The in-app Developer Docs, with the official Roku documentation, search, and a
-What's New feed.
+The full on-screen remote, plus saved deeplink presets you can fire in a click.
 
-![Developer Docs](docs/user/images/developer-docs.png)
+<p align="center">
+  <img alt="The on-screen Roku remote" src="docs/user/images/control-remote.png" width="300" />
+  <img alt="Saved deeplink presets" src="docs/user/images/control-deeplinks.png" width="480" />
+</p>
 
-The Screenshot Preview, comparing a device frame against a safe-zone overlay.
+Built-in tools: a JSON viewer, a 9-Patch editor, and an SVG recolor/exporter.
 
-![Screenshot Preview](docs/user/images/screenshot-preview.png)
+<p align="center">
+  <img alt="9-Patch editor" src="docs/user/images/ninepatch-editor.png" width="430" />
+  <img alt="SVG converter with recoloring" src="docs/user/images/svg-converter-recolored.png" width="430" />
+</p>
 
-The AI Chat panel, grounded in the Roku docs.
+The in-app Developer Docs: the official Roku documentation with full-text search and
+a What's New feed.
 
-![AI Chat](docs/user/images/ai-chat-panel.png)
+![In-app Developer Docs with search results](docs/user/images/docs-search.png)
+
+The Screenshot Viewer, comparing a captured device frame against a safe-zone overlay.
+
+![Screenshot Viewer with a safe-zone overlay](docs/user/images/capture-viewer-safezone.webp)
+
+The roBot panel, grounded in the Roku docs.
+
+![The roBot AI panel](docs/user/images/ai-chat-panel.png)
 
 More figures are in the [user guide](docs/user/).
 

@@ -18,7 +18,7 @@ import type { StoreService } from '../../services/store'
 import { clearOnionOverlayPersistDir } from '../../utils/onionOverlayPersist'
 import { isNonEmptyString, isValidPanelState, isValidPortConfig, isValidDeeplinkConfig } from '../../utils/validation'
 import type { IpcContext } from '../types'
-import { screenshotHistoryService } from '../../services/screenshotHistory'
+import { screenshotHistoryService, getDefaultScreenshotFolder } from '../../services/screenshotHistory'
 import { getScreenshotPreviewWindow } from './deviceScreenshot'
 import { repopulateConfiguredDevices } from './discovery'
 import { clearPreviewAndBroadcast } from './theme'
@@ -50,6 +50,12 @@ export function registerStoreHandlers(context: IpcContext): void {
      * @returns The current preferences object.
      */
     ipcMain.handle('store:get-preferences', () => store.getPreferences())
+    /**
+     * Returns the absolute default screenshot folder (used when no custom folder is set), so the
+     * Capture settings can show where screenshots land and Browse can open into it.
+     * @returns The absolute default screenshot folder path.
+     */
+    ipcMain.handle('store:get-default-screenshot-folder', () => getDefaultScreenshotFolder())
     /**
      * Merges the provided preferences into the persisted preferences object.
      * Side effects: updates SSDP discovery tuning if scan/timeout settings changed,

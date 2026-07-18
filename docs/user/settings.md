@@ -65,7 +65,7 @@ See [Deeplinks](deeplinks.md) for full details on launching and the panel workfl
 
 ## Remote
 
-![Settings dialog open on the Remote tab](images/settings-remote.png)
+![Settings dialog open on the Remote tab](images/control-remote-settings.png)
 *Remote tab: keyboard bindings for each Roku remote button.*
 
 Configure which keyboard key triggers each remote action. Actions are grouped into four collapsible sections:
@@ -115,7 +115,7 @@ See [Devices](devices.md) for the full discovery and manual device workflow.
 
 ### Screenshot
 
-- **Screenshot Folder** - path where screenshots are saved. Leave blank to use the default app data folder. Use **Browse** to pick a folder.
+- **Screenshot Folder** - path where screenshots are saved. Leave it blank to use the default folder, whose full path is shown in the field so you can find it. **Browse** opens the folder currently in effect (your chosen folder, or the default when blank).
 - **Filename Format** - template for screenshot filenames. Supported tokens: `{YYYY}` `{MM}` `{DD}` `{HH}` `{mm}` `{ss}`. Default: `screenshot-{YYYY}{MM}{DD}-{HH}{mm}{ss}`.
 
 ### Live Capture
@@ -130,7 +130,7 @@ See [Devices](devices.md) for the full discovery and manual device workflow.
 ![Settings dialog open on the AI (Beta) tab](images/settings-ai.png)
 *AI (Beta) tab: the provider list with the add-provider form open.*
 
-Configure the AI providers that power the [AI Chat](ai.md) panel and the terminal "Explain this" action. The tab opens to a provider list with the form hidden, so it starts as a clean list.
+Configure the AI providers that power the [roBot](ai.md) panel and the terminal "Ask roBot" action. The tab opens to a provider list with the form hidden, so it starts as a clean list. roBot uses the single provider marked **Active**, so you must set one active for AI to work. Adding your first HTTP provider activates it automatically, but auto-detected CLI providers are listed without being activated, so click **Set active** on the one you want.
 
 - **Providers list** - each saved provider shows its name, type, whether a key is stored, and which one is **Active**. Use **Set active** to switch, **Test** to run a Test Connection (a canned prompt streamed through the real engine, with the redaction preview shown beneath), the pencil to edit, and the trash to remove.
 - **Add provider** - opens the form. Choose a **Provider type**: Anthropic (Claude), Gemini, OpenAI-compatible, or one of the recognized CLIs (Claude, Copilot, Gemini, Codex). HTTP providers take a name, model, optional base URL, and API key. A CLI provider is keyless and local, and is identified by the CLI name.
@@ -138,7 +138,7 @@ Configure the AI providers that power the [AI Chat](ai.md) panel and the termina
 - **Local (no data leaves this machine)** - mark a provider that runs locally (an Ollama CLI or a localhost endpoint). A local provider needs no key, and redaction is optional because nothing leaves the machine.
 - **Redact sensitive values** - on by default. Removes device IPs, names, and serial numbers from prompts before they are sent, with a before/after example shown inline. If you turn redaction off on a non-local (remote) provider, the form shows a red warning and an "I understand" acknowledgment you must check before Save is enabled.
 
-See [AI Chat](ai.md) for using the assistant. The AI key provisioning workflow is handled separately from this settings tab.
+See [roBot](ai.md) for using the assistant. The AI key provisioning workflow is handled separately from this settings tab.
 
 ## Advanced
 
