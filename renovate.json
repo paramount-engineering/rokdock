@@ -1,44 +1,4 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
-  "rangeStrategy": "pin",
-  "schedule": [
-    "before 6am on monday"
-  ],
-  "platformAutomerge": false,
-  "packageRules": [
-    {
-      "description": "Automerge non-major updates after the verify gate passes. platformAutomerge is off so Renovate waits for the ci.yml check itself, since main has no required status checks. Majors are left for manual review.",
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "pin",
-        "digest"
-      ],
-      "automerge": true
-    },
-    {
-      "description": "Keep @types/node on the major that matches the CI Node runtime (24). Bump this alongside the node-version in the workflows.",
-      "matchPackageNames": [
-        "@types/node"
-      ],
-      "allowedVersions": "<25"
-    },
-    {
-      "description": "Keep Vite on the v7 line until electron-vite supports v8.",
-      "matchPackageNames": [
-        "vite"
-      ],
-      "allowedVersions": "<8"
-    },
-    {
-      "description": "Keep plugin-react on v5 while Vite 8 is blocked.",
-      "matchPackageNames": [
-        "@vitejs/plugin-react"
-      ],
-      "allowedVersions": "<6"
-    }
-  ]
+  "enabled": false
 }

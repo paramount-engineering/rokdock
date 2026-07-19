@@ -31,15 +31,14 @@ const DIALOG_CLOSE_BTN: CSSProperties = {
 const MESSAGE_STYLE: CSSProperties = {
     margin: 0,
     color: 'var(--rokdock-text-primary)',
-    fontSize: 'var(--rokdock-font-base)',
+    fontSize: 'var(--rokdock-font-xs)',
     lineHeight: 1.45,
 }
 
 const SUBTLE_STYLE: CSSProperties = {
     margin: 0,
     color: 'var(--rokdock-text-dim)',
-    fontSize: 'var(--rokdock-font-sm)',
-    fontFamily: 'var(--rokdock-font-mono)',
+    fontSize: 'var(--rokdock-font-xs)',
 }
 
 const NOTES_STYLE: CSSProperties = {
@@ -48,7 +47,7 @@ const NOTES_STYLE: CSSProperties = {
     overflowY: 'auto',
     whiteSpace: 'pre-wrap',
     color: 'var(--rokdock-text-dim)',
-    fontSize: 'var(--rokdock-font-sm)',
+    fontSize: 'var(--rokdock-font-xs)',
     lineHeight: 1.45,
 }
 
@@ -58,42 +57,6 @@ const PROGRESS_TRACK_STYLE: CSSProperties = {
     borderRadius: 3,
     background: 'var(--rokdock-border)',
     overflow: 'hidden',
-}
-
-const DETAILS_TOGGLE_STYLE: CSSProperties = {
-    alignSelf: 'flex-start',
-    padding: 0,
-    border: 'none',
-    background: 'transparent',
-    color: 'var(--rokdock-text-dim)',
-    fontSize: 'var(--rokdock-font-sm)',
-    textDecoration: 'underline',
-    cursor: 'pointer',
-}
-
-const DETAILS_BOX_STYLE: CSSProperties = {
-    margin: 0,
-    maxHeight: 160,
-    overflowY: 'auto',
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-    color: 'var(--rokdock-text-dim)',
-    fontSize: 'var(--rokdock-font-sm)',
-    fontFamily: 'var(--rokdock-font-mono)',
-}
-
-/** Raw update-check/download errors can be long HTTP-layer dumps; hide them
- *  behind a toggle instead of always showing them under the friendly message. */
-function ErrorDetails({ error }: { error: string }) {
-    const [open, setOpen] = useState(false)
-    return (
-        <>
-            <button style={DETAILS_TOGGLE_STYLE} onClick={() => setOpen(prev => !prev)}>
-                {open ? 'Hide details' : 'Show details'}
-            </button>
-            {open && <p style={DETAILS_BOX_STYLE}>{error}</p>}
-        </>
-    )
 }
 
 export default function UpdatesDialog({ result, onClose, onRetry }: {
@@ -141,12 +104,7 @@ export default function UpdatesDialog({ result, onClose, onRetry }: {
         )
         actions = <button className="rokdock-btn rokdock-btn-ghost" disabled>Downloading...</button>
     } else if (downloadError) {
-        body = (
-            <>
-                <p style={MESSAGE_STYLE}>The update could not be downloaded.</p>
-                <ErrorDetails error={downloadError} />
-            </>
-        )
+        body = <p style={MESSAGE_STYLE}>The update could not be downloaded. Please try again later.</p>
         actions = (
             <>
                 <button className="rokdock-btn rokdock-btn-ghost" onClick={onClose}>Close</button>
@@ -171,12 +129,7 @@ export default function UpdatesDialog({ result, onClose, onRetry }: {
             </>
         )
     } else if (result.status === 'error') {
-        body = (
-            <>
-                <p style={MESSAGE_STYLE}>Could not check for updates.</p>
-                {result.error && <ErrorDetails error={result.error} />}
-            </>
-        )
+        body = <p style={MESSAGE_STYLE}>Could not check for updates. Please try again later.</p>
         actions = (
             <>
                 <button className="rokdock-btn rokdock-btn-ghost" onClick={onClose}>Close</button>
