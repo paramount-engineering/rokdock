@@ -111,8 +111,11 @@ artifact for your platform:
 | Linux (AppImage) | `RokDock-<version>-linux-x64.AppImage` |
 | Linux (Debian/Ubuntu) | `RokDock-<version>-linux-x64.deb` |
 
-**macOS.** If macOS refuses to open the app (Gatekeeper reports it is damaged or from
-an unidentified developer), clear the quarantine attribute and reopen it:
+**macOS.** The macOS build is signed with a Developer ID certificate and notarized, so it
+should open normally with no extra steps. The following is troubleshooting only: if macOS
+ever refuses to open the app (Gatekeeper reports it is damaged or from an unidentified
+developer, usually after a download the browser flags), clear the quarantine attribute and
+reopen it:
 
 ```bash
 xattr -cr /Applications/RokDock.app
