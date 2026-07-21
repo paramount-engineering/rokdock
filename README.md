@@ -44,6 +44,10 @@ It is for Roku channel developers who are tired of juggling a telnet client, the
 RokDock is one tool for all of it.
 
 <p align="center">
+  <video src="https://github.com/user-attachments/assets/032120e2-22d1-4f7c-8e8c-0277da72e489" controls muted width="860"></video>
+</p>
+
+<p align="center">
   <img src="docs/user/images/dock-hero.png" alt="The RokDock workspace: the device panel, roBot panel, and HDMI capture preview on the left, a BrightScript debug terminal in the center, and the Remote / Scripts / Deeplinks rail on the right" width="860" />
 </p>
 
