@@ -16,6 +16,4 @@ export interface UpdateCheckResult {
     version?: string
     /** Release notes text, best-effort, when available. */
     notes?: string
-    /** Error message when status is 'error'. */
-    error?: string
 }

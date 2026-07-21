@@ -10,9 +10,13 @@ import React, { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
+import ReactMarkdown from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
+import rehypeSanitize from 'rehype-sanitize'
 import DialogFrame from './common/dialogFrame'
 import type { UpdateCheckResult } from '@shared/updates'
 import type { IpcResult } from '@shared/types'
+import './updatesDialog.css'
 
 const DIALOG_CLOSE_BTN: CSSProperties = {
     width: 24,
@@ -31,25 +35,29 @@ const DIALOG_CLOSE_BTN: CSSProperties = {
 const MESSAGE_STYLE: CSSProperties = {
     margin: 0,
     color: 'var(--rokdock-text-primary)',
-    fontSize: 'var(--rokdock-font-xs)',
+    fontSize: 'var(--rokdock-font-sm)',
     lineHeight: 1.45,
 }
 
 const SUBTLE_STYLE: CSSProperties = {
     margin: 0,
     color: 'var(--rokdock-text-dim)',
-    fontSize: 'var(--rokdock-font-xs)',
+    fontSize: 'var(--rokdock-font-sm)',
 }
 
-const NOTES_STYLE: CSSProperties = {
-    margin: 0,
-    maxHeight: 160,
-    overflowY: 'auto',
-    whiteSpace: 'pre-wrap',
-    color: 'var(--rokdock-text-dim)',
-    fontSize: 'var(--rokdock-font-xs)',
-    lineHeight: 1.45,
+// Header row for the downloading state: title on the left, percent right-aligned.
+const DOWNLOAD_HEADER_STYLE: CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: 8,
 }
+
+// Rehype pipeline for the release notes: rehypeRaw reparses the raw HTML the GitHub
+// release ships, then rehypeSanitize (default schema) strips anything unsafe. Order
+// matters: raw MUST run before sanitize. Defined once at module scope so the array
+// identity is stable across renders.
+const NOTES_REHYPE_PLUGINS = [rehypeRaw, rehypeSanitize]
 
 const PROGRESS_TRACK_STYLE: CSSProperties = {
     width: '100%',
@@ -95,11 +103,14 @@ export default function UpdatesDialog({ result, onClose, onRetry }: {
     if (downloading) {
         body = (
             <>
-                <p style={MESSAGE_STYLE}>Downloading update...</p>
+                <div style={DOWNLOAD_HEADER_STYLE}>
+                    <p style={MESSAGE_STYLE}>Downloading update...</p>
+                    <span style={SUBTLE_STYLE}>{percent}%</span>
+                </div>
                 <div style={PROGRESS_TRACK_STYLE}>
                     <div style={{ width: `${percent}%`, height: '100%', background: 'var(--rokdock-brand-primary)', transition: 'width 0.2s ease' }} />
                 </div>
-                <p style={SUBTLE_STYLE}>{percent}%. RokDock will restart to install when the download completes.</p>
+                <p style={SUBTLE_STYLE}>RokDock will restart to install when the download completes.</p>
             </>
         )
         actions = <button className="rokdock-btn rokdock-btn-ghost" disabled>Downloading...</button>
@@ -119,7 +130,11 @@ export default function UpdatesDialog({ result, onClose, onRetry }: {
             <>
                 <p style={MESSAGE_STYLE}>A new version of RokDock is available.</p>
                 {result.version && <p style={SUBTLE_STYLE}>Version {result.version}</p>}
-                {result.notes && <p style={NOTES_STYLE}>{result.notes}</p>}
+                {result.notes && (
+                    <div className="update-notes">
+                        <ReactMarkdown rehypePlugins={NOTES_REHYPE_PLUGINS}>{result.notes}</ReactMarkdown>
+                    </div>
+                )}
             </>
         )
         actions = (

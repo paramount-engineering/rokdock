@@ -7,6 +7,29 @@ RokDock can display a live video feed from an HDMI capture device (a USB or HDMI
 - An HDMI capture card or USB capture device connected to your computer
 - The device must be recognized by your operating system before RokDock launches
 
+## Camera and Microphone Permissions
+
+Capture devices appear to the operating system as a camera (video) and, when they carry audio, a microphone. The first time RokDock opens a stream it may need permission to use them. If the preview stays black, the device list is empty, or audio never plays, an OS-level permission is usually the cause.
+
+### macOS
+
+macOS prompts for **Camera** and **Microphone** access the first time RokDock opens the stream. If you dismissed or denied the prompt, re-enable RokDock under **System Settings > Privacy & Security > Camera** (and **Microphone**), then restart the app.
+
+If the prompt never appeared and the toggles are absent, quit RokDock and reset its permission state so the prompt can fire again:
+
+```bash
+tccutil reset Camera com.rokdock.app
+tccutil reset Microphone com.rokdock.app
+```
+
+### Windows
+
+Windows has no per-app prompt for a desktop app like RokDock. Access is controlled by a single system toggle. Open **Settings > Privacy & security > Camera**, make sure **Camera access** is on, and enable **Let desktop apps access your camera**. Repeat under **Settings > Privacy & security > Microphone**. No per-app entry for RokDock will appear in these lists; the desktop-apps toggle is what governs it.
+
+### Linux
+
+Linux has no permission prompt. Access is governed by device ownership: your user must be able to read the capture device (typically membership in the `video` group for `/dev/video*`), and audio flows through PulseAudio or PipeWire with no extra permission. If the device is present but RokDock cannot open it, confirm your user is in the `video` group (`groups`), then log out and back in.
+
 ## Selecting a Capture Device
 
 Configure the capture device in **Settings > Capture**, under the **Live Capture** section. The dropdown lists all video input devices detected by your system. If no devices appear, the dropdown shows "No capture devices detected."

@@ -1,0 +1,68 @@
+/* Release-notes block in the Software Update dialog. The notes arrive as HTML from
+   the GitHub release and are rendered (sanitized) by react-markdown, so this styles
+   the resulting elements compactly for a small dialog. Monospace inside the notes is
+   sized down (0.85em) to match the app's code sizing elsewhere, since JetBrains Mono
+   renders larger than the proportional UI font at the same px. */
+
+.update-notes {
+    margin: 0;
+    max-height: 200px;
+    overflow-y: auto;
+    color: var(--rokdock-text-dim);
+    font-size: var(--rokdock-font-sm);
+    line-height: 1.5;
+}
+
+.update-notes h1,
+.update-notes h2,
+.update-notes h3,
+.update-notes h4 {
+    margin: 10px 0 4px;
+    font-size: var(--rokdock-font-base);
+    font-weight: 600;
+    color: var(--rokdock-text-primary);
+}
+
+.update-notes > :first-child {
+    margin-top: 0;
+}
+
+.update-notes p {
+    margin: 4px 0;
+}
+
+.update-notes ul,
+.update-notes ol {
+    margin: 4px 0;
+    padding-left: 18px;
+}
+
+.update-notes li {
+    margin: 2px 0;
+}
+
+.update-notes code {
+    font-family: var(--rokdock-font-mono);
+    font-size: 0.85em;
+    background: var(--rokdock-bg-terminal);
+    padding: 1px 4px;
+    border-radius: 4px;
+}
+
+.update-notes pre {
+    margin: 6px 0;
+    padding: 8px;
+    background: var(--rokdock-bg-terminal);
+    border: 1px solid var(--rokdock-border);
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.update-notes pre code {
+    background: transparent;
+    padding: 0;
+}
+
+.update-notes a {
+    color: var(--rokdock-brand-primary-light);
+}

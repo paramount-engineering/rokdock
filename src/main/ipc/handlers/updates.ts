@@ -63,8 +63,8 @@ export function checkForUpdates(context: IpcContext): Promise<UpdateCheckResult>
                 notes: releaseNotesText(info.releaseNotes),
             })
         const onNotAvailable = (): void => finish({ status: 'up-to-date', version: app.getVersion() })
-        // The dialog shows a friendly message; keep the raw HTTP-layer error in the log for support.
-        const onError = (err: Error): void => { logError('updates:check', err); finish({ status: 'error', error: err.message }) }
+        // The dialog shows a friendly message. The raw HTTP-layer error is kept in the log for support.
+        const onError = (err: Error): void => { logError('updates:check', err); finish({ status: 'error' }) }
 
         autoUpdater.once('update-available', onAvailable)
         autoUpdater.once('update-not-available', onNotAvailable)
@@ -75,7 +75,7 @@ export function checkForUpdates(context: IpcContext): Promise<UpdateCheckResult>
         // finish() is idempotent (resolve is a no-op after the first call).
         autoUpdater.checkForUpdates()
             .then(result => { if (!result) finish({ status: 'up-to-date', version: app.getVersion() }) })
-            .catch((err: unknown) => { logError('updates:check', err); finish({ status: 'error', error: err instanceof Error ? err.message : String(err) }) })
+            .catch((err: unknown) => { logError('updates:check', err); finish({ status: 'error' }) })
     })
 }
 
