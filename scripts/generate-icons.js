@@ -9,6 +9,22 @@ const os = require('os')
 const SIZES = [16, 32, 48, 64, 128, 256, 512]
 const RENDER_SIZE = 512
 
+// Icon rasterization uses Electron offscreen rendering, which routes through the GPU/Viz
+// compositor. On headless Linux CI runners that compositor intermittently fails to
+// initialize (UnknownVizError) and the render then hangs. Force the software path on Linux
+// so icon generation never depends on runner GPU state. Windows and macOS keep hardware
+// acceleration (their offscreen path is reliable and faster there).
+if (process.platform === 'linux') {
+    app.disableHardwareAcceleration()
+}
+
+// Never hang the build. If the render throws or a promise rejects unhandled, exit non-zero
+// so the CI job fails fast instead of blocking until the job timeout.
+process.on('unhandledRejection', (err) => {
+    console.error('generate-icons: unhandled promise rejection', err)
+    app.exit(1)
+})
+
 app.whenReady().then(async () => {
     const iconsDir = path.join(__dirname, '..', 'resources', 'icons')
     const svgPath = path.join(iconsDir, 'icon.svg').replace(/\\/g, '/')
@@ -155,4 +171,7 @@ app.whenReady().then(async () => {
     win.destroy()
     fs.unlinkSync(tmpFile)
     app.quit()
+}).catch((err) => {
+    console.error('generate-icons: failed', err)
+    app.exit(1)
 })
