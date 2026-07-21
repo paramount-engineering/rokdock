@@ -101,9 +101,10 @@ export default function App() {
         setUpdatesOpen(true)
         void window.rokdock.updates.check()
             .then(setUpdateResult)
-            .catch((err: unknown) =>
-                setUpdateResult({ status: 'error', error: err instanceof Error ? err.message : String(err) })
-            )
+            .catch((err: unknown) => {
+                console.error('Update check failed:', err)
+                setUpdateResult({ status: 'error' })
+            })
     }
     // Sync CSS custom properties used by index.html global styles (non-React elements).
     // These legacy aliases (no --rokdock- prefix) are kept for index.html compatibility and

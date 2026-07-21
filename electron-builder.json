@@ -108,7 +108,11 @@
         "notarize": true,
         "hardenedRuntime": true,
         "entitlements": "build/entitlements.mac.plist",
-        "entitlementsInherit": "build/entitlements.mac.plist"
+        "entitlementsInherit": "build/entitlements.mac.plist",
+        "extendInfo": {
+            "NSCameraUsageDescription": "RokDock uses the camera to capture live video from a connected Roku HDMI capture device.",
+            "NSMicrophoneUsageDescription": "RokDock uses the microphone input to capture audio from a connected Roku HDMI capture device."
+        }
     },
     "dmg": {
         "artifactName": "RokDock-${version}-mac-${arch}.dmg",
