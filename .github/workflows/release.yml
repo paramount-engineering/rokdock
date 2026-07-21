@@ -103,10 +103,15 @@ jobs:
         run: npx electron-builder --${{ matrix.platform }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # Signing/notarization is macOS-only. These MUST be gated to the mac runner:
+          # CSC_LINK is electron-builder's generic code-signing variable, so leaving it set
+          # on the Windows runner makes electron-builder Authenticode-sign the .exe with the
+          # Apple Developer ID cert, which Windows cannot validate and which breaks
+          # electron-updater. Windows and Linux ship unsigned by design.
+          CSC_LINK: ${{ matrix.platform == 'mac' && secrets.CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'mac' && secrets.CSC_KEY_PASSWORD || '' }}
+          APPLE_API_KEY_ID: ${{ matrix.platform == 'mac' && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ matrix.platform == 'mac' && secrets.APPLE_API_ISSUER || '' }}
 
       - name: Checkpoint installers as a workflow artifact
         # electron-builder builds and uploads to the release in one step. If the

@@ -54,6 +54,7 @@
     ],
     "win": {
         "icon": "resources/icons/icon.ico",
+        "verifyUpdateCodeSignature": false,
         "target": [
             {
                 "target": "nsis",
