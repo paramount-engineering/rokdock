@@ -1357,3 +1357,16 @@ export function createTabInfo(
         paneId: 'a'
     }
 }
+
+/**
+ * Find a still-live terminal tab for a device and port. A telnet debug port accepts
+ * only one connection, so a second tab for the same target could never connect. The
+ * caller focuses the returned tab instead of opening a dead duplicate. Disconnected
+ * and errored tabs are ignored, so the user can still reconnect after a session drops.
+ */
+export function findReusableTab(tabs: TabInfo[], deviceIp: string, port: number): TabInfo | undefined {
+    return tabs.find(
+        (tab) => tab.deviceIp === deviceIp && tab.port === port &&
+            (tab.status === 'connected' || tab.status === 'connecting')
+    )
+}

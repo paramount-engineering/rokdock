@@ -567,7 +567,7 @@ const api = {
             ipcRenderer.invoke('capture:get-device-id'),
         getMuted: (): Promise<{ ok: boolean; muted?: boolean }> =>
             ipcRenderer.invoke('capture:get-muted'),
-        getPopoutConfig: (): Promise<{ deviceId: string; muted: boolean; idleTimeoutSec: number }> =>
+        getPopoutConfig: (): Promise<{ deviceId: string; deviceLabel: string | null; muted: boolean; idleTimeoutSec: number }> =>
             ipcRenderer.invoke('capture:get-popout-config'),
         setMode: (mode: string): Promise<IpcResult> =>
             ipcRenderer.invoke('capture:set-mode', mode),
