@@ -33,15 +33,15 @@
 </p>
 
 RokDock is a cross-platform desktop control center for Roku development. It brings
-the whole Roku workflow into one window: discover devices on your network, open
-BrightScript debug terminals, drive an on-screen remote, sideload channels, capture
-and compare device screenshots, automate device tests, fire deeplinks, build
-SceneGraph image assets, and read the official Roku developer docs in-app. An opt-in
-AI assistant is built in.
+the majority of your Roku development workflow into one window: discover devices on
+your network, open BrightScript debug terminals, drive an on-screen remote, sideload
+channels, capture and compare device screenshots, automate device tests, fire
+deeplinks, build SceneGraph image assets, and read the official Roku developer docs
+in-app. An opt-in AI assistant is built in.
 
-It is for Roku channel developers who are tired of juggling a telnet client, the ECP
-`curl` commands, the deeplink tester, an image editor, and a browser tab of docs.
-RokDock is one tool for all of it.
+It is for Roku channel developers who are tired of juggling their remote control, a
+telnet client, the deeplink tester, an image editor, and a dozen docs tabs. RokDock
+is one tool for all of it.
 
 <p align="center">
   <video src="https://github.com/user-attachments/assets/032120e2-22d1-4f7c-8e8c-0277da72e489" controls muted width="860"></video>

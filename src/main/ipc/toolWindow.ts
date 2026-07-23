@@ -38,6 +38,19 @@ export function getScopedToolWindow(toolKey: string, scope: ToolWindowScope): Br
     return win && !win.isDestroyed() ? win : null
 }
 
+/**
+ * Every live tool window registered in a given scope. The dock uses the
+ * 'standalone' set to know which windows are independent of its own session
+ * (CLI / file-association launches) and must survive the dock closing.
+ */
+export function getToolWindowsInScope(scope: ToolWindowScope): BrowserWindow[] {
+    const windows: BrowserWindow[] = []
+    for (const [key, win] of scopedToolWindows) {
+        if (key.endsWith(`:${scope}`) && !win.isDestroyed()) windows.push(win)
+    }
+    return windows
+}
+
 /** Record a window for a tool+scope and drop the entry (identity-guarded) when it closes. */
 export function setScopedToolWindow(toolKey: string, scope: ToolWindowScope, win: BrowserWindow): void {
     const key = scopeKey(toolKey, scope)

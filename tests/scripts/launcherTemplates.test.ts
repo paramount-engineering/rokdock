@@ -17,9 +17,9 @@ describe('nsisInclude', () => {
 
     it('creates one shortcut per launcher with its --tool arg and icon', () => {
         expect(nsh).toContain('"$SMPROGRAMS\\RokDock\\JSON Editor.lnk"')
-        expect(nsh).toContain('"--tool json"')
+        expect(nsh).toContain('"--tool=json"')
         expect(nsh).toContain('"$INSTDIR\\resources\\icons\\tools\\json.ico"')
-        expect(nsh).toContain('"--tool svg"')
+        expect(nsh).toContain('"--tool=svg"')
     })
 
     it('deletes each shortcut on uninstall and removes the folder', () => {
@@ -33,7 +33,7 @@ describe('desktopEntry', () => {
         const entry = templates.desktopEntry(LAUNCHERS[0], 'rokdock')
         expect(entry).toContain('[Desktop Entry]')
         expect(entry).toContain('Name=RokDock JSON Editor')
-        expect(entry).toContain('Exec=rokdock --tool json %U')
+        expect(entry).toContain('Exec=rokdock --tool=json %U')
         expect(entry).toContain('Icon=rokdock-json')
         expect(entry).toContain('Categories=Development;')
         expect(entry).toContain('Type=Application')
@@ -58,7 +58,7 @@ describe('macLaunchStub', () => {
         expect(stub).toContain('#!/bin/sh')
         expect(stub).toContain("kMDItemCFBundleIdentifier == 'com.rokdock.app'")
         expect(stub).toContain('/Applications/RokDock.app')
-        expect(stub).toContain('--tool json')
+        expect(stub).toContain('--tool=json')
     })
 })
 
@@ -67,7 +67,7 @@ describe('install/uninstall scripts', () => {
         const icons = { json: 'AAAA', svg: 'BBBB' }
         const script = templates.appImageInstallScript(LAUNCHERS, icons)
         expect(script).toContain('#!/bin/sh')
-        expect(script).toContain('--tool json')
+        expect(script).toContain('--tool=json')
         expect(script).toContain('rokdock-json.desktop')
         expect(script).toContain('AAAA')
         // Must use printf %b so the embedded \n escapes become real newlines in the .desktop file.

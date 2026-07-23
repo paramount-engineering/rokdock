@@ -34,6 +34,11 @@ let capturePopoutWindow: BrowserWindow | null = null
 
 interface PopoutConfig {
     deviceId: string
+    // Stable device label, sent so the popout can re-resolve the correct capture
+    // device in its own origin. deviceId is salted per origin, so the dock's id does
+    // not resolve in the popout, but the label does. Without this the popout falls back
+    // to the default capture device, which is wrong when several cards are present.
+    deviceLabel: string | null
     muted: boolean
     idleTimeoutSec: number
 }
@@ -73,6 +78,7 @@ export function registerCaptureHandlers(context: IpcContext): void {
         // the renderer calls capture:get-popout-config during its boot sequence.
         pendingPopoutConfig = {
             deviceId,
+            deviceLabel: preferences.captureDeviceLabel ?? null,
             muted,
             idleTimeoutSec: preferences.captureIdleTimeoutSec ?? 3600
         }
@@ -147,6 +153,7 @@ export function registerCaptureHandlers(context: IpcContext): void {
     ipcMain.handle('capture:get-popout-config', async (): Promise<PopoutConfig> => {
         const config = pendingPopoutConfig ?? {
             deviceId: '',
+            deviceLabel: null,
             muted: true,
             idleTimeoutSec: 3600
         }

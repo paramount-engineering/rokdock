@@ -117,16 +117,17 @@
     },
     "dmg": {
         "artifactName": "RokDock-${version}-mac-${arch}.dmg",
+        "background": "resources/dmg-background.png",
         "window": {
             "x": 130,
             "y": 220,
-            "width": 560,
-            "height": 420
+            "width": 540,
+            "height": 400
         },
         "contents": [
-            { "x": 140, "y": 140, "type": "file" },
-            { "x": 420, "y": 140, "type": "link", "path": "/Applications" },
-            { "x": 280, "y": 320, "type": "dir", "path": "build/RokDock Tools", "name": "RokDock Tools" }
+            { "x": 135, "y": 125, "type": "file" },
+            { "x": 405, "y": 195, "type": "link", "path": "/Applications" },
+            { "x": 135, "y": 265, "type": "dir", "path": "build/RokDock Tools", "name": "RokDock Tools" }
         ]
     },
     "afterPack": "build/afterPack.cjs",

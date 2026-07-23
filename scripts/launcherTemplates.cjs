@@ -2,6 +2,13 @@
  * Pure string generators for the per-tool launcher artifacts. No I/O. The build
  * scripts require() this. launcherTemplates.test.ts unit-tests it. Each function
  * takes manifest entries shaped as { key, title, badge }.
+ *
+ * The tool is passed as the attached `--tool=<key>` form, never `--tool <key>`.
+ * When RokDock is already running, a launcher starts a second instance whose argv
+ * Electron forwards to the primary's second-instance handler after reordering it:
+ * bare positional args are moved to the end and Electron's own switches are spliced
+ * in, so a space-separated tool value no longer sits next to `--tool`. The attached
+ * `--tool=<key>` is a single token that survives that reshuffle intact.
  */
 
 /** The NSIS include written to build/tool-shortcuts.nsh and referenced by nsis.include. */
@@ -9,7 +16,7 @@ function nsisInclude(launchers) {
     const install = launchers
         .map(
             l =>
-                `  CreateShortcut "$SMPROGRAMS\\RokDock\\${l.title}.lnk" "$INSTDIR\\RokDock.exe" "--tool ${l.key}" "$INSTDIR\\resources\\icons\\tools\\${l.key}.ico"`
+                `  CreateShortcut "$SMPROGRAMS\\RokDock\\${l.title}.lnk" "$INSTDIR\\RokDock.exe" "--tool=${l.key}" "$INSTDIR\\resources\\icons\\tools\\${l.key}.ico"`
         )
         .join('\n')
     const uninstall = launchers
@@ -35,7 +42,7 @@ function desktopEntry(launcher, execName) {
     return [
         '[Desktop Entry]',
         `Name=RokDock ${launcher.title}`,
-        `Exec=${execName} --tool ${launcher.key} %U`,
+        `Exec=${execName} --tool=${launcher.key} %U`,
         `Icon=rokdock-${launcher.key}`,
         'Type=Application',
         'Terminal=false',
@@ -75,7 +82,7 @@ function macLaunchStub(launcher) {
         '#!/bin/sh',
         "APP=$(mdfind \"kMDItemCFBundleIdentifier == 'com.rokdock.app'\" | head -n 1)",
         '[ -z "$APP" ] && APP="/Applications/RokDock.app"',
-        `exec "$APP/Contents/MacOS/RokDock" --tool ${launcher.key}`,
+        `exec "$APP/Contents/MacOS/RokDock" --tool=${launcher.key}`,
         '',
     ].join('\n')
 }
