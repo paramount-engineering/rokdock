@@ -23,7 +23,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronRight, faLock, faUnlock } from '@fortawesome/free-solid-svg-icons'
-import { useAppStore, createTabInfo, type Device } from '../../store/appStore'
+import { useAppStore, createTabInfo, findReusableTab, type Device } from '../../store/appStore'
 import { resolveThemeMode } from '../../styles/theme'
 import ConfirmDialog from '../common/confirmDialog'
 import SideloadDialog from '../sideloadDialog'
@@ -134,7 +134,12 @@ export default function DeviceCard({
     const [dropError, setDropError] = useState<string | null>(null)
     const [droppedFile, setDroppedFile] = useState<{ filePath: string; fileName: string } | null>(null)
     const dropErrorTimer = useRef<number | null>(null)
+    // Ports with a createSession call in flight. The tab is added only after the async
+    // session is created, so this guards a rapid second click on the same port from
+    // opening a duplicate before the first tab exists to be found.
+    const connectingPortsRef = useRef<Set<number>>(new Set())
     const addTab = useAppStore((state) => state.addTab)
+    const setActiveTab = useAppStore((state) => state.setActiveTab)
     const remoteTargetIp = useAppStore((state) => state.remoteTargetIp)
     const setRemoteTargetIp = useAppStore((state) => state.setRemoteTargetIp)
     const setRightPanel = useAppStore((state) => state.setRightPanel)
@@ -227,6 +232,18 @@ export default function DeviceCard({
 
     /** Opens a new terminal tab connected to this device on the given port. */
     const handleConnect = async (port: number) => {
+        // A telnet port accepts only one connection, so a second tab for the same
+        // device and port could never connect. If a live tab already exists, focus
+        // it instead of opening a dead duplicate.
+        const existingTab = findReusableTab(useAppStore.getState().tabs, device.ip, port)
+        if (existingTab) {
+            setActiveTab(existingTab.id)
+            return
+        }
+        // Guard concurrent clicks: the tab is not added until createSession resolves,
+        // so without this a fast second click would start a second (doomed) session.
+        if (connectingPortsRef.current.has(port)) return
+        connectingPortsRef.current.add(port)
         try {
             const sessionId = await window.rokdock.terminal.createSession(device.ip, device.name, port)
             const tab = createTabInfo(sessionId, device.ip, displayName, port, {
@@ -238,6 +255,8 @@ export default function DeviceCard({
             setRemoteTargetIp(device.ip)
         } catch (e) {
             console.error('Failed to create session:', e)
+        } finally {
+            connectingPortsRef.current.delete(port)
         }
     }
 

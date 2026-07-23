@@ -4,7 +4,7 @@
  * Streams a capture device into a frameless floating window. Handles:
  *   - Pull-model boot config via capture:get-popout-config IPC
  *   - getUserMedia stream setup with audio auto-matching
- *   - The getSettings().deviceId pattern so popout-origin device IDs resolve correctly
+ *   - Re-resolving the capture device by its stable label, since deviceIds are salted per origin
  *   - Mute / volume sync (local slider + IPC events from the main window)
  *   - Idle-timeout auto-pause and resume on user activity
  *   - Aspect-ratio reporting so the main process can lock the window shape
@@ -27,7 +27,7 @@ import {
     faXmark,
 } from '@fortawesome/free-solid-svg-icons'
 import { faSvg } from '@shared/icons'
-import { findMatchingAudioDevice } from '@shared/captureDeviceMatch'
+import { findMatchingAudioDevice, resolveCaptureDeviceId } from '@shared/captureDeviceMatch'
 import { videoFrameToPngDataUrl } from './utils/videoFrame'
 
 // Apply theme and await fonts before the body is revealed.
@@ -83,6 +83,7 @@ closeBtn.innerHTML = svgClose
 // -- State ---------------------------------------------------------------------
 
 let requestedDeviceId = ''
+let requestedDeviceLabel: string | null = null
 let muted = true
 let idleTimeoutSec = 3600
 let volume = 80
@@ -340,26 +341,38 @@ function tryCapture(attempts: MediaStreamConstraints[], index = 0): void {
         })
 }
 
-function startCapture(): void {
-    const videoConstraints: MediaTrackConstraints = {
-        deviceId: { ideal: requestedDeviceId },
+function videoConstraintsFor(deviceId: string | null): MediaTrackConstraints {
+    return {
+        // exact when we have re-resolved the device in this origin, ideal only as a
+        // last-resort hint (the dock's id does not resolve here, so ideal degrades
+        // to the default device, which is the wrong card when several are present).
+        deviceId: deviceId ? { exact: deviceId } : { ideal: requestedDeviceId },
         width: { ideal: 1920 },
         height: { ideal: 1080 }
     }
+}
 
-    // Acquire video-only first to resolve the actual device ID in this page's origin
-    // context. Stored preference deviceIds are origin-scoped to the main renderer page.
-    // enumerateDevices() in the popout returns different IDs for the same hardware.
-    // MediaStreamTrack.getSettings().deviceId is always consistent with enumerateDevices()
-    // in the same page, so we use it to find the matching audio endpoint.
-    navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false })
+function startCapture(): void {
+    // Probe video-only first. This grants the media permission for this popout's
+    // origin, which is what makes enumerateDevices() return device labels. deviceIds
+    // are salted per origin, so the id sent from the dock does not resolve here, but
+    // the stable device label does. We re-resolve the intended card by its label in this
+    // origin's own enumeration, then acquire it with an exact constraint.
+    const probeConstraints = videoConstraintsFor(null)
+    navigator.mediaDevices.getUserMedia({ video: probeConstraints, audio: false })
         .then((videoStream: MediaStream) => {
-            const videoTrack = videoStream.getVideoTracks()[0]
-            const actualDeviceId = videoTrack ? videoTrack.getSettings().deviceId ?? null : null
+            const probeDeviceId = videoStream.getVideoTracks()[0]?.getSettings().deviceId ?? null
+            videoStream.getTracks().forEach(track => track.stop())
 
             return navigator.mediaDevices.enumerateDevices().then((allDevices: MediaDeviceInfo[]) => {
-                const audioDeviceId = findMatchingAudioDevice(actualDeviceId ?? requestedDeviceId, allDevices)
-                videoStream.getTracks().forEach(track => track.stop())
+                const videoInputs = allDevices
+                    .filter(device => device.kind === 'videoinput')
+                    .map(device => ({ deviceId: device.deviceId, label: device.label }))
+                // Re-resolve by the stable label. Fall back to whatever the probe
+                // opened if the label is unknown (e.g. an older popout with no label).
+                const resolvedVideoId = resolveCaptureDeviceId(videoInputs, requestedDeviceId, requestedDeviceLabel) ?? probeDeviceId
+                const videoConstraints = videoConstraintsFor(resolvedVideoId)
+                const audioDeviceId = findMatchingAudioDevice(resolvedVideoId ?? requestedDeviceId, allDevices)
 
                 const attempts: MediaStreamConstraints[] = []
                 if (audioDeviceId) {
@@ -373,6 +386,11 @@ function startCapture(): void {
                     })
                 }
                 attempts.push({ video: videoConstraints, audio: false })
+                // Last resort: the soft-hint probe constraints, so a device that could not
+                // be resolved by label still shows something rather than nothing. Skipped
+                // when resolvedVideoId is null, because videoConstraints already equals
+                // probeConstraints then and this would just duplicate the attempt above.
+                if (resolvedVideoId) attempts.push({ video: probeConstraints, audio: false })
                 tryCapture(attempts)
             })
         })
@@ -494,6 +512,7 @@ window.rokdock.capture.onVolumeChanged((newVolume: number) => {
 async function init(): Promise<void> {
     const config = await window.rokdock.capture.getPopoutConfig()
     requestedDeviceId = config.deviceId
+    requestedDeviceLabel = config.deviceLabel
     muted = config.muted
     idleTimeoutSec = config.idleTimeoutSec
 
