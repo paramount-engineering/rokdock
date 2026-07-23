@@ -61,7 +61,7 @@ import { TelnetSessionService } from './services/telnetSession'
 import { checkDevDependencies } from './utils/devDependencies'
 import { parseLaunchRequest, toolForFile } from './launch/launchRequest'
 import { openToolForLaunch } from './launch/openTool'
-import { getScopedToolWindow } from './ipc/toolWindow'
+import { getToolWindowsInScope } from './ipc/toolWindow'
 
 let mainWindow: BrowserWindow | null = null
 /** Fallback if renderer never calls showWindow() (e.g. IPC failure). Cleared when the window is destroyed. Keep short now that show-window resolves the real BrowserWindow. */
@@ -192,11 +192,15 @@ function createWindow(): void {
             // Persist restored bounds so normal-window launch size remains stable.
             const bounds = maximized ? mainWindow.getNormalBounds() : mainWindow.getBounds()
             storeService?.setWindowBounds(bounds)
-            // Close auxiliary windows (screenshot preview, JSON editor, etc.) so they don't outlive the main window.
-            // The standalone JSON editor is an independent persistent window. Spare it so its session survives.
-            const standaloneJson = getScopedToolWindow('json', 'standalone')
+            // Close the dock's own dependents (inDock tool windows plus device-gated aux
+            // windows like the screenshot preview and capture popout, which are only ever
+            // dock-opened) so they don't outlive the main window. Windows launched
+            // independently via --tool or a file association register in the 'standalone'
+            // scope and must survive the dock closing (issue #17: --tool windows are
+            // independent of the main RokDock window).
+            const independentWindows = new Set(getToolWindowsInScope('standalone'))
             for (const w of BrowserWindow.getAllWindows()) {
-                if (w !== mainWindow && w !== standaloneJson && !w.isDestroyed()) w.close()
+                if (w !== mainWindow && !independentWindows.has(w) && !w.isDestroyed()) w.close()
             }
         }
     })

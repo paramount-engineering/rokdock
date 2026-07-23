@@ -20,6 +20,23 @@ describe('parseLaunchRequest', () => {
             .toEqual({ tool: 'svg' })
     })
 
+    // Electron reorders the argv it forwards to the second-instance handler: bare
+    // positionals are moved to the end and its own switches are spliced in. The
+    // attached --tool=<key> form survives that intact, which is why the launchers
+    // use it. This is the exact shape observed from a `RokDock --tool=json` relaunch.
+    it('parses --tool=value from a reordered second-instance argv', () => {
+        const reordered = ['electron', '--user-data-dir=/d', '--no-sandbox', '--tool=json', '--allow-file-access-from-files', 'out/main/main.js']
+        expect(parseLaunchRequest(reordered, cwd)).toEqual({ tool: 'json' })
+    })
+
+    // The space-separated form does NOT survive that reordering: a switch lands
+    // between --tool and its value, so the value is lost. This is the failure the
+    // launcher --tool=<key> form exists to avoid; documented so it does not regress.
+    it('returns null when a reordered argv separates --tool from its space value', () => {
+        const reordered = ['electron', '--user-data-dir=/d', '--tool', '--allow-file-access-from-files', 'out/main/main.js', 'json']
+        expect(parseLaunchRequest(reordered, cwd)).toBeNull()
+    })
+
     it('parses a following absolute file path', () => {
         expect(parseLaunchRequest(['electron', 'main.js', '--tool', 'json', '/abs/foo.json'], cwd))
             .toEqual({ tool: 'json', filePath: '/abs/foo.json' })
