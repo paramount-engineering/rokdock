@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { getScopedToolWindow, setScopedToolWindow, resetScopedToolWindowsForTest } from '@main/ipc/toolWindow'
+import { getScopedToolWindow, getToolWindowsInScope, setScopedToolWindow, resetScopedToolWindowsForTest } from '@main/ipc/toolWindow'
 
 // Minimal fake of the BrowserWindow surface the registry touches.
 function fakeWin() {
@@ -47,5 +47,35 @@ describe('scoped tool-window registry', () => {
         setScopedToolWindow('json', 'inDock', windowB as never)
         expect(getScopedToolWindow('json', 'standalone')).toBe(windowA)
         expect(getScopedToolWindow('json', 'inDock')).toBe(windowB)
+    })
+
+    it('collects every live window in a scope, across tools', () => {
+        const jsonStandalone = fakeWin()
+        const svgStandalone = fakeWin()
+        const svgInDock = fakeWin()
+        setScopedToolWindow('json', 'standalone', jsonStandalone as never)
+        setScopedToolWindow('svg', 'standalone', svgStandalone as never)
+        setScopedToolWindow('svg', 'inDock', svgInDock as never)
+
+        const standalone = getToolWindowsInScope('standalone')
+        expect(standalone).toHaveLength(2)
+        expect(standalone).toContain(jsonStandalone)
+        expect(standalone).toContain(svgStandalone)
+        expect(standalone).not.toContain(svgInDock)
+
+        expect(getToolWindowsInScope('inDock')).toEqual([svgInDock])
+    })
+
+    it('omits closed and destroyed windows from a scope collection', () => {
+        const live = fakeWin()
+        const closed = fakeWin()
+        const destroyed = fakeWin()
+        setScopedToolWindow('json', 'standalone', live as never)
+        setScopedToolWindow('svg', 'standalone', closed as never)
+        setScopedToolWindow('script', 'standalone', destroyed as never)
+        closed.emitClosed()
+        destroyed.destroyed = true
+
+        expect(getToolWindowsInScope('standalone')).toEqual([live])
     })
 })
