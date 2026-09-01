@@ -548,6 +548,30 @@ interface ExportResult {
 }
 
 /**
+ * Walks the step tree (loop bodies, block bodies, and on_error handlers included) and
+ * collects each launch step's channel name -> id pair. These populate params.channels so
+ * the exported `- launch: <ChannelName>` shorthand resolves to an app id at RASP runtime,
+ * matching Roku's own script format. A purely numeric id string is coerced to a number so
+ * it serializes unquoted (like Roku's tool); a non-numeric id (e.g. 'dev') is left as-is.
+ *
+ * @param steps - Internal steps to scan.
+ * @param out - Accumulator map (mutated and returned) of channel name to app id.
+ * @returns The channel name -> id map.
+ */
+function collectLaunchChannels(steps: Step[], out: Record<string, string | number> = {}): Record<string, string | number> {
+    for (const step of steps) {
+        if (step.type === 'launch' && step.channelName && step.channelId !== undefined) {
+            const id = step.channelId
+            out[step.channelName] = typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : id
+        }
+        const nested = step as { steps?: Step[]; onError?: Step[] }
+        if (Array.isArray(nested.steps)) collectLaunchChannels(nested.steps, out)
+        if (Array.isArray(nested.onError)) collectLaunchChannels(nested.onError, out)
+    }
+    return out
+}
+
+/**
  * Converts an internal ScriptFile to RASP YAML format for export.
  *
  * Serializes the params block (rasp_version, channel metadata) and then recurses
@@ -566,13 +590,25 @@ export function exportRasp(script: ScriptFile): ExportResult {
     const warnings: string[] = []
     const omitted: { index: string; type: string }[] = []
 
+    // Launch steps export as Roku's `- launch: <ChannelName>` shorthand, which resolves
+    // the app id from params.channels at runtime. Merge each launch step's name -> id pair
+    // into any imported channels map so the shorthand resolves. An object map wins over the
+    // legacy array form; the array form is passed through only when no id-bearing entries exist.
+    const launchChannels = collectLaunchChannels(script.steps)
+    const metaChannels = script.metadata?.channels
+    const objectChannels = metaChannels && !Array.isArray(metaChannels) ? metaChannels : undefined
+    const mergedChannels: Record<string, string | number> = { ...(objectChannels ?? {}), ...launchChannels }
+    const channelsForParams = Object.keys(mergedChannels).length > 0
+        ? mergedChannels
+        : (Array.isArray(metaChannels) && metaChannels.length > 0 ? metaChannels : undefined)
+
     const paramsDoc: Record<string, unknown> = {
         params: {
             rasp_version: 1,
             ...(script.metadata?.defaultKeypressWait !== undefined ? { default_keypress_wait: script.metadata.defaultKeypressWait } : {}),
             ...(script.metadata?.channelName ? { channel_name: script.metadata.channelName } : {}),
             ...(script.metadata?.channelId !== undefined ? { channel_id: script.metadata.channelId } : {}),
-            ...(script.metadata?.channels ? { channels: script.metadata.channels } : {}),
+            ...(channelsForParams ? { channels: channelsForParams } : {}),
         }
     }
     const paramsYaml = dumpYaml(paramsDoc, { lineWidth: 120, noRefs: true }).trimEnd()
@@ -784,10 +820,13 @@ function convertToRaspStep(
         }
 
         case 'launch': {
-            const obj: Record<string, unknown> = {}
-            if (step.channelName) obj.channel_name = step.channelName
-            if (step.channelId !== undefined) obj.channel_id = step.channelId
-            return Object.keys(obj).length ? { launch: null, ...obj } : 'launch'
+            // Roku's shorthand: `- launch: <ChannelName>`, with the name -> id pair carried
+            // in params.channels (populated by collectLaunchChannels). Fall back to an
+            // explicit channel_id only when there is no name to key the channels map on,
+            // and to the bare `launch` action when neither is set.
+            if (step.channelName) return { launch: step.channelName }
+            if (step.channelId !== undefined) return { launch: null, channel_id: step.channelId }
+            return 'launch'
         }
 
         case 'loop': {

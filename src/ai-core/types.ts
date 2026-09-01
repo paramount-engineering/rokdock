@@ -118,6 +118,13 @@ export interface ResolvedCliRequest extends ResolvedRequestBase {
     cwd?: string
     /** Kill the subprocess after this many ms of zero output. Catches a CLI stuck on a prompt. Undefined = default. */
     idleTimeoutMs?: number
+    /**
+     * When present and returning true, the idle timeout does not fire even though the
+     * subprocess has produced no output. The host sets this while a native MCP tool call is
+     * blocked on a confirm()/ask() prompt awaiting the user, since a legitimately slow human
+     * response must not be mistaken for a hung CLI.
+     */
+    idleSuspended?: () => boolean
 }
 
 /**
@@ -203,6 +210,8 @@ export interface CliEngineConfig extends AiEngineConfigBase {
         /** Working directory for the spawn, when the CLI reads project-scoped config from cwd (gemini). */
         cwd?: string
     }
+    /** Forwarded to the resolved request's idleSuspended. See ResolvedCliRequest.idleSuspended. */
+    idleSuspended?: () => boolean
 }
 
 /**

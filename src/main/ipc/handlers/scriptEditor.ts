@@ -440,8 +440,10 @@ export function registerScriptEditorHandlers(context: IpcContext): void {
             try {
                 const result = await dialog.showSaveDialog(parent, {
                     title: 'Export as RASP',
-                    defaultPath: `${script.name}.yaml`,
-                    filters: [{ name: 'RASP Files', extensions: ['yaml'] }]
+                    // Roku's Remote Automation Script Player expects a .rasp file, so
+                    // default to that extension rather than the generic .yaml.
+                    defaultPath: `${script.name}.rasp`,
+                    filters: [{ name: 'RASP Files', extensions: ['rasp'] }]
                 })
                 if (result.canceled || !result.filePath) return { ok: false }
                 fs.writeFileSync(result.filePath, yaml, 'utf-8')

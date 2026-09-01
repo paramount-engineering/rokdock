@@ -82,10 +82,10 @@ export function createAiEngine(config: AiEngineConfig) {
             // MCP mode: the host pre-built the full command (built-ins off + bridge attached).
             // The engine passes it through and the adapter single-spawns.
             if (config.mcpTools) {
-                return { ...base, transport: 'cli', command: config.mcpTools.command, cwd: config.mcpTools.cwd, env: config.env }
+                return { ...base, transport: 'cli', command: config.mcpTools.command, cwd: config.mcpTools.cwd, env: config.env, idleSuspended: config.idleSuspended }
             }
             // No-tool path (Test Connection, a no-tool chat): build the plain command directly.
-            return { ...base, transport: 'cli', command: buildCliCommand(config.cliKind, config.model, { policyFilePath: config.cliPolicyFilePath }), env: config.env }
+            return { ...base, transport: 'cli', command: buildCliCommand(config.cliKind, config.model, { policyFilePath: config.cliPolicyFilePath }), env: config.env, idleSuspended: config.idleSuspended }
         }
         return { ...base, transport: 'http', baseUrl: config.baseUrl, apiKey: config.apiKey }
     }

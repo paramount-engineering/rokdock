@@ -290,18 +290,21 @@ describe('ScreenshotHistoryService.push()', () => {
         const svc = freshService()
         const result = svc.push('/tmp/capture.png', 'png')
 
-        expect(result).toBe(true)
+        expect(result.changed).toBe(true)
         expect(mockCopyFileSync).toHaveBeenCalledOnce()
         expect(svc.getArray()).toHaveLength(1)
+        // The returned path is the actual saved destination, not a last-entry guess.
+        expect(result.path).toBe(svc.getArray()[0]!.path)
     })
 
-    it('returns false without throwing when copyFileSync throws', () => {
+    it('falls back to the source path without throwing when copyFileSync throws', () => {
         mockCopyFileSync.mockImplementation(() => { throw new Error('disk full') })
 
         const svc = freshService()
         const result = svc.push('/tmp/capture.png', 'png')
 
-        expect(result).toBe(false)
+        expect(result.changed).toBe(false)
+        expect(result.path).toBe('/tmp/capture.png')
         expect(svc.getArray()).toHaveLength(0)
     })
 
@@ -425,7 +428,7 @@ describe('pixel-duplicate pruning', () => {
         } as unknown as Electron.NativeImage))
 
         const svc = freshService()
-        svc.push('/tmp/shot1.png', 'png')
+        const result1 = svc.push('/tmp/shot1.png', 'png')
 
         // Second push: same bitmap so findPixelIdenticalEntry should match the first.
         // Note: the first push copies to a history path, so we must set the dest path in
@@ -433,8 +436,10 @@ describe('pixel-duplicate pruning', () => {
         // the same bitmap the second should be skipped.
         const result2 = svc.push('/tmp/shot2.png', 'png')
 
-        // result2 is false (no new entry added, no prune needed either)
-        expect(result2).toBe(false)
+        // No new entry added, no prune needed either, and the returned path is the
+        // FIRST push's actual saved entry (the one that matched), not a guess.
+        expect(result2.changed).toBe(false)
+        expect(result2.path).toBe(result1.path)
         expect(svc.getArray()).toHaveLength(1)
 
         vi.restoreAllMocks()

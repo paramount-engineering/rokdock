@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { DocsService } from '@main/services/docsService'
+import { DocsService, pooled } from '@main/services/docsService'
 import { DocsCache } from '@main/services/docsCache'
 import fs from 'fs'
 import os from 'os'
@@ -58,6 +58,32 @@ function buildFetchMock(
 }
 
 beforeEach(() => vi.unstubAllGlobals())
+
+// ---------------------------------------------------------------------------
+// pooled: event-loop yielding
+// ---------------------------------------------------------------------------
+
+describe('pooled', () => {
+    it('yields to the event loop periodically so a long run of synchronously-resolving work does not starve pending macrotasks', async () => {
+        // fn resolves with no real I/O wait at all (like DocsCache reading an already-warm
+        // disk cache), the exact condition that starves the event loop if pooled never yields.
+        const items = Array.from({ length: 200 }, (_, i) => i)
+        let completed = 0
+        let completedWhenImmediateFired: number | null = null
+        setImmediate(() => { completedWhenImmediateFired = completed })
+
+        await pooled(items, 20, async (item) => {
+            completed++
+            return item
+        })
+
+        // A starved event loop could only run the immediate after every item finished
+        // (completedWhenImmediateFired === items.length). Yielding periodically means it
+        // fires while items are still outstanding.
+        expect(completedWhenImmediateFired).not.toBeNull()
+        expect(completedWhenImmediateFired).toBeLessThan(items.length)
+    })
+})
 
 // ---------------------------------------------------------------------------
 // getTree: basic structure

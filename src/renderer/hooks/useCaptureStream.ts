@@ -28,7 +28,7 @@ export interface CaptureDevice {
 }
 
 
-export function useCaptureStream(active: boolean) {
+export function useCaptureStream(active: boolean, detectDevices: boolean) {
     const videoRef = useRef<HTMLVideoElement>(null)
     const streamRef = useRef<MediaStream | null>(null)
     const captureDeviceId = useAppStore(state => state.captureDeviceId)
@@ -78,11 +78,22 @@ export function useCaptureStream(active: boolean) {
         enumerateDevicesRef.current = enumerateDevices
     }, [enumerateDevices])
 
-    // Enumerate on mount and on device hotplug. The listener is registered once; the ref
-    // indirection keeps the handler current without re-subscribing.
+    // detectDevices reflects whether this panel is actually visible (not collapsed).
+    // Enumerating a real capture card can briefly touch its driver, so this must never
+    // run while the panel is hidden. Enumerate whenever it becomes visible (mount while
+    // expanded, or on expand), and keep a ref so the devicechange listener below
+    // (registered once) always checks the latest value without re-subscribing.
+    const detectDevicesRef = useRef(detectDevices)
     useEffect(() => {
-        const onDeviceChange = () => { enumerateDevicesRef.current() }
-        onDeviceChange()
+        detectDevicesRef.current = detectDevices
+        if (detectDevices) enumerateDevicesRef.current()
+    }, [detectDevices])
+
+    // Re-enumerate on device hotplug, but only while the panel is visible.
+    useEffect(() => {
+        const onDeviceChange = () => {
+            if (detectDevicesRef.current) enumerateDevicesRef.current()
+        }
         navigator.mediaDevices.addEventListener('devicechange', onDeviceChange)
         return () => navigator.mediaDevices.removeEventListener('devicechange', onDeviceChange)
     }, [])

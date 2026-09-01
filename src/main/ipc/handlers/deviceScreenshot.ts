@@ -77,9 +77,7 @@ type ChatCapture = { ok: true; thumbnailDataUrl: string; filePath: string } | { 
 function persistFrameToHistory(context: IpcContext, tempPath: string, extension: 'png' | 'jpg'): ChatCapture {
     const { screenshotFolder, screenshotNamingFormat } = context.store.getPreferences()
     screenshotHistoryService.reload(screenshotFolder)
-    screenshotHistoryService.push(tempPath, extension, { folder: screenshotFolder, namingFormat: screenshotNamingFormat })
-    const entries = screenshotHistoryService.getArray()
-    const savedPath = entries.length > 0 ? entries[entries.length - 1]!.path : tempPath
+    const { path: savedPath } = screenshotHistoryService.push(tempPath, extension, { folder: screenshotFolder, namingFormat: screenshotNamingFormat })
     const thumb = createHistoryThumbnail(tempPath, CHAT_THUMBNAIL_MAX)
     if (!thumb) return { ok: false, error: 'Screenshot could not be read.' }
     return { ok: true, thumbnailDataUrl: `data:image/jpeg;base64,${thumb.toJPEG(80).toString('base64')}`, filePath: savedPath }

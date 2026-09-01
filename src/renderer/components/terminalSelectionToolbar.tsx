@@ -3,10 +3,14 @@
  * Generalizes the former single docs-lookup magnifier: it renders whichever
  * actions are eligible for the current selection.
  *
+ *  - "Copy" appears for any non-empty selection.
  *  - "Look up in Docs" appears for a short (1-3 word) term (non-null `term`).
  *  - "Ask roBot" appears for any non-empty selection when `aiAvailable` is true.
  *
- * Renders nothing when no action is eligible.
+ * Renders nothing when no action is eligible. The caller (customTerminalView) also
+ * mounts and unmounts this component based on pointer hover over the selection/toolbar,
+ * so its own visibility here is purely about which ACTIONS apply, not whether it is
+ * currently being shown at all.
  *
  * Icon buttons follow the `.terminal-lookup-hint` inline-style convention from
  * customTerminalView.tsx rather than RokdockIconBtn (a web component). The
@@ -16,24 +20,29 @@
  */
 import React from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
+import { faCopy, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
 import { roBot } from './ai/roBotMark'
 import { AI_EXPLAIN_ACTION, withBeta } from '../../shared/ai/labels'
 
 interface Props {
+    /** Attached to the root element so a caller can hit-test the toolbar's own live rect
+     *  (e.g. to keep it visible while the pointer crosses the gap to reach a button). */
+    rootRef?: React.Ref<HTMLDivElement>
     anchor: { x: number; y: number }
     selection: string
     term: string | null
     aiAvailable: boolean
+    onCopy: () => void
     onLookup: () => void
     onExplain: () => void
     onClose: () => void
 }
 
-export default function TerminalSelectionToolbar({ anchor, selection, term, aiAvailable, onLookup, onExplain }: Props): React.JSX.Element | null {
+export default function TerminalSelectionToolbar({ rootRef, anchor, selection, term, aiAvailable, onCopy, onLookup, onExplain }: Props): React.JSX.Element | null {
+    const canCopy = selection.trim().length > 0
     const canLookup = term !== null
     const canExplain = aiAvailable && selection.trim().length > 0
-    if (!canLookup && !canExplain) return null
+    if (!canCopy && !canLookup && !canExplain) return null
 
     // anchor is the top-left of the selection; sit just above it so the selected text stays visible.
     const top = Math.min(Math.max(anchor.y - 34, 4), window.innerHeight - 34)
@@ -41,6 +50,7 @@ export default function TerminalSelectionToolbar({ anchor, selection, term, aiAv
 
     return (
         <div
+            ref={rootRef}
             className="terminal-selection-toolbar"
             style={{
                 position: 'fixed',
@@ -57,6 +67,18 @@ export default function TerminalSelectionToolbar({ anchor, selection, term, aiAv
             }}
             onMouseDown={(e) => e.preventDefault()}
         >
+            {canCopy && (
+                <button
+                    type="button"
+                    data-testid="seltoolbar-copy"
+                    style={buttonStyle}
+                    title="Copy"
+                    aria-label="Copy selection"
+                    onClick={onCopy}
+                >
+                    <FontAwesomeIcon icon={faCopy} />
+                </button>
+            )}
             {canLookup && (
                 <button
                     type="button"
