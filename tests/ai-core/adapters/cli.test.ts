@@ -88,6 +88,27 @@ describe('cliAdapter', () => {
         const req: ResolvedRequest = { transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'x' }], command: buildCommand(hangScript), idleTimeoutMs: 150 }
         await expect(collect(req)).rejects.toThrow(/no output for/i)
     })
+
+    it('does not kill a silent CLI while idleSuspended reports true (a pending confirm/ask prompt)', async () => {
+        // hangScript produces no output and exits cleanly after 2s. A bare 150ms idle timeout
+        // would normally kill it well before that; idleSuspended() reporting true throughout
+        // must keep it alive until it exits on its own.
+        const req: ResolvedRequest = {
+            transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'x' }],
+            command: buildCommand(hangScript), idleTimeoutMs: 150, idleSuspended: () => true,
+        }
+        expect(await collect(req)).toBe('')
+    }, 5000)
+
+    it('still kills a silent CLI once idleSuspended reports false again', async () => {
+        let suspended = true
+        const req: ResolvedRequest = {
+            transport: 'cli', model: 'm', messages: [{ role: 'user', content: 'x' }],
+            command: buildCommand(hangScript), idleTimeoutMs: 150, idleSuspended: () => suspended,
+        }
+        setTimeout(() => { suspended = false }, 300)
+        await expect(collect(req)).rejects.toThrow(/no output for/i)
+    })
 })
 
 describe('cliAdapter cwd', () => {

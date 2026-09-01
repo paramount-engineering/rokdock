@@ -2,15 +2,21 @@
  * Pure link rewriter for Roku developer docs markdown.
  *
  * Handles the following link origins:
- *   - doc:<slug>[#anchor]  - cross-document slug protocol
- *   - relative .md paths   - resolved against the current document's directory
- *   - bare #anchor         - in-page anchor, kept as-is
- *   - external http/https  - passed through unchanged
- *   - dead Confluence URLs - flagged as dead (SomePage_12345.html pattern)
+ *   - doc:<slug>[#anchor]     - cross-document slug protocol
+ *   - relative .md paths      - resolved against the current document's directory
+ *   - bare #anchor            - in-page anchor, kept as-is
+ *   - external http/https     - passed through unchanged
+ *   - root-relative site path - a ReadMe-hosted cross-reference (e.g. "/dev/docs/foo#bar")
+ *                               present in the raw source markdown; resolved internally via
+ *                               its trailing slug when that slug is one of ours, otherwise
+ *                               opened against developer.roku.com
+ *   - dead Confluence URLs    - flagged as dead (SomePage_12345.html pattern)
  *
  * POSIX path resolution is done inline (no node:path import) so this module
  * is safe to use in any environment.
  */
+
+import { ROKU_ORIGIN } from './rokuDocUrl'
 
 export type DocLinkTarget =
     | { kind: 'internal'; path: string; anchor?: string }
@@ -19,6 +25,13 @@ export type DocLinkTarget =
 
 /** Dead Confluence migration artifact basename pattern: SomePage_12345.html */
 const CONFLUENCE_PATTERN = /^[A-Za-z0-9]+_\d+\.html$/
+
+/** Splits `href` at its first '#', returning the part before it and the anchor after (undefined if none). */
+function splitAnchor(href: string): { path: string; anchor?: string } {
+    const hashIndex = href.indexOf('#')
+    if (hashIndex === -1) return { path: href }
+    return { path: href.slice(0, hashIndex), anchor: href.slice(hashIndex + 1) }
+}
 
 /**
  * Resolve a POSIX-style path by joining a base directory path and a relative
@@ -65,11 +78,8 @@ export function resolveDocLink(
 ): DocLinkTarget {
     // doc: protocol - cross-document slug reference
     if (href.startsWith('doc:')) {
-        const withoutPrefix = href.slice(4)
-        const hashIndex = withoutPrefix.indexOf('#')
-        const slug = (hashIndex === -1 ? withoutPrefix : withoutPrefix.slice(0, hashIndex)).toLowerCase()
-        const anchor = hashIndex === -1 ? undefined : withoutPrefix.slice(hashIndex + 1)
-        const path = slugIndex[slug]
+        const { path: slugPart, anchor } = splitAnchor(href.slice(4))
+        const path = slugIndex[slugPart.toLowerCase()]
         if (!path) return { kind: 'dead' }
         return { kind: 'internal', path, ...(anchor ? { anchor } : {}) }
     }
@@ -89,9 +99,7 @@ export function resolveDocLink(
     // Relative .md link (optionally with #anchor)
     const mdPattern = /^[^#]*\.md(#.*)?$/
     if (mdPattern.test(href)) {
-        const hashIndex = href.indexOf('#')
-        const pathPart = hashIndex === -1 ? href : href.slice(0, hashIndex)
-        const anchor = hashIndex === -1 ? undefined : href.slice(hashIndex + 1)
+        const { path: pathPart, anchor } = splitAnchor(href)
 
         const baseDir = currentPath.includes('/')
             ? currentPath.slice(0, currentPath.lastIndexOf('/'))
@@ -104,6 +112,23 @@ export function resolveDocLink(
     // Bare anchor - internal link within the current page
     if (href.startsWith('#')) {
         return { kind: 'internal', path: currentPath, anchor: href.slice(1) }
+    }
+
+    // Root-relative site path (e.g. a ReadMe-hosted cross-reference in the source
+    // markdown, like "/dev/docs/debugging#anchor"). The trailing path segment is
+    // commonly the same slug our own slugIndex uses (both derive from the page's
+    // basename), so resolve it internally the same way as doc:<slug> first. Falls
+    // back to opening the real page on developer.roku.com when the slug is not one
+    // of ours (e.g. a ReadMe-side collision-disambiguated slug we have no mapping
+    // for), rather than handing the bare relative path to shell:open-external,
+    // which requires an absolute URL and throws on one of these.
+    if (href.startsWith('/')) {
+        const { path: pathPart, anchor } = splitAnchor(href)
+        const segments = pathPart.split('/').filter(Boolean)
+        const slug = segments[segments.length - 1]?.toLowerCase()
+        const internalPath = slug ? slugIndex[slug] : undefined
+        if (internalPath) return { kind: 'internal', path: internalPath, ...(anchor ? { anchor } : {}) }
+        return { kind: 'external', href: ROKU_ORIGIN + href }
     }
 
     // Default: let the system browser try

@@ -25,6 +25,8 @@ interface RegexFilterDialogProps {
     confirmLabel: string
     /** Current buffer line texts, used to preview a live match count. */
     sampleLines?: string[]
+    /** Pattern to prefill when the dialog opens (e.g. the terminal's active live filter). Empty by default. */
+    initialPattern?: string
     /** Worker-backed matcher for the live count. Omitted in contexts without a client. */
     countMatches?: (source: string, flags: string, lines: string[]) => Promise<MatchOutcome<number[]>>
     onCancel: () => void
@@ -49,14 +51,16 @@ export default function RegexFilterDialog({
     confirmLabel,
     sampleLines,
     countMatches,
+    initialPattern = '',
     onCancel,
     onConfirm
 }: RegexFilterDialogProps) {
     const [pattern, setPattern] = useState('')
 
-    // Reset the pattern each time the prompt opens.
+    // Prefill from the active live filter (if any) each time the prompt opens.
     useEffect(() => {
-        if (open) setPattern('')
+        if (open) setPattern(initialPattern)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-seed on open, not on every initialPattern change
     }, [open])
 
     const { regex, error } = useMemo(() => compileLineFilter(pattern), [pattern])

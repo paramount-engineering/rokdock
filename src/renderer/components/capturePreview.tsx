@@ -60,7 +60,8 @@ export default function CapturePreview({ mode, active }: CapturePreviewProps) {
     const collapsed = mode === 'docked' && collapsedPanels.includes(COLLAPSE_ID)
 
     const shouldStream = active && !!captureDeviceId && captureMode !== 'popout' && captureMode !== 'screenshot-preview' && !collapsed
-    const { videoRef, streamActive, idlePaused, error } = useCaptureStream(shouldStream)
+    const shouldDetectDevices = active && !collapsed
+    const { videoRef, streamActive, idlePaused, error } = useCaptureStream(shouldStream, shouldDetectDevices)
 
     const deviceAvailable = !!captureDeviceId
 

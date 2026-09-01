@@ -168,6 +168,15 @@ export const darkTheme = {
         searchLineBg: 'rgba(250,204,21,.06)',
         searchLineActiveBg: 'rgba(250,204,21,.16)',
 
+        // Terminal app-run banding (see computeAppRunBoundaries): a wash across every line of
+        // an app run, alternating per run so consecutive launches read as distinct regions while
+        // scrolling. Deliberately a very subtle neutral lightening, so it reads as a slightly
+        // different surface rather than another syntax color. The accent (a warm gold, distinct
+        // from the cool blues and cyans that dominate ordinary log text) is used only for the
+        // thin rule marking exactly where a run started.
+        terminalLaunchBannerBg: 'rgba(255,255,255,.03)',
+        terminalLaunchBannerAccent: '#f59e0b',
+
         // Measure tool
         measureLine: '#bef264',
         measureShadow: 'rgba(0,0,0,.42)',
@@ -368,6 +377,11 @@ export const lightTheme: Theme = {
         searchHighlightMatch: 'rgba(250,204,21,.16)',
         searchLineBg: 'rgba(250,204,21,.06)',
         searchLineActiveBg: 'rgba(250,204,21,.16)',
+
+        // Terminal app-run banding, as in darkTheme but darkening instead of lightening: a white
+        // wash would be invisible against this theme's near-white terminal background.
+        terminalLaunchBannerBg: 'rgba(0,0,0,.03)',
+        terminalLaunchBannerAccent: '#b45309',
 
         // Measure tool
         measureLine: '#6d28d9',
@@ -653,6 +667,8 @@ export function toCSSVars(theme: Theme, opts: { monoFont?: string; tint?: Tint; 
         '--rokdock-search-highlight-match': colors.searchHighlightMatch,
         '--rokdock-search-line-bg': colors.searchLineBg,
         '--rokdock-search-line-active-bg': colors.searchLineActiveBg,
+        '--rokdock-terminal-launch-banner-bg': colors.terminalLaunchBannerBg,
+        '--rokdock-terminal-launch-banner-accent': colors.terminalLaunchBannerAccent,
 
         // Measure
         '--rokdock-measure-line': colors.measureLine,

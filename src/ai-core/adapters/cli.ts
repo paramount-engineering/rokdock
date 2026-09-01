@@ -31,7 +31,7 @@ function killTree(pid: number | undefined): void {
 }
 
 /** Spawn the command once, write stdin, yield stdout chunks. Throws on a non-zero exit or an idle timeout. */
-async function* runOnce(command: string, env: Record<string, string> | undefined, cwd: string | undefined, stdin: string, idleMs: number, signal: AbortSignal): AsyncIterable<string> {
+async function* runOnce(command: string, env: Record<string, string> | undefined, cwd: string | undefined, stdin: string, idleMs: number, signal: AbortSignal, isSuspended?: () => boolean): AsyncIterable<string> {
     const child = spawn(command, {
         shell: true,
         detached: process.platform !== 'win32',
@@ -51,12 +51,15 @@ async function* runOnce(command: string, env: Record<string, string> | undefined
 
     // A generic CLI not in non-interactive mode (or one stuck on an auth/confirm prompt) would hang
     // forever with no output. Kill it once it has been silent for idleMs; any stdout or stderr resets
-    // the clock, so a slow-but-productive stream is never cut off.
+    // the clock, so a slow-but-productive stream is never cut off. When isSuspended() reports true
+    // (a native MCP tool call is blocked on a confirm()/ask() prompt awaiting the user), the timer
+    // just re-arms instead of killing: a legitimately slow human response is not a hung CLI.
     let idleTimer: ReturnType<typeof setTimeout> | null = null
     const clearIdle = (): void => { if (idleTimer) { clearTimeout(idleTimer); idleTimer = null } }
     const armIdle = (): void => {
         clearIdle()
         idleTimer = setTimeout(() => {
+            if (isSuspended?.()) { armIdle(); return }
             failure = new Error(`AI CLI produced no output for ${Math.round(idleMs / 1000)}s and was stopped. If this CLI needs a non-interactive flag (for example -p or --print), add it to the command.`)
             finished = true
             killTree(child.pid)
@@ -114,6 +117,6 @@ export const cliAdapter: AiAdapter = {
         if (!command) throw new Error('No CLI command configured for this profile.')
         const idleMs = request.idleTimeoutMs ?? IDLE_TIMEOUT_MS
         const stdin = request.system ? `${request.system}\n\n${foldMessages(request.messages)}` : foldMessages(request.messages)
-        for await (const chunk of runOnce(command, request.env, request.cwd, stdin, idleMs, signal)) yield chunk
+        for await (const chunk of runOnce(command, request.env, request.cwd, stdin, idleMs, signal, request.idleSuspended)) yield chunk
     },
 }

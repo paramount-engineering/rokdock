@@ -43,6 +43,10 @@ import { resolveSyntaxTheme, type TerminalSyntaxTheme } from '../styles/terminal
 import { escapeRegExp } from '@shared/escapeRegExp'
 import { createRegexMatchClient } from './terminal/regexMatchClient'
 import type { RegexMatchClient } from './terminal/regexMatchClient'
+import { resolveTerminalCopyText } from './terminal/terminalCopy'
+import { computeAppRunBoundaries, buildRunBoundaryGradient } from './terminal/terminalLaunchBanner'
+import { linesForCopy, resolveBufferLineIndex, toFilteredPosition } from './terminal/terminalLineFilterView'
+import { compileLineFilter } from '@shared/lineFilter'
 import { selectionQualifiesForLookup, qualifyingLookupTerm } from './terminalDocsLookup'
 import { wrapInCodeFence } from '../codeFence'
 import TerminalSelectionToolbar from './terminalSelectionToolbar'
@@ -63,6 +67,20 @@ import {
     type RenderSegment
 } from './terminal/overlayCompiler'
 
+/**
+ * Buffer line index for a DOM node, read from the nearest ancestor row's data-line-index.
+ * Returns null when the node is outside a rendered row (e.g. a spacer or a detached node
+ * whose row was unmounted by virtualization). closest() still resolves against a detached
+ * row, so a drag anchor recorded while its row was mounted survives the row unmounting.
+ */
+function lineIndexFromNode(node: Node | null): number | null {
+    if (!node) return null
+    const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement
+    const raw = element?.closest('[data-line-index]')?.getAttribute('data-line-index')
+    const index = raw != null ? Number(raw) : NaN
+    return Number.isInteger(index) ? index : null
+}
+
 type SearchMatch = {
     lineIndex: number
     start: number
@@ -77,10 +95,28 @@ type SearchState = {
 const MAX_LINES = TERMINAL_MAX_BUFFER_LINES
 /** Cap lines merged per React update - smaller batches = shorter frames during chatty streams. */
 const MAX_CHUNKS_PER_FLUSH = 72
-/** Stable empty array for zustand selectors - inactive tabs avoid subscribing to global command history. */
+/** Stable empty arrays for zustand selectors - inactive tabs avoid subscribing to the global histories. */
 const STABLE_EMPTY_COMMAND_HISTORY: string[] = []
+const STABLE_EMPTY_FILTER_HISTORY: string[] = []
 // Search highlight colors are sourced from theme.colors.searchHighlight* tokens at the usage sites.
 const VIRTUAL_LINE_HEIGHT = 18
+// Matches styles.viewport's horizontal padding: a row that needs to paint edge-to-edge
+// (app-run banding) bleeds past it with a negative margin, compensated by equal padding so
+// the line's own text stays put.
+const VIEWPORT_HORIZONTAL_PADDING = 10
+// App-run boundary divider (see buildRunBoundaryGradient): thickness of the accent line, and
+// the CSS var references its gradient stops are built from.
+const RUN_DIVIDER_THICKNESS_PX = 2
+const RUN_TINT_CSS_VAR = 'var(--rokdock-terminal-launch-banner-bg)'
+const RUN_ACCENT_CSS_VAR = 'var(--rokdock-terminal-launch-banner-accent)'
+// Selection toolbar hover hysteresis: a discrete mousemove sample can land in the small
+// gap between the selection and the toolbar (fast movement does not sample every pixel),
+// which would otherwise hide the toolbar before the very next sample reaches it. Delaying
+// both the show and the hide lets a momentary excursion (through the gap, or a transient
+// hover before intent is clear) get overridden by the next contradicting sample instead
+// of taking effect immediately.
+const TOOLBAR_SHOW_DELAY_MS = 80
+const TOOLBAR_HIDE_DELAY_MS = 200
 const VIRTUAL_OVERSCAN_LINES = 80
 const WRAP_AUTOSCROLL_RENDER_WINDOW_LINES = 700
 
@@ -173,6 +209,68 @@ function buildIdToIndexMap(lines: TerminalLineChunk[], count: number = lines.len
 }
 
 /**
+ * While `open`, close the flyout as soon as a mousedown lands outside `rootRef`. Capture phase,
+ * so the dismissal happens before the click reaches whatever was pressed. Used by both history
+ * flyouts (the command input's and the filter bar's).
+ */
+function useDismissOnOutsideMouseDown(
+    open: boolean,
+    rootRef: React.RefObject<HTMLElement | null>,
+    setOpen: (open: boolean) => void
+): void {
+    useEffect(() => {
+        if (!open) return
+        const onPointerDown = (event: MouseEvent) => {
+            const root = rootRef.current
+            const target = event.target as Node | null
+            if (!root || !target || root.contains(target)) return
+            setOpen(false)
+        }
+        window.addEventListener('mousedown', onPointerDown, true)
+        return () => window.removeEventListener('mousedown', onPointerDown, true)
+    }, [open, rootRef, setOpen])
+}
+
+type HistoryWalkStep = {
+    /** The new cursor, or null once the walk lands back on the in-progress draft. */
+    index: number | null
+    /** The text to put in the input. */
+    text: string
+    /** Present only on the first step away from the in-progress text, which must be stashed. */
+    draft?: string
+}
+
+/**
+ * One Up/Down step through a history list, shared by the command input and the filter input
+ * (their arrow-key handling is otherwise identical). 'older' walks toward the start of the
+ * list, stashing the in-progress text as the draft on the first step. 'newer' walks back
+ * toward the end and restores that draft once it passes the newest entry. Returns null when
+ * the key should be left alone: an empty history, or a 'newer' step with no walk in progress.
+ */
+function walkInputHistory(options: {
+    entries: string[]
+    index: number | null
+    direction: 'older' | 'newer'
+    currentText: string
+    draft: string
+}): HistoryWalkStep | null {
+    const { entries, index, direction, currentText, draft } = options
+    if (direction === 'older') {
+        if (entries.length === 0) return null
+        if (index === null) {
+            const newest = entries.length - 1
+            return { index: newest, text: entries[newest]!, draft: currentText }
+        }
+        const older = Math.max(0, index - 1)
+        return { index: older, text: entries[older]! }
+    }
+    if (index === null) return null
+    if (index >= entries.length - 1) return { index: null, text: draft }
+    const newer = index + 1
+    return { index: newer, text: entries[newer]! }
+}
+
+/**
  * Build a timestamped log filename for a device tab (rokdock-[label-]<ip>-<port>-<ts>.log).
  * `label` inserts an optional segment (e.g. 'stream') after the rokdock- prefix.
  */
@@ -196,6 +294,21 @@ type TerminalOutputLineProps = {
     groups: LineSegmentGroup[]
     isMatchedLine: boolean
     isActiveMatchLine: boolean
+    /** True for a Compiling/Running marker line that actually starts a new block (see computeAppRunBoundaries). */
+    isAppRunStart: boolean
+    /**
+     * Pre-built CSS gradient for the line immediately before a run-start marker, or null for
+     * every other line. Unifies the divider and the run-tint color change into one gradient so
+     * they land on the exact same pixel (see buildRunBoundaryGradient) instead of the tint
+     * flipping at the row boundary while the divider floats elsewhere within this row.
+     */
+    dividerGradient: string | null
+    /**
+     * True when this line should paint the run tint: it belongs to an odd-numbered block (see
+     * computeAppRunBoundaries) AND the user has app-run banding enabled. The setting is
+     * folded in by the caller, which needs it for the gradient's colors anyway.
+     */
+    showAppRunOverlay: boolean
     styles: Record<string, React.CSSProperties>
     outputRef: React.RefObject<HTMLDivElement | null>
     tokenColor: (kind: TerminalTokenSpan['kind']) => string
@@ -224,6 +337,9 @@ const TerminalOutputLine = React.memo(function TerminalOutputLine({
     groups,
     isMatchedLine,
     isActiveMatchLine,
+    isAppRunStart,
+    dividerGradient,
+    showAppRunOverlay,
     styles,
     outputRef,
     tokenColor,
@@ -233,12 +349,20 @@ const TerminalOutputLine = React.memo(function TerminalOutputLine({
     openJsonViewer,
     requestOpenExternalUrl
 }: TerminalOutputLineProps) {
+    // A boundary row's gradient already contains this run's tint, so the flat overlay would
+    // only paint over it.
+    let appRunStyle: React.CSSProperties = {}
+    if (dividerGradient != null) appRunStyle = { ...styles.lineAppRunBoundaryBleed, backgroundImage: dividerGradient }
+    else if (showAppRunOverlay) appRunStyle = styles.lineAppRunOverlay
     return (
         <div
             data-line
             data-line-index={lineIndex}
+            data-app-run-start={isAppRunStart || undefined}
+            data-app-run-overlay={showAppRunOverlay || undefined}
             style={{
                 ...styles.line,
+                ...appRunStyle,
                 ...(isMatchedLine ? styles.lineSearchMatch : {}),
                 ...(isActiveMatchLine ? styles.lineSearchActive : {})
             }}
@@ -345,6 +469,9 @@ const TerminalOutputLine = React.memo(function TerminalOutputLine({
     && prev.lineIndex === next.lineIndex
     && prev.isMatchedLine === next.isMatchedLine
     && prev.isActiveMatchLine === next.isActiveMatchLine
+    && prev.isAppRunStart === next.isAppRunStart
+    && prev.dividerGradient === next.dividerGradient
+    && prev.showAppRunOverlay === next.showAppRunOverlay
     && prev.styles === next.styles
     && prev.tokenColor === next.tokenColor
     && prev.syntaxTheme === next.syntaxTheme
@@ -518,6 +645,7 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     const terminalFontFamily = useAppStore((state) => state.terminalFontFamily)
     const fallbackColor = useAppStore((state) => state.terminalFallbackColor)
     const terminalUseThemeBackground = useAppStore((state) => state.terminalUseThemeBackground)
+    const highlightAppLaunchLines = useAppStore((state) => state.terminalHighlightAppLaunchLines)
     const terminalCommandHistory = useAppStore(
         useCallback(
             (state) => (isActive ? state.terminalCommandHistory : STABLE_EMPTY_COMMAND_HISTORY),
@@ -525,6 +653,13 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         )
     )
     const addTerminalCommandHistory = useAppStore((state) => state.addTerminalCommandHistory)
+    const terminalFilterHistory = useAppStore(
+        useCallback(
+            (state) => (isActive ? state.terminalFilterHistory : STABLE_EMPTY_FILTER_HISTORY),
+            [isActive]
+        )
+    )
+    const addTerminalFilterHistory = useAppStore((state) => state.addTerminalFilterHistory)
     const setTerminalBufferLineCount = useAppStore((state) => state.setTerminalBufferLineCount)
     const aiConfigured = useAppStore((state) => state.aiConfigured)
     const openChatWith = useAppStore((state) => state.openChatWith)
@@ -539,14 +674,32 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     const [pendingExternalUrl, setPendingExternalUrl] = useState<string | null>(null)
     const [urlCopied, setUrlCopied] = useState(false)
     // Floating selection toolbar, anchored at the cursor when the user finishes
-    // selecting text in the output. null when hidden.
-    const [selectionAnchor, setSelectionAnchor] = useState<{ x: number; y: number; selection: string; term: string | null } | null>(null)
+    // selecting text in the output. null when there is no selection at all. Carries
+    // the selection's own bounding rect (not just its top-left) so hovering can be
+    // hit-tested against it (see toolbarHovered below).
+    const [selectionAnchor, setSelectionAnchor] = useState<{ x: number; y: number; width: number; height: number; selection: string; term: string | null } | null>(null)
+    // Whether the toolbar should actually be shown: true only while the pointer is over
+    // the selected text or the toolbar itself, not merely while a selection exists (so it
+    // does not linger over unrelated output the user has since moved to).
+    const [toolbarHovered, setToolbarHovered] = useState(false)
+    const toolbarElRef = useRef<HTMLDivElement>(null)
     const [searchQuery, setSearchQuery] = useState('')
     const [searchCursor, setSearchCursor] = useState(0)
     const [searchMatchCase, setSearchMatchCase] = useState(false)
     const [searchWholeWord, setSearchWholeWord] = useState(false)
     const [searchRegex, setSearchRegex] = useState(false)
+    const [filterVisible, setFilterVisible] = useState(false)
+    const [filterPatternText, setFilterPatternText] = useState('')
+    // The live filter's own regex worker outcome: which buffer indices currently match (null =
+    // no filter, show everything), and any validation/timeout message to show in the filter bar.
+    const [liveFilterState, setLiveFilterState] = useState<{ indices: number[] | null; error: string | null }>({
+        indices: null,
+        error: null
+    })
     const [historyMenuOpen, setHistoryMenuOpen] = useState(false)
+    const [filterHistoryIndex, setFilterHistoryIndex] = useState<number | null>(null)
+    const [filterHistoryDraft, setFilterHistoryDraft] = useState('')
+    const [filterHistoryMenuOpen, setFilterHistoryMenuOpen] = useState(false)
     const [streamFilePath, setStreamFilePath] = useState<string | null>(null)
     // Optional line filter for Save-output / Stream-to-file: the prompt mode plus a
     // snapshot of the buffer texts taken when it opens (for the live match count), null
@@ -583,8 +736,10 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     const containerRef = useRef<HTMLDivElement | null>(null)
     const outputRef = useRef<HTMLDivElement | null>(null)
     const inputBarRef = useRef<HTMLDivElement | null>(null)
+    const filterBarRef = useRef<HTMLDivElement | null>(null)
     const inputRef = useRef<HTMLInputElement | null>(null)
     const searchInputRef = useRef<HTMLInputElement | null>(null)
+    const filterInputRef = useRef<HTMLInputElement | null>(null)
     const prevSearchVisibleRef = useRef(searchVisible)
     const viewportScrollRafRef = useRef<number | null>(null)
     const streamWriteInFlightRef = useRef(false)
@@ -825,6 +980,16 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     const linesWithJsonFallbackRef = useRef(linesWithJsonFallback)
     linesWithJsonFallbackRef.current = linesWithJsonFallback
 
+    /**
+     * The raw text of every buffered line. Built once per buffer change and shared by the three
+     * consumers that need the whole buffer as plain strings: search matching, the live filter,
+     * and the app-run banding flags.
+     */
+    const bufferLineTexts = useMemo(
+        () => linesWithJsonFallback.map((line) => line.text),
+        [linesWithJsonFallback]
+    )
+
     useEffect(() => {
         if (!isActive) return
 
@@ -900,6 +1065,7 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     const searchClientRef = useRef<RegexMatchClient | null>(null)
     const filterClientRef = useRef<RegexMatchClient | null>(null)
     const streamClientRef = useRef<RegexMatchClient | null>(null)
+    const liveFilterClientRef = useRef<RegexMatchClient | null>(null)
     useEffect(() => () => {
         searchClientRef.current?.dispose()
         searchClientRef.current = null
@@ -907,6 +1073,8 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         filterClientRef.current = null
         streamClientRef.current?.dispose()
         streamClientRef.current = null
+        liveFilterClientRef.current?.dispose()
+        liveFilterClientRef.current = null
     }, [])
     const ensureFilterClient = (): RegexMatchClient => {
         if (!filterClientRef.current) filterClientRef.current = createRegexMatchClient()
@@ -925,12 +1093,11 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         let source = searchRegex ? query : escapeRegExp(query)
         if (searchWholeWord) source = `\\b${source}\\b`
         const flags = searchMatchCase ? 'g' : 'gi'
-        const lines = linesWithJsonFallback.map((line) => line.text)
 
         let cancelled = false
         const debounce = setTimeout(() => {
             if (!searchClientRef.current) searchClientRef.current = createRegexMatchClient()
-            void searchClientRef.current.search(source, flags, lines).then((outcome) => {
+            void searchClientRef.current.search(source, flags, bufferLineTexts).then((outcome) => {
                 if (cancelled) return
                 if (outcome.status === 'ok') setSearchState({ matches: outcome.value, regexError: null })
                 else if (outcome.status === 'invalid') setSearchState({ matches: [], regexError: 'Invalid regex' })
@@ -939,9 +1106,53 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
             })
         }, 120)
         return () => { cancelled = true; clearTimeout(debounce) }
-    }, [isActive, linesWithJsonFallback, searchMatchCase, searchQuery, searchRegex, searchWholeWord])
+    }, [bufferLineTexts, isActive, searchMatchCase, searchQuery, searchRegex, searchWholeWord])
 
-    const searchMatches = searchState.matches
+    // The live filter never discards a line from the buffer, only which buffer indices are
+    // displayed. Matching runs in the same debounced regex worker as search (see above) for the
+    // same catastrophic-backtracking safety, re-running whenever the buffer grows so newly
+    // streamed lines are picked up without the user retyping the pattern.
+    const lastRecordedFilterPatternRef = useRef<string | null>(null)
+    useEffect(() => {
+        if (!filterVisible) { setLiveFilterState({ indices: null, error: null }); return }
+        const { regex, error } = compileLineFilter(filterPatternText)
+        if (error) { setLiveFilterState({ indices: null, error: `Invalid regex: ${error}` }); return }
+        if (!regex) { setLiveFilterState({ indices: null, error: null }); return }
+
+        let cancelled = false
+        const debounce = setTimeout(() => {
+            if (!liveFilterClientRef.current) liveFilterClientRef.current = createRegexMatchClient()
+            void liveFilterClientRef.current.filter(regex.source, regex.flags, bufferLineTexts).then((outcome) => {
+                if (cancelled) return
+                if (outcome.status === 'ok') {
+                    setLiveFilterState({ indices: outcome.value, error: null })
+                    // Record once per pattern, not on every re-run this effect does as the
+                    // buffer grows while the same pattern stays active.
+                    if (lastRecordedFilterPatternRef.current !== filterPatternText) {
+                        lastRecordedFilterPatternRef.current = filterPatternText
+                        addTerminalFilterHistory(filterPatternText)
+                    }
+                }
+                else if (outcome.status === 'invalid') setLiveFilterState({ indices: null, error: 'Invalid regex' })
+                else if (outcome.status === 'timeout') setLiveFilterState({ indices: null, error: 'Pattern too slow' })
+                // 'superseded': a newer edit or buffer growth already has a request in flight.
+            })
+        }, 120)
+        return () => { cancelled = true; clearTimeout(debounce) }
+    }, [addTerminalFilterHistory, bufferLineTexts, filterVisible, filterPatternText])
+
+    const filteredLineIndices = liveFilterState.indices
+    const filteredLineIndicesRef = useRef(filteredLineIndices)
+    filteredLineIndicesRef.current = filteredLineIndices
+    const filteredLineIndexSet = useMemo(
+        () => (filteredLineIndices ? new Set(filteredLineIndices) : null),
+        [filteredLineIndices]
+    )
+
+    const searchMatches = useMemo(
+        () => (filteredLineIndexSet ? searchState.matches.filter((match) => filteredLineIndexSet.has(match.lineIndex)) : searchState.matches),
+        [filteredLineIndexSet, searchState.matches]
+    )
     const searchRegexError = searchState.regexError
     const activeSearchMatch = searchMatches.length > 0 ? searchMatches[Math.min(searchCursor, searchMatches.length - 1)] : null
     const matchedLineIndexes = useMemo(() => {
@@ -1010,6 +1221,60 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         })
     }, [])
 
+    // Copy support for the virtualized output. selectAllActiveRef marks a Select All so a
+    // copy pulls the whole scrollback; dragStartLineIndexRef records where a drag selection
+    // began (captured while that row is still rendered) so the anchor survives the row
+    // unmounting mid-drag.
+    const selectAllActiveRef = useRef(false)
+    const dragStartLineIndexRef = useRef<number | null>(null)
+
+    // The text a copy should place on the clipboard. Falls back from the (virtualization-
+    // truncated) DOM selection to the full line buffer. See resolveTerminalCopyText.
+    // While a live filter is active, Select All and a drag selection both resolve against
+    // the filtered (visible) lines only, not the hidden ones still sitting in the buffer.
+    const getSelectedText = useCallback((): string => {
+        const selection = window.getSelection()
+        const nativeText = selection?.toString() ?? ''
+        const rawAnchorLineIndex = lineIndexFromNode(selection?.anchorNode ?? null) ?? dragStartLineIndexRef.current
+        const rawFocusLineIndex = lineIndexFromNode(selection?.focusNode ?? null)
+        const filtered = filteredLineIndicesRef.current
+        return resolveTerminalCopyText(
+            {
+                selectAllActive: selectAllActiveRef.current,
+                nativeText,
+                anchorLineIndex: toFilteredPosition(filtered, rawAnchorLineIndex),
+                focusLineIndex: toFilteredPosition(filtered, rawFocusLineIndex)
+            },
+            linesForCopy(linesWithJsonFallbackRef.current.map((line) => line.text), filtered)
+        )
+    }, [])
+
+    // A fresh mouse drag starts a new manual selection: forget any Select All and record the
+    // starting row so a drag that scrolls the anchor out of the DOM can still be resolved.
+    const onOutputMouseDown = useCallback((event: React.MouseEvent): void => {
+        selectAllActiveRef.current = false
+        dragStartLineIndexRef.current = lineIndexFromNode(event.target as Node)
+    }, [])
+
+    // Override native copy (Cmd/Ctrl+C, the Edit menu copy role, a drag selection) for copies
+    // originating in this terminal's output. The output is virtualized, so the browser's own
+    // copy only includes the rows currently in the DOM. Rebuild the full text from the buffer
+    // and write it to the event's clipboardData instead.
+    useEffect(() => {
+        const onCopy = (event: ClipboardEvent): void => {
+            const output = outputRef.current
+            const selection = window.getSelection()
+            if (!output || !selection) return
+            if (!output.contains(selection.anchorNode) && !output.contains(selection.focusNode)) return
+            const text = getSelectedText()
+            if (!text) return
+            event.preventDefault()
+            event.clipboardData?.setData('text/plain', text)
+        }
+        document.addEventListener('copy', onCopy)
+        return () => document.removeEventListener('copy', onCopy)
+    }, [getSelectedText])
+
     // Show the selection toolbar anchored at the TOP-LEFT of the selection when the
     // user finishes selecting text in the output, so it can sit just above the
     // selection rather than over it. Captures both the full selection (for Explain)
@@ -1022,8 +1287,56 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
             return
         }
         const rect = selection.getRangeAt(0).getBoundingClientRect()
-        setSelectionAnchor({ x: rect.left, y: rect.top, selection: text, term: qualifyingLookupTerm() })
+        setSelectionAnchor({ x: rect.left, y: rect.top, width: rect.width, height: rect.height, selection: text, term: qualifyingLookupTerm() })
+        // The mouseup point is where the selection was just finished, so it is on (or
+        // adjacent to) the selection itself; the mousemove effect below takes over from here.
+        setToolbarHovered(true)
     }, [])
+
+    // Only keep the toolbar visible while the pointer is over the selected text or over
+    // the toolbar itself. The toolbar sits just above the selection with a small gap;
+    // checking both rects (not just the selection's) lets the pointer cross that gap on
+    // the way to a button without the toolbar disappearing first. That alone is not
+    // enough on fast movement, though: a mousemove sample can land IN the gap (between
+    // the two rects) and briefly read as neither, so showing/hiding is delayed rather
+    // than applied on the raw sample - a pending opposite-direction change cancels it,
+    // so a momentary gap sample never takes effect once the very next sample (on the
+    // toolbar) arrives before the timer fires.
+    useEffect(() => {
+        if (!selectionAnchor) return
+        /** Cancels a pending timer (if any) and returns null, so callers can write `x = cancelTimer(x)`. */
+        const cancelTimer = (timer: ReturnType<typeof setTimeout> | null): null => {
+            if (timer) clearTimeout(timer)
+            return null
+        }
+        let showTimer: ReturnType<typeof setTimeout> | null = null
+        let hideTimer: ReturnType<typeof setTimeout> | null = null
+        const onMouseMove = (event: MouseEvent): void => {
+            const { clientX, clientY } = event
+            const withinSelection = (
+                clientX >= selectionAnchor.x && clientX <= selectionAnchor.x + selectionAnchor.width
+                && clientY >= selectionAnchor.y && clientY <= selectionAnchor.y + selectionAnchor.height
+            )
+            const toolbarRect = toolbarElRef.current?.getBoundingClientRect()
+            const withinToolbar = !!toolbarRect
+                && clientX >= toolbarRect.left && clientX <= toolbarRect.right
+                && clientY >= toolbarRect.top && clientY <= toolbarRect.bottom
+            const shouldShow = withinSelection || withinToolbar
+            if (shouldShow) {
+                hideTimer = cancelTimer(hideTimer)
+                if (!showTimer) showTimer = setTimeout(() => { showTimer = null; setToolbarHovered(true) }, TOOLBAR_SHOW_DELAY_MS)
+            } else {
+                showTimer = cancelTimer(showTimer)
+                if (!hideTimer) hideTimer = setTimeout(() => { hideTimer = null; setToolbarHovered(false) }, TOOLBAR_HIDE_DELAY_MS)
+            }
+        }
+        document.addEventListener('mousemove', onMouseMove)
+        return () => {
+            document.removeEventListener('mousemove', onMouseMove)
+            showTimer = cancelTimer(showTimer)
+            hideTimer = cancelTimer(hideTimer)
+        }
+    }, [selectionAnchor])
 
     // Hide the toolbar once the selection is collapsed (a click elsewhere, a new
     // selection, or keyboard deselection). Keyed on the toolbar's presence so the
@@ -1077,7 +1390,7 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     // search still renders the full buffer (its match jump relies on the line already being in the DOM).
     const shouldVirtualize = !tab.wordWrap
     const shouldWindowWrapRows = tab.wordWrap && tab.autoScroll && !searchVisible
-    const totalVisibleLineCount = linesWithJsonFallback.length
+    const totalVisibleLineCount = filteredLineIndices ? filteredLineIndices.length : linesWithJsonFallback.length
     const virtualStartIndex = shouldVirtualize
         ? Math.max(0, Math.floor(viewportScrollTop / VIRTUAL_LINE_HEIGHT) - VIRTUAL_OVERSCAN_LINES)
         : 0
@@ -1097,6 +1410,10 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         : 0
     const renderStartIndex = shouldVirtualize ? virtualStartIndex : wrapWindowStartIndex
     const renderEndIndex = shouldVirtualize ? virtualEndIndex : totalVisibleLineCount
+    // Which block (compile+run cycle) each buffer line belongs to, and which lines actually
+    // start a new block (see computeAppRunBoundaries). Computed once over the whole buffer so
+    // the alternating tint is correct regardless of which window is currently virtualized into view.
+    const appRunBoundaries = useMemo(() => computeAppRunBoundaries(bufferLineTexts), [bufferLineTexts])
     const visibleRows = useMemo(() => {
         const rows: Array<{
             line: TerminalLineChunk
@@ -1104,21 +1421,53 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
             groups: LineSegmentGroup[]
             isMatchedLine: boolean
             isActiveMatchLine: boolean
+            isAppRunStart: boolean
+            dividerGradient: string | null
+            showAppRunOverlay: boolean
         }> = []
+        /** Whether one buffer line carries the alternating run tint. */
+        const hasRunTint = (bufferIndex: number): boolean => (
+            highlightAppLaunchLines && appRunBoundaries.tint[bufferIndex] === true
+        )
+        /** That same line's tint as a gradient stop color. */
+        const runTintColor = (bufferIndex: number): string => (
+            hasRunTint(bufferIndex) ? RUN_TINT_CSS_VAR : 'transparent'
+        )
         for (let i = renderStartIndex; i < renderEndIndex; i++) {
-            const line = linesWithJsonFallback[i]!
+            const bufferIndex = resolveBufferLineIndex(filteredLineIndices, i)
+            const line = linesWithJsonFallback[bufferIndex]!
+            // The divider is drawn by the row BEFORE a block-start marker so the accent rule lands
+            // on the seam between the two blocks rather than inside the new block's first line.
+            const nextLine = linesWithJsonFallback[bufferIndex + 1]
+            let dividerGradient: string | null = null
+            if (nextLine != null && appRunBoundaries.blockStart[bufferIndex + 1] === true) {
+                dividerGradient = buildRunBoundaryGradient({
+                    rowHeightPx: VIRTUAL_LINE_HEIGHT,
+                    dividerThicknessPx: RUN_DIVIDER_THICKNESS_PX,
+                    centered: line.text.trim() === '',
+                    beforeColor: runTintColor(bufferIndex),
+                    afterColor: runTintColor(bufferIndex + 1),
+                    accentColor: RUN_ACCENT_CSS_VAR
+                })
+            }
             rows.push({
                 line,
-                lineIndex: i,
-                groups: groupsForLine(line, i),
-                isMatchedLine: matchedLineIndexes.has(i),
-                isActiveMatchLine: activeSearchMatch?.lineIndex === i
+                lineIndex: bufferIndex,
+                groups: groupsForLine(line, bufferIndex),
+                isMatchedLine: matchedLineIndexes.has(bufferIndex),
+                isActiveMatchLine: activeSearchMatch?.lineIndex === bufferIndex,
+                isAppRunStart: appRunBoundaries.blockStart[bufferIndex] === true,
+                dividerGradient,
+                showAppRunOverlay: hasRunTint(bufferIndex)
             })
         }
         return rows
     }, [
         activeSearchMatch?.lineIndex,
+        appRunBoundaries,
+        filteredLineIndices,
         groupsForLine,
+        highlightAppLaunchLines,
         linesWithJsonFallback,
         matchedLineIndexes,
         renderEndIndex,
@@ -1198,6 +1547,20 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         setViewportScrollTop(0)
         setJsonHoverDetectEnabled(false)
     }, [])
+
+    /**
+     * Clears the terminal buffer. The single home for this action: it used to be duplicated
+     * between the context-menu 'clear' handler and the Alt+C input shortcut, and the two copies
+     * had already drifted (the shortcut skipped the terminalLinesCache delete, and neither reset
+     * the live filter's matched indices, which then pointed past the end of the emptied buffer
+     * and crashed the render loop on the very next frame).
+     */
+    const clearTerminal = useCallback(() => {
+        resetTerminalBuffers()
+        terminalLinesCache.delete(tab.id)
+        setLines([])
+        setLiveFilterState({ indices: null, error: null })
+    }, [resetTerminalBuffers, tab.id])
 
     /**
      * Enqueue a single terminal line chunk and schedule a rAF flush if one is
@@ -1358,8 +1721,8 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         const unsubMenu = window.rokdock.contextMenu.onAction((tabId: string, action: string) => {
             if (tabId !== tab.id) return
             if (action === 'copy') {
-                const selected = window.getSelection()?.toString() || ''
-                if (selected) void navigator.clipboard.writeText(selected)
+                const text = getSelectedText()
+                if (text) void navigator.clipboard.writeText(text)
             } else if (action === 'paste') {
                 void navigator.clipboard.readText().then((text) => setInput((prev) => prev + text))
             } else if (action === 'select-all' && outputRef.current) {
@@ -1368,12 +1731,15 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                 const selection = window.getSelection()
                 selection?.removeAllRanges()
                 selection?.addRange(range)
+                // The DOM selection only covers the virtualized rows; this flag tells the copy
+                // paths to pull the whole buffer instead.
+                selectAllActiveRef.current = true
             } else if (action === 'clear') {
-                resetTerminalBuffers()
-                terminalLinesCache.delete(tab.id)
-                setLines([])
+                clearTerminal()
             } else if (action === 'find') {
                 toggleSearch(tab.id)
+            } else if (action === 'toggle-filter') {
+                setFilterVisible((prev) => !prev)
             } else if (action === 'toggle-autoscroll') {
                 toggleTabAutoScroll(tab.id)
             } else if (action === 'toggle-wordwrap') {
@@ -1421,8 +1787,9 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         }
     }, [
         appendLine,
+        clearTerminal,
+        getSelectedText,
         markTabActivity,
-        resetTerminalBuffers,
         streamFilePath,
         tab.deviceIp,
         tab.deviceName,
@@ -1487,6 +1854,12 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     }, [searchVisible])
 
     useEffect(() => {
+        if (!filterVisible) return
+        filterInputRef.current?.focus()
+        filterInputRef.current?.select()
+    }, [filterVisible])
+
+    useEffect(() => {
         if (prevSearchVisibleRef.current && !searchVisible) {
             window.requestAnimationFrame(() => {
                 containerRef.current?.focus()
@@ -1500,6 +1873,11 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         setSearchVisible(tab.id, false)
     }, [setSearchVisible, tab.id])
 
+    // Ctrl/Cmd+F opens Find, Ctrl/Cmd+Shift+F toggles the live filter bar. One listener, since
+    // the two shortcuts differ only in the shift modifier and share every guard (same key, same
+    // "the event started inside this terminal" containment check). The context menu's
+    // accelerator labels are decorative for a popup menu (Electron does not bind them globally),
+    // so this listener is the real trigger for both.
     useEffect(() => {
         if (!isActive) return
         const onKeyDown = (event: KeyboardEvent) => {
@@ -1509,7 +1887,8 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
             const target = event.target as Node | null
             if (!container || !target || !container.contains(target)) return
             event.preventDefault()
-            setSearchVisible(tab.id, true)
+            if (event.shiftKey) setFilterVisible((prev) => !prev)
+            else setSearchVisible(tab.id, true)
         }
         window.addEventListener('keydown', onKeyDown, true)
         return () => window.removeEventListener('keydown', onKeyDown, true)
@@ -1522,17 +1901,21 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         }
     }, [searchVisible])
 
+    const closeFilterBar = useCallback(() => {
+        setFilterVisible(false)
+    }, [])
+
     useEffect(() => {
-        if (!historyMenuOpen) return
-        const onPointerDown = (event: MouseEvent) => {
-            const root = inputBarRef.current
-            const target = event.target as Node | null
-            if (!root || !target || root.contains(target)) return
-            setHistoryMenuOpen(false)
+        if (!filterVisible) {
+            setFilterPatternText('')
+            setFilterHistoryIndex(null)
+            setFilterHistoryDraft('')
+            setFilterHistoryMenuOpen(false)
         }
-        window.addEventListener('mousedown', onPointerDown, true)
-        return () => window.removeEventListener('mousedown', onPointerDown, true)
-    }, [historyMenuOpen])
+    }, [filterVisible])
+
+    useDismissOnOutsideMouseDown(historyMenuOpen, inputBarRef, setHistoryMenuOpen)
+    useDismissOnOutsideMouseDown(filterHistoryMenuOpen, filterBarRef, setFilterHistoryMenuOpen)
 
     useEffect(() => {
         if (searchMatches.length === 0) {
@@ -1578,12 +1961,11 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
             const target = event.target as Node | null
             if (!target || !container.contains(target)) return
             event.preventDefault()
-            resetTerminalBuffers()
-            setLines([])
+            clearTerminal()
         }
         window.addEventListener('keydown', onKeyDown, true)
         return () => window.removeEventListener('keydown', onKeyDown, true)
-    }, [isActive, resetTerminalBuffers])
+    }, [clearTerminal, isActive])
 
     /**
      * Advance the active search match cursor by `direction` (+1 = forward, -1 =
@@ -1787,6 +2169,79 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                         </div>
                     </div>
                 )}
+                {filterVisible && (
+                    <div ref={filterBarRef} style={styles.searchBar}>
+                        <input
+                            ref={filterInputRef}
+                            className="terminal-filter-input"
+                            style={styles.searchInput}
+                            type="text"
+                            placeholder="Filter regex (empty = show all lines)..."
+                            aria-label="Filter terminal output"
+                            value={filterPatternText}
+                            onChange={(e) => {
+                                if (filterHistoryIndex !== null) setFilterHistoryIndex(null)
+                                setFilterPatternText(e.target.value)
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Escape') { closeFilterBar(); return }
+                                if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+                                const step = walkInputHistory({
+                                    entries: terminalFilterHistory,
+                                    index: filterHistoryIndex,
+                                    direction: e.key === 'ArrowUp' ? 'older' : 'newer',
+                                    currentText: filterPatternText,
+                                    draft: filterHistoryDraft
+                                })
+                                if (!step) return
+                                e.preventDefault()
+                                if (step.draft !== undefined) setFilterHistoryDraft(step.draft)
+                                setFilterHistoryIndex(step.index)
+                                setFilterPatternText(step.text)
+                            }}
+                        />
+                        <span style={styles.searchSeparator} aria-hidden="true" />
+                        <span style={{ ...styles.searchCount, ...(liveFilterState.error ? { color: 'var(--rokdock-error-text)' } : {}) }}>
+                            {liveFilterState.error
+                                ?? (filteredLineIndices ? `${filteredLineIndices.length} / ${linesWithJsonFallback.length}` : 'showing all')}
+                        </span>
+                        <div style={styles.searchIconGroup}>
+                            <button
+                                type="button"
+                                className="terminal-filter-history-toggle"
+                                style={styles.historyToggleBtn}
+                                title="Filter history"
+                                onClick={() => {
+                                    setFilterHistoryMenuOpen((prev) => !prev)
+                                    filterInputRef.current?.focus()
+                                }}
+                                disabled={terminalFilterHistory.length === 0}
+                            >
+                                <FontAwesomeIcon icon={faClockRotateLeft} />
+                            </button>
+                            <button style={styles.searchCloseBtn} title="Close filter" onClick={closeFilterBar}><FontAwesomeIcon icon={faXmark} /></button>
+                        </div>
+                        {filterHistoryMenuOpen && terminalFilterHistory.length > 0 && (
+                            <div className="terminal-filter-history-flyout" style={styles.filterHistoryFlyout}>
+                                {[...terminalFilterHistory].slice(-20).reverse().map((pattern) => (
+                                    <button
+                                        key={pattern}
+                                        style={styles.historyItem}
+                                        onMouseDown={(e) => {
+                                            e.preventDefault()
+                                            setFilterHistoryIndex(null)
+                                            setFilterPatternText(pattern)
+                                            setFilterHistoryMenuOpen(false)
+                                            filterInputRef.current?.focus()
+                                        }}
+                                    >
+                                        {pattern}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
                 <div
                     ref={viewportRef}
                     className="terminal-viewport-scroll"
@@ -1798,6 +2253,7 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                     onPointerEnter={() => {
                         if (isActive) setJsonHoverDetectEnabled(true)
                     }}
+                    onMouseDown={onOutputMouseDown}
                     onMouseUp={onOutputMouseUp}
                     onScroll={onViewportScroll}
                     style={{
@@ -1819,6 +2275,9 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                                 groups={row.groups}
                                 isMatchedLine={row.isMatchedLine}
                                 isActiveMatchLine={row.isActiveMatchLine}
+                                isAppRunStart={row.isAppRunStart}
+                                dividerGradient={row.dividerGradient}
+                                showAppRunOverlay={row.showAppRunOverlay}
                                 styles={styles}
                                 outputRef={outputRef}
                                 tokenColor={tokenColor}
@@ -1844,13 +2303,9 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                             setInput(e.target.value)
                         }}
                         onKeyDown={(e) => {
-                            if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === 'c') {
-                                e.preventDefault()
-                                resetTerminalBuffers()
-                                setLines([])
-                                return
-                            }
-
+                            // Alt+C is handled by the container-level keydown listener (capture
+                            // phase, fires before this), which also covers the command input
+                            // since it sits inside containerRef. No separate handling here.
                             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
                                 const target = inputRef.current
                                 const hasSelection = !!target && target.selectionStart !== target.selectionEnd
@@ -1861,32 +2316,19 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                                 }
                             }
 
-                            if (e.key === 'ArrowUp') {
-                                if (terminalCommandHistory.length === 0) return
+                            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                                const step = walkInputHistory({
+                                    entries: terminalCommandHistory,
+                                    index: historyIndex,
+                                    direction: e.key === 'ArrowUp' ? 'older' : 'newer',
+                                    currentText: input,
+                                    draft: historyDraft
+                                })
+                                if (!step) return
                                 e.preventDefault()
-                                if (historyIndex === null) {
-                                    setHistoryDraft(input)
-                                    const next = terminalCommandHistory.length - 1
-                                    setHistoryIndex(next)
-                                    setInput(terminalCommandHistory[next])
-                                } else {
-                                    const next = Math.max(0, historyIndex - 1)
-                                    setHistoryIndex(next)
-                                    setInput(terminalCommandHistory[next])
-                                }
-                                return
-                            }
-
-                            if (e.key === 'ArrowDown' && historyIndex !== null) {
-                                e.preventDefault()
-                                if (historyIndex >= terminalCommandHistory.length - 1) {
-                                    setHistoryIndex(null)
-                                    setInput(historyDraft)
-                                } else {
-                                    const next = historyIndex + 1
-                                    setHistoryIndex(next)
-                                    setInput(terminalCommandHistory[next])
-                                }
+                                if (step.draft !== undefined) setHistoryDraft(step.draft)
+                                setHistoryIndex(step.index)
+                                setInput(step.text)
                                 return
                             }
 
@@ -1929,12 +2371,18 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                         </div>
                     )}
                 </div>
-                {selectionAnchor && (
+                {selectionAnchor && toolbarHovered && (
                     <TerminalSelectionToolbar
+                        rootRef={toolbarElRef}
                         anchor={{ x: selectionAnchor.x, y: selectionAnchor.y }}
                         selection={selectionAnchor.selection}
                         term={selectionAnchor.term}
                         aiAvailable={aiConfigured}
+                        onCopy={() => {
+                            const text = getSelectedText()
+                            if (text) void navigator.clipboard.writeText(text)
+                            setSelectionAnchor(null)
+                        }}
                         onLookup={() => {
                             if (selectionAnchor.term) void window.rokdock.docs.lookUp(selectionAnchor.term)
                             setSelectionAnchor(null)
@@ -1955,6 +2403,7 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
                     : 'Save the current terminal output. Optionally filter which lines get written.'}
                 confirmLabel={filterPrompt?.mode === 'stream' ? 'Choose File...' : 'Save...'}
                 sampleLines={filterPrompt?.sampleLines}
+                initialPattern={filterVisible ? filterPatternText : ''}
                 countMatches={(source, flags, lines) => ensureFilterClient().filter(source, flags, lines)}
                 onCancel={() => setFilterPrompt(null)}
                 onConfirm={(regex) => {
@@ -2071,9 +2520,31 @@ function buildStyles(): Record<string, React.CSSProperties> {
         justifyContent: 'center',
         flexShrink: 0
     }
+    // Lets a row paint past the viewport's own horizontal padding (negative margin, compensated
+    // by equal padding so the line's text does not shift) so an app-run tint or divider reaches
+    // the true edges instead of stopping at the viewport's inset content box.
+    const edgeToEdgeBleed: React.CSSProperties = {
+        margin: `0 -${VIEWPORT_HORIZONTAL_PADDING}px`,
+        padding: `0 ${VIEWPORT_HORIZONTAL_PADDING}px`
+    }
+    // Shared chrome for the two history flyouts. Each adds its own vertical anchoring: the
+    // command history opens upward from the input bar pinned to the very bottom, the filter
+    // history opens downward from the filter bar at the top.
+    const historyFlyoutChrome: React.CSSProperties = {
+        position: 'absolute',
+        right: 0,
+        minWidth: 280,
+        maxWidth: '70%',
+        maxHeight: 220,
+        overflowY: 'auto',
+        background: 'var(--rokdock-bg-panel)',
+        borderLeft: '1px solid var(--rokdock-border)',
+        borderRight: '1px solid var(--rokdock-border)',
+        zIndex: 5
+    }
     return {
         container: { display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: 'var(--rokdock-bg-terminal)' },
-        searchBar: { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px', background: 'linear-gradient(90deg, var(--rokdock-bg-surface) 0%, var(--rokdock-bg-panel) 100%)', borderBottom: '1px solid var(--rokdock-border)', boxShadow: '0 1px 4px var(--rokdock-shadow-subtle)' },
+        searchBar: { display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px', background: 'linear-gradient(90deg, var(--rokdock-bg-surface) 0%, var(--rokdock-bg-panel) 100%)', borderBottom: '1px solid var(--rokdock-border)', boxShadow: '0 1px 4px var(--rokdock-shadow-subtle)', position: 'relative' },
         searchInput: { ...monoInput, flex: 1, padding: '3px 5px' },
         searchOptionGroup: { display: 'flex', alignItems: 'center', gap: 2 },
         searchOptionBtn: {
@@ -2106,14 +2577,33 @@ function buildStyles(): Record<string, React.CSSProperties> {
         searchNavBtn: { ...smallBtn, fontSize: 'var(--rokdock-font-xxs)' },
         searchCloseBtn: smallBtn,
         searchIconGroup: { display: 'flex', alignItems: 'center', gap: 2 },
-        viewport: { flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' },
+        viewport: { flex: 1, minHeight: 0, overflow: 'auto', padding: `8px ${VIEWPORT_HORIZONTAL_PADDING}px` },
         // Render debug output literally: a ligature-capable mono font (e.g. JetBrains
         // Mono) otherwise fuses sequences like -> or != into a single glyph, which
         // misrepresents what the device actually emitted.
         output: { lineHeight: 1.45, userSelect: 'text', fontVariantLigatures: 'none', fontFeatureSettings: '"liga" 0, "calt" 0' },
         line: { minHeight: 18 },
-        lineSearchMatch: { background: 'var(--rokdock-search-line-bg)', borderRadius: 3 },
-        lineSearchActive: { background: 'var(--rokdock-search-line-active-bg)', outline: '1px solid var(--rokdock-brand-primary-light)', borderRadius: 3 },
+        // The row carrying dividerGradient (a background-image, not a border or box-shadow:
+        // neither can draw a line floating away from an edge, and any real geometry here would
+        // add to this row's box and desync the fixed-height virtualization math,
+        // VIRTUAL_LINE_HEIGHT). buildRunBoundaryGradient bakes the run-tint color change and the
+        // divider line into one gradient (bottom-anchored, or centered in a blank line) so they
+        // always land on the same pixel. The actual backgroundImage is set alongside this style
+        // at the usage site.
+        lineAppRunBoundaryBleed: edgeToEdgeBleed,
+        // A subtle wash applied across every line of an odd-numbered block (see
+        // computeAppRunBoundaries), so consecutive app launches are visually distinguishable
+        // as banded regions while scrolling, not just a marker on the one boundary line.
+        lineAppRunOverlay: {
+            ...edgeToEdgeBleed,
+            // backgroundColor, not the background shorthand: a boundary row's backgroundImage
+            // can land on the same row, and the shorthand would reset that image back to none.
+            backgroundColor: 'var(--rokdock-terminal-launch-banner-bg)'
+        },
+        // backgroundColor, not the background shorthand, for the same reason as lineAppRunOverlay
+        // above: a search match can land on the same row as a boundary row's backgroundImage.
+        lineSearchMatch: { backgroundColor: 'var(--rokdock-search-line-bg)', borderRadius: 3 },
+        lineSearchActive: { backgroundColor: 'var(--rokdock-search-line-active-bg)', outline: '1px solid var(--rokdock-brand-primary-light)', borderRadius: 3 },
         inputBar: { borderTop: '1px solid var(--rokdock-border)', padding: 0, background: 'var(--rokdock-bg-surface)', position: 'relative', display: 'flex', alignItems: 'center' },
         commandInput: { ...monoInput, flex: 1, width: '100%', borderRadius: 0, border: 'none', padding: '6px 8px' },
         historyToggleBtn: {
@@ -2125,19 +2615,10 @@ function buildStyles(): Record<string, React.CSSProperties> {
             opacity: 0.92
         },
         historyFlyout: {
-            position: 'absolute',
-            right: 0,
-            minWidth: 280,
-            maxWidth: '70%',
+            ...historyFlyoutChrome,
             bottom: '100%',
-            maxHeight: 220,
-            overflowY: 'auto',
-            background: 'var(--rokdock-bg-panel)',
             borderTop: '1px solid var(--rokdock-border)',
-            borderLeft: '1px solid var(--rokdock-border)',
-            borderRight: '1px solid var(--rokdock-border)',
-            boxShadow: '0 -4px 12px var(--rokdock-shadow-subtle)',
-            zIndex: 5
+            boxShadow: '0 -4px 12px var(--rokdock-shadow-subtle)'
         },
         historyItem: {
             width: '100%',
@@ -2150,5 +2631,11 @@ function buildStyles(): Record<string, React.CSSProperties> {
             fontSize: 'var(--rokdock-font-sm)',
             cursor: 'pointer'
         },
+        filterHistoryFlyout: {
+            ...historyFlyoutChrome,
+            top: '100%',
+            borderBottom: '1px solid var(--rokdock-border)',
+            boxShadow: '0 4px 12px var(--rokdock-shadow-subtle)'
+        }
     }
 }

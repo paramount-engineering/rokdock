@@ -98,8 +98,22 @@ function makeSnippet(text: string, terms: string[]): string {
     return `${prefix}${text.slice(start, end).trim()}${suffix}`
 }
 
-/** Run at most `limit` tasks at a time from `items`, applying `fn` to each. */
-async function pooled<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+/** Yield control back to the event loop via a real macrotask, not just a microtask, so
+ *  pending IPC and timers get a chance to run before the caller's next item starts. */
+function yieldToEventLoop(): Promise<void> {
+    return new Promise(resolve => setImmediate(resolve))
+}
+
+/**
+ * Run at most `limit` tasks at a time from `items`, applying `fn` to each. Yields to the
+ * event loop after every completed item, not only between the network-bound awaits `fn`
+ * usually contains. Without this, a run whose `fn` resolves with no genuine I/O wait (a
+ * warm disk-cache hit, for example) never gives the event loop a chance to run anything
+ * else: every `await` inside the loop only defers to the microtask queue, which is fully
+ * drained before Node ever checks for pending macrotasks like IPC messages or timers, so
+ * a long batch of such items starves the whole process until the batch finishes.
+ */
+export async function pooled<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
     const results: R[] = new Array(items.length)
     let nextIndex = 0
 
@@ -107,6 +121,7 @@ async function pooled<T, R>(items: T[], limit: number, fn: (item: T) => Promise<
         while (nextIndex < items.length) {
             const index = nextIndex++
             results[index] = await fn(items[index])
+            await yieldToEventLoop()
         }
     }
 

@@ -28,6 +28,7 @@ import type { SsdpService } from '../ssdp'
 import type { StoreService } from '../store'
 import type { McpToolEndpoint } from './mcpToolEndpoint'
 import type { CliMcp, CliSessionPlan } from '../../../ai-core/adapters/cliRegistry'
+import { enrichCliError } from '../../../ai-core/adapters/cliErrorHints'
 import { createMergedIterable } from '../../../ai-core/asyncMerge'
 import { detectInstalledClis } from './cliDetect'
 import { materializeCliPolicy } from './cliPolicy'
@@ -251,28 +252,40 @@ export class AiService {
         const profile = await this.requireActive()
         const withSystem: AiRequest = { ...request, system: request.system ?? this.chatSystemPrompt }
 
-        // MCP mode: active CLI supports native MCP AND at least one provider exposes tools
-        // AND an endpoint is wired in. The CLI is spawned once. It calls tools via the bridge.
-        if (
-            this.mcpEndpoint &&
-            profile.adapter === 'cli' &&
-            profile.cliKind &&
-            CLI_DEFINITIONS[profile.cliKind].mcp
-        ) {
-            const { specs, ownerByToolName } = buildToolRouting(this.contextProviders)
-            if (specs.length > 0) {
-                yield* this.streamWithMcp(profile, withSystem, signal, specs, ownerByToolName, conversationId, toolContext)
-                return
+        try {
+            // MCP mode: active CLI supports native MCP AND at least one provider exposes tools
+            // AND an endpoint is wired in. The CLI is spawned once. It calls tools via the bridge.
+            if (
+                this.mcpEndpoint &&
+                profile.adapter === 'cli' &&
+                profile.cliKind &&
+                CLI_DEFINITIONS[profile.cliKind].mcp
+            ) {
+                const { specs, ownerByToolName } = buildToolRouting(this.contextProviders)
+                if (specs.length > 0) {
+                    yield* this.streamWithMcp(profile, withSystem, signal, specs, ownerByToolName, conversationId, toolContext)
+                    return
+                }
             }
-        }
 
-        const engine = this.createEngine(await this.configForProfile(profile, true))
-        yield* engine.stream(withSystem, signal, toolContext)
+            const engine = this.createEngine(await this.configForProfile(profile, true))
+            yield* engine.stream(withSystem, signal, toolContext)
+        } catch (err) {
+            if (err instanceof Error) err.message = this.enrichIfCli(profile, err.message)
+            throw err
+        }
     }
 
     /** Remove a directory tree, swallowing any error (cleanup is always best-effort). */
     private removeDirBestEffort(dir: string): void {
         try { fs.rmSync(dir, { recursive: true, force: true }) } catch { /* best-effort cleanup */ }
+    }
+
+    /** Adds a clearer explanation above a raw failure message when `profile` is a CLI kind
+     *  with a recognized failure signature. Non-CLI profiles and unrecognized messages pass
+     *  through unchanged. */
+    private enrichIfCli(profile: AiProfile, message: string): string {
+        return profile.adapter === 'cli' && profile.cliKind ? enrichCliError(profile.cliKind, message) : message
     }
 
     /** Drop a tracked conversation session so the next stream call starts fresh. */
@@ -452,7 +465,23 @@ export class AiService {
                 fs.mkdirSync(path.dirname(file.path), { recursive: true })
                 fs.writeFileSync(file.path, file.content, 'utf8')
             }
-            const engineConfig: AiEngineConfig = { ...opts.baseConfig, mcpTools: { command: plan.command, cwd: plan.cwd } }
+            // A native MCP tool call can block on confirm()/ask() awaiting a user answer in the
+            // renderer, during which this spawn's CLI subprocess produces no output. Track how
+            // many such prompts are in flight so the CLI adapter's idle timer can tell that gap
+            // apart from a genuinely hung process, instead of killing it out from under the user.
+            let pendingPrompts = 0
+            const withPendingPrompt = <Args extends unknown[], Result>(fn: (...args: Args) => Promise<Result>) =>
+                async (...args: Args): Promise<Result> => {
+                    pendingPrompts++
+                    try { return await fn(...args) }
+                    finally { pendingPrompts-- }
+                }
+            const suspendingToolContext: ToolCallContext | undefined = opts.toolContext && {
+                ...opts.toolContext,
+                confirm: opts.toolContext.confirm && withPendingPrompt(opts.toolContext.confirm),
+                ask: opts.toolContext.ask && withPendingPrompt(opts.toolContext.ask),
+            }
+            const engineConfig: AiEngineConfig = { ...opts.baseConfig, mcpTools: { command: plan.command, cwd: plan.cwd }, idleSuspended: () => pendingPrompts > 0 }
             const engine = this.createEngine(engineConfig)
             // Create the merged iterable before registering the session so the queue is in place
             // when the first onActivity call arrives.
@@ -462,7 +491,7 @@ export class AiService {
             endpoint.registerSession(opts.token, {
                 tools: opts.specs,
                 call: (name: string, args: unknown, callSignal: AbortSignal): Promise<ToolResult> =>
-                    dispatchTool(opts.ownerByToolName, name, args, callSignal, opts.toolContext),
+                    dispatchTool(opts.ownerByToolName, name, args, callSignal, suspendingToolContext),
                 onActivity(activity) { queue.push({ activity }) },
                 signal: opts.signal,
             })
@@ -496,7 +525,8 @@ export class AiService {
             const result = await engine.complete({ messages: [{ role: 'user', content: TEST_PROMPT }] }, new AbortController().signal)
             return { ok: true, text: result.text }
         } catch (err) {
-            return { ok: false, error: err instanceof Error ? err.message : String(err) }
+            const message = err instanceof Error ? err.message : String(err)
+            return { ok: false, error: this.enrichIfCli(profile, message) }
         }
     }
 

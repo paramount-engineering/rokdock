@@ -113,8 +113,15 @@ export interface AppPreferences {
         string
     >>
     terminalCommandHistory: string[]
+    /** Previously-applied live-filter regex patterns, most-recent-last (same shape as terminalCommandHistory). */
+    terminalFilterHistory: string[]
     remoteKeyBindings: Record<string, string>
     tabLabelMode: 'displayName' | 'ip'
+    /**
+     * Band the terminal output by app run, alternating a subtle background tint at every
+     * "Running dev ..." marker the Roku console emits at app launch. Defaults to true.
+     */
+    terminalHighlightAppLaunchLines: boolean
     themeMode: 'dark' | 'light' | 'system'
     /** HSL Appearance tint over background and accent tokens. Identity = no change. */
     tint: Tint

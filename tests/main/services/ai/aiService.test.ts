@@ -4,7 +4,7 @@ import os from 'os'
 import path from 'path'
 import { AiService } from '@main/services/ai/aiService'
 import type { AiProfile, AiRequest } from '@shared/ai/types'
-import type { AiEngineConfig, ContextProvider, ToolActivity, CliEngineConfig } from '@ai-core/types'
+import type { AiEngineConfig, ContextProvider, ToolActivity, CliEngineConfig, ToolCallContext } from '@ai-core/types'
 import type { McpToolEndpoint, McpToolSession } from '@main/services/ai/mcpToolEndpoint'
 
 function fakeProfileStore(active: AiProfile | null, key?: string) {
@@ -49,6 +49,17 @@ function captureEngine() {
         }
     }
     return { configs, createEngine }
+}
+
+/** A fake engine whose stream/complete both reject with `message`, for testing failure paths. */
+function throwingEngine(message: string) {
+    return {
+        createEngine: () => ({
+            async *stream() { throw new Error(message) },
+            async complete() { throw new Error(message) },
+            async dryRun() { return { prompt: '', replacements: [] } },
+        }),
+    }
 }
 
 async function drain(iter: AsyncIterable<{ delta: string }>): Promise<string> {
@@ -104,9 +115,26 @@ describe('AiService', () => {
         const okSvc = new AiService(fakeProfileStore(remoteProfile, 'sk-1') as never, ssdp, fakeStore() as never, { createEngine: captureEngine().createEngine })
         await expect(okSvc.testConnection()).resolves.toMatchObject({ ok: true, text: 'OK' })
 
-        const failEngine = { createEngine: () => ({ async *stream() { throw new Error('boom') }, async complete() { throw new Error('boom') }, async dryRun() { return { prompt: '', replacements: [] } } }) }
-        const failSvc = new AiService(fakeProfileStore(remoteProfile, 'sk-1') as never, ssdp, fakeStore() as never, failEngine as never)
+        const failSvc = new AiService(fakeProfileStore(remoteProfile, 'sk-1') as never, ssdp, fakeStore() as never, throwingEngine('boom') as never)
         await expect(failSvc.testConnection()).resolves.toMatchObject({ ok: false, error: expect.stringContaining('boom') })
+    })
+
+    it('testConnection enriches a recognized CLI failure with a clearer explanation', async () => {
+        const cliProfile: AiProfile = { ...remoteProfile, id: 'p4', adapter: 'cli', cliKind: 'claude', isLocal: true, redactionEnabled: false, hasKey: false }
+        const rawMessage = 'AI CLI exited with code 1: Permission deny rule "SlashCommand" matches no known tool - check for typos.'
+        const svc = new AiService(fakeProfileStore(cliProfile) as never, ssdp, fakeStore() as never, { ...throwingEngine(rawMessage), resolveEnv: async () => ({}) } as never)
+        const result = await svc.testConnection()
+        expect(result.ok).toBe(false)
+        expect(result.error).toContain('CLI is out of date')
+        expect(result.error).toContain(rawMessage)
+    })
+
+    it('stream enriches a recognized CLI failure with a clearer explanation', async () => {
+        const cliProfile: AiProfile = { ...remoteProfile, id: 'p5', adapter: 'cli', cliKind: 'claude', isLocal: true, redactionEnabled: false, hasKey: false }
+        const rawMessage = 'AI CLI exited with code 1: Permission deny rule "SlashCommand" matches no known tool - check for typos.'
+        const svc = new AiService(fakeProfileStore(cliProfile) as never, ssdp, fakeStore() as never, { ...throwingEngine(rawMessage), resolveEnv: async () => ({}) } as never)
+        await expect(drain(svc.stream({ messages: [{ role: 'user', content: 'hi' }] } as AiRequest, new AbortController().signal)))
+            .rejects.toThrow(/CLI is out of date/)
     })
 
     it('previewRedaction runs the real engine dry-run and reflects what would be sent', async () => {
@@ -428,6 +456,80 @@ describe('AiService MCP path', () => {
         // revokeSession must have been called.
         expect(endpoint.revokeSession).toHaveBeenCalledWith('fixed-token')
 
+        fs.rmSync(mcpConfigDir, { recursive: true, force: true })
+    })
+
+    it('suspends the CLI engine config idle timer only while a tool call is blocked on confirm/ask', async () => {
+        const mcpConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rokdock-mcp-test-'))
+
+        const capturedConfigs: AiEngineConfig[] = []
+        const createEngine = (config: AiEngineConfig) => {
+            capturedConfigs.push(config)
+            return {
+                async *stream() { yield { delta: 'ok' } },
+                async complete() { return { text: 'ok' } },
+                async dryRun() { return { prompt: '', replacements: [] } },
+            }
+        }
+
+        const { endpoint, capturedSession } = fakeMcpEndpoint()
+
+        // A tool whose callTool blocks on context.confirm, exactly like a real device-control
+        // action awaiting the user's answer in the renderer.
+        let resolveConfirm!: (value: boolean) => void
+        const confirmPromise = new Promise<boolean>((resolve) => { resolveConfirm = resolve })
+        const provider: ContextProvider = {
+            name: 'device-control',
+            tools: () => [{ name: 'press_key', description: 'press a remote key', parameters: {} }],
+            callTool: async (_name, _args, _signal, context) => {
+                await context!.confirm!('Press Home?')
+                return { content: 'pressed' }
+            },
+        }
+
+        const cliProfile: AiProfile = {
+            id: 'cli:claude', name: 'Claude Code', adapter: 'cli', cliKind: 'claude',
+            model: '', isLocal: true, redactionEnabled: false, hasKey: false,
+        }
+        const toolContext: ToolCallContext = { confirm: async () => confirmPromise }
+
+        const svc = new AiService(
+            fakeProfileStore(cliProfile) as never,
+            ssdp,
+            fakeStore() as never,
+            {
+                createEngine,
+                contextProviders: [provider],
+                resolveEnv: async () => ({ PATH: '' }),
+                detectClis: async () => ['claude'] as never,
+                mcpEndpoint: endpoint,
+                tokenSource: () => 'fixed-token',
+                mcpConfigDir,
+                bridgePath: path.join(os.tmpdir(), 'docsToolBridge.js'),
+            },
+        )
+
+        const signal = new AbortController().signal
+        const streamPromise = (async () => {
+            for await (const _chunk of svc.stream({ messages: [{ role: 'user', content: 'q' }] } as AiRequest, signal, undefined, toolContext)) { /* drain */ }
+        })()
+
+        await new Promise(resolve => setImmediate(resolve))
+        const engineConfig = capturedConfigs[0] as CliEngineConfig
+        expect(engineConfig.idleSuspended?.()).toBe(false)
+
+        // Simulate the CLI's own MCP client invoking the tool: the idle timer must suspend
+        // for exactly the duration the confirm prompt is unanswered.
+        const session = capturedSession()
+        const callPromise = session.call('press_key', {}, signal)
+        await new Promise(resolve => setImmediate(resolve))
+        expect(engineConfig.idleSuspended?.()).toBe(true)
+
+        resolveConfirm(true)
+        await callPromise
+        expect(engineConfig.idleSuspended?.()).toBe(false)
+
+        await streamPromise
         fs.rmSync(mcpConfigDir, { recursive: true, force: true })
     })
 

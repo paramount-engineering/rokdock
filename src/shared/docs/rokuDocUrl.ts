@@ -7,7 +7,8 @@
  * URL resolves to the correct page in practice.
  */
 
-const ROKU_BASE = 'https://developer.roku.com/'
+export const ROKU_ORIGIN = 'https://developer.roku.com'
+const ROKU_BASE = ROKU_ORIGIN + '/'
 const ROKU_DOCS_HOME = ROKU_BASE + 'docs'
 
 /**

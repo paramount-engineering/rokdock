@@ -335,7 +335,7 @@ async function runRefresh(session: PreviewSession, isAutoRefresh: boolean): Prom
         session.displayedPath = session.tempPath
         session.createdTempFiles.add(session.tempPath)
         const { screenshotFolder, screenshotNamingFormat } = session.context.store.getPreferences()
-        const historyChanged = screenshotHistoryService.push(
+        const { changed: historyChanged } = screenshotHistoryService.push(
             session.tempPath,
             nextCapture.extension === 'png' ? 'png' : 'jpg',
             { folder: screenshotFolder, namingFormat: screenshotNamingFormat }

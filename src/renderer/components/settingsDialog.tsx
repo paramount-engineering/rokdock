@@ -154,6 +154,7 @@ export default function SettingsDialog() {
         storeTerminalSyntaxThemeCustomColors,
         storeRemoteKeyBindings,
         storeTabLabelMode,
+        storeTerminalHighlightAppLaunchLines,
         storeDiscoveryScanIntervalMs,
         storeDiscoveryRequestTimeoutMs,
         storeDevAppPollIntervalMs,
@@ -172,6 +173,7 @@ export default function SettingsDialog() {
         storeTerminalSyntaxThemeCustomColors: state.terminalSyntaxThemeCustomColors,
         storeRemoteKeyBindings: state.remoteKeyBindings,
         storeTabLabelMode: state.tabLabelMode,
+        storeTerminalHighlightAppLaunchLines: state.terminalHighlightAppLaunchLines,
         storeDiscoveryScanIntervalMs: state.discoveryScanIntervalMs,
         storeDiscoveryRequestTimeoutMs: state.discoveryRequestTimeoutMs,
         storeDevAppPollIntervalMs: state.devAppPollIntervalMs,
@@ -208,6 +210,7 @@ export default function SettingsDialog() {
         setDeeplinks,
         setRemoteKeyBindings,
         setTabLabelMode,
+        setTerminalHighlightAppLaunchLines,
         applyAppearance,
         setDiscoveryScanIntervalMs,
         setDiscoveryRequestTimeoutMs,
@@ -227,6 +230,7 @@ export default function SettingsDialog() {
         setDeeplinks: state.setDeeplinks,
         setRemoteKeyBindings: state.setRemoteKeyBindings,
         setTabLabelMode: state.setTabLabelMode,
+        setTerminalHighlightAppLaunchLines: state.setTerminalHighlightAppLaunchLines,
         applyAppearance: state.applyAppearance,
         setDiscoveryScanIntervalMs: state.setDiscoveryScanIntervalMs,
         setDiscoveryRequestTimeoutMs: state.setDiscoveryRequestTimeoutMs,
@@ -258,6 +262,7 @@ export default function SettingsDialog() {
     const [localFontScale, setLocalFontScale] = useState(0)
     const [localTint, setLocalTint] = useState<Tint>(IDENTITY_TINT)
     const [localTabLabelMode, setLocalTabLabelMode] = useState<TabLabelMode>('displayName')
+    const [localHighlightAppLaunchLines, setLocalHighlightAppLaunchLines] = useState(true)
     const [localDiscoveryScanIntervalMs, setLocalDiscoveryScanIntervalMs] = useState(60000)
     const [localDiscoveryRequestTimeoutMs, setLocalDiscoveryRequestTimeoutMs] = useState(5000)
     const [localDevAppPollIntervalMs, setLocalDevAppPollIntervalMs] = useState(3000)
@@ -297,6 +302,7 @@ export default function SettingsDialog() {
             setLocalFontScale(uiFontScale)
             setLocalTint(tint)
             setLocalTabLabelMode(storeTabLabelMode)
+            setLocalHighlightAppLaunchLines(storeTerminalHighlightAppLaunchLines)
             setLocalDiscoveryScanIntervalMs(storeDiscoveryScanIntervalMs)
             setLocalDiscoveryRequestTimeoutMs(storeDiscoveryRequestTimeoutMs)
             setLocalDevAppPollIntervalMs(storeDevAppPollIntervalMs)
@@ -481,6 +487,7 @@ export default function SettingsDialog() {
         setDeeplinks(localDeeplinks)
         setRemoteKeyBindings(localRemoteKeyBindings)
         setTabLabelMode(localTabLabelMode)
+        setTerminalHighlightAppLaunchLines(localHighlightAppLaunchLines)
         setDiscoveryScanIntervalMs(localDiscoveryScanIntervalMs)
         setDiscoveryRequestTimeoutMs(localDiscoveryRequestTimeoutMs)
         setDevAppPollIntervalMs(localDevAppPollIntervalMs)
@@ -963,6 +970,7 @@ export default function SettingsDialog() {
                             terminalProps={{
                                 fieldStyle: FIELD_STYLE,
                                 localTabLabelMode, setLocalTabLabelMode,
+                                localHighlightAppLaunchLines, setLocalHighlightAppLaunchLines,
                             }}
                         />
                     </div>

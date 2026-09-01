@@ -10,7 +10,8 @@ import './svgConverter.css'
 void bootBundledTheme()
 import { faUpload, faDownload } from '@fortawesome/free-solid-svg-icons'
 import { faSvg } from '@shared/icons'
-import { toHex } from './svgConverterColor'
+import { toHex, parseStyleRules, ensureSvgNamespace } from './svgConverterColor'
+import type { StyleRule } from './svgConverterColor'
 
 // --- State ---
 
@@ -138,7 +139,7 @@ async function renderSvg(): Promise<void> {
     const targetH = parseInt(inpH.value) || 1080
     const prevW = logicalW
 
-    const blob = new Blob([svgText], { type: 'image/svg+xml' })
+    const blob = new Blob([ensureSvgNamespace(svgText)], { type: 'image/svg+xml' })
     const url = URL.createObjectURL(blob)
     try {
         const img = await loadImage(url)
@@ -169,6 +170,17 @@ async function renderSvg(): Promise<void> {
         scheduleExportPreview()
     } catch {
         URL.revokeObjectURL(url)
+        // The Image failed to decode (malformed markup, an unsupported feature, or a
+        // taint/security error). Reset render state instead of silently leaving the
+        // previous SVG on screen under the new file's name with a stuck spinner.
+        svgImage = null
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        cleanDataUrl = null
+        exportDataUrl = null
+        estSize.textContent = ''
+        loadingOverlay.classList.remove('show')
+        setExportEnabled(false)
+        showToast('Could not render this SVG. It may be malformed or use an unsupported feature.')
     }
 }
 
@@ -525,18 +537,42 @@ function isStopColorPaint(element: Element, attr: string): boolean {
     return attr === 'stop-color' && element.localName === 'stop'
 }
 
-// Scan all elements' paint attributes and inline styles for distinct colors.
+/** Every <style> block's rules in the document, parsed once for a scan/recolor pass. */
+function collectStyleRules(doc: Document): StyleRule[] {
+    const rules: StyleRule[] = []
+    for (const styleElement of Array.from(doc.getElementsByTagName('style'))) {
+        rules.push(...parseStyleRules(styleElement.textContent ?? ''))
+    }
+    return rules
+}
+
+/** True if `selector` is a valid, matchable CSS selector for `element`'s document. */
+function elementMatchesSelector(element: Element, selector: string): boolean {
+    try {
+        return element.matches(selector)
+    } catch {
+        return false
+    }
+}
+
+// Scan all elements' paint attributes, inline styles, and <style>-block rules for distinct colors.
 function extractColors(svg: string): { colors: string[]; usesCurrent: boolean } {
     const doc = svgParser.parseFromString(svg, 'image/svg+xml')
     if (doc.getElementsByTagName('parsererror').length) return { colors: [], usesCurrent: false }
     const seen: Record<string, boolean> = {}, order: string[] = []
     let usesCurrent = false
+    const styleRules = collectStyleRules(doc)
     const elements = doc.getElementsByTagName('*')
     for (let i = 0; i < elements.length; i++) {
         const element = elements[i]
+        const matchedRules = styleRules.filter(rule => elementMatchesSelector(element, rule.selector))
         for (const [attr, prop, fallback] of PAINT_PROPS) {
             const style = (element as HTMLElement).style ? (element as HTMLElement).style as unknown as Record<string, string> : null
-            const rawValues: (string | null)[] = [element.getAttribute(attr), style ? style[prop] : null]
+            const rawValues: (string | null)[] = [
+                element.getAttribute(attr),
+                style ? style[prop] : null,
+                ...matchedRules.map(rule => rule.declarations[attr] ?? null),
+            ]
             let sawExplicit = false
             for (const raw of rawValues) {
                 if (raw == null || raw === '') continue
@@ -557,6 +593,18 @@ function extractColors(svg: string): { colors: string[]; usesCurrent: boolean } 
     return { colors: order, usesCurrent }
 }
 
+/**
+ * If `raw` is an explicit paint value, apply its configured override color via `setColor`
+ * (a no-op when the value has no override). Returns whether an explicit value was seen at
+ * all, override or not, so a caller can tell "explicitly set" apart from "absent".
+ */
+function applyOverrideIfPresent(raw: string | null, fallback: string | null, setColor: (color: string) => void): boolean {
+    if (raw == null || raw === '') return false
+    const normalized = normalizeColor(raw, fallback)
+    if (normalized && normalized !== 'currentColor' && colorMap[normalized]) setColor(colorMap[normalized])
+    return true
+}
+
 // Build a recolored copy of the SVG from the override map. Returns the input
 // unchanged when there are no overrides or the SVG cannot be parsed.
 function applyRecolor(svg: string): string {
@@ -567,24 +615,31 @@ function applyRecolor(svg: string): string {
     // currentColor resolves against the inherited CSS color property.
     // Setting it on the root remaps every currentColor paint, including ones in <style> blocks.
     if (svgUsesCurrentColor && currentColorOverride) root.style.color = currentColorOverride
+    const styleRules = collectStyleRules(doc)
     const elements = doc.getElementsByTagName('*')
     for (let i = 0; i < elements.length; i++) {
         const element = elements[i]
+        const matchedRules = styleRules.filter(rule => elementMatchesSelector(element, rule.selector))
         for (const [attr, prop, fallback] of PAINT_PROPS) {
-            const attrValue = element.getAttribute(attr)
-            if (attrValue) {
-                const normalized = normalizeColor(attrValue, fallback)
-                if (normalized && normalized !== 'currentColor' && colorMap[normalized]) element.setAttribute(attr, colorMap[normalized])
-            }
+            const sawAttr = applyOverrideIfPresent(element.getAttribute(attr), fallback, color => element.setAttribute(attr, color))
+
             const elementStyle = (element as HTMLElement).style ? (element as HTMLElement).style as unknown as Record<string, string> : null
-            const styleValue = elementStyle ? elementStyle[prop] : null
-            if (styleValue) {
-                const normalized = normalizeColor(styleValue, fallback)
-                if (normalized && normalized !== 'currentColor' && colorMap[normalized]) elementStyle![prop] = colorMap[normalized]
+            const sawStyle = applyOverrideIfPresent(elementStyle ? elementStyle[prop] : null, fallback, color => { elementStyle![prop] = color })
+
+            // A color declared via a <style> block class/id rule cannot be rewritten in
+            // place (the same rule may target many elements); override it with an inline
+            // style instead, which always wins over any stylesheet rule regardless of
+            // selector specificity.
+            let sawStyleRule = false
+            for (const rule of matchedRules) {
+                if (applyOverrideIfPresent(rule.declarations[attr] ?? null, fallback, color => { if (elementStyle) elementStyle[prop] = color })) {
+                    sawStyleRule = true
+                }
             }
-            // A bare <stop> (no explicit stop-color) is implicit black; inject the override
-            // so the surfaced default (see extractColors) actually recolors the gradient.
-            if (!attrValue && !styleValue && fallback && isStopColorPaint(element, attr) && colorMap[fallback]) {
+
+            // A bare <stop> (no explicit stop-color anywhere) is implicit black; inject the
+            // override so the surfaced default (see extractColors) actually recolors the gradient.
+            if (!sawAttr && !sawStyle && !sawStyleRule && fallback && isStopColorPaint(element, attr) && colorMap[fallback]) {
                 element.setAttribute(attr, colorMap[fallback])
             }
         }

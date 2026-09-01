@@ -68,6 +68,11 @@ export function registerContextMenuHandlers(): void {
                 click: () => event.sender.send('context-menu:action', options.tabId, 'find')
             },
             {
+                label: 'Filter Output...',
+                accelerator: 'CmdOrCtrl+Shift+F',
+                click: () => event.sender.send('context-menu:action', options.tabId, 'toggle-filter')
+            },
+            {
                 label: 'Look up in Developer Docs',
                 enabled: options.lookupEligible,
                 click: () => event.sender.send('context-menu:action', options.tabId, 'lookup-docs')

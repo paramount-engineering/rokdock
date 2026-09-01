@@ -10,42 +10,57 @@ afterEach(() => {
 const anchor = { x: 100, y: 100 }
 
 describe('TerminalSelectionToolbar', () => {
-    it('shows both actions for a short selection when AI is available', () => {
+    it('shows copy, lookup, and explain for a short selection when AI is available', () => {
         const { queryByTestId } = render(
             <TerminalSelectionToolbar anchor={anchor} selection="roSGScreen" term="roSGScreen" aiAvailable={true}
-                onLookup={vi.fn()} onExplain={vi.fn()} onClose={vi.fn()} />)
+                onCopy={vi.fn()} onLookup={vi.fn()} onExplain={vi.fn()} onClose={vi.fn()} />)
+        expect(queryByTestId('seltoolbar-copy')).not.toBeNull()
         expect(queryByTestId('seltoolbar-lookup')).not.toBeNull()
         expect(queryByTestId('seltoolbar-explain')).not.toBeNull()
     })
 
-    it('shows only Explain for a multi-line selection', () => {
+    it('shows copy and Explain, but not Lookup, for a multi-line selection', () => {
         const { queryByTestId } = render(
             <TerminalSelectionToolbar anchor={anchor} selection={'line1\nline2\nline3'} term={null} aiAvailable={true}
-                onLookup={vi.fn()} onExplain={vi.fn()} onClose={vi.fn()} />)
+                onCopy={vi.fn()} onLookup={vi.fn()} onExplain={vi.fn()} onClose={vi.fn()} />)
+        expect(queryByTestId('seltoolbar-copy')).not.toBeNull()
         expect(queryByTestId('seltoolbar-lookup')).toBeNull()
         expect(queryByTestId('seltoolbar-explain')).not.toBeNull()
     })
 
-    it('shows only lookup when AI is not available', () => {
+    it('shows copy and lookup, but not Explain, when AI is not available', () => {
         const { queryByTestId } = render(
             <TerminalSelectionToolbar anchor={anchor} selection="roSGScreen" term="roSGScreen" aiAvailable={false}
-                onLookup={vi.fn()} onExplain={vi.fn()} onClose={vi.fn()} />)
+                onCopy={vi.fn()} onLookup={vi.fn()} onExplain={vi.fn()} onClose={vi.fn()} />)
+        expect(queryByTestId('seltoolbar-copy')).not.toBeNull()
         expect(queryByTestId('seltoolbar-explain')).toBeNull()
         expect(queryByTestId('seltoolbar-lookup')).not.toBeNull()
     })
 
-    it('renders nothing when no action is eligible', () => {
-        const { container } = render(
+    it('still shows Copy even when neither Lookup nor Explain is eligible', () => {
+        const { queryByTestId } = render(
             <TerminalSelectionToolbar anchor={anchor} selection={'long text'} term={null} aiAvailable={false}
-                onLookup={vi.fn()} onExplain={vi.fn()} onClose={vi.fn()} />)
+                onCopy={vi.fn()} onLookup={vi.fn()} onExplain={vi.fn()} onClose={vi.fn()} />)
+        expect(queryByTestId('seltoolbar-copy')).not.toBeNull()
+        expect(queryByTestId('seltoolbar-lookup')).toBeNull()
+        expect(queryByTestId('seltoolbar-explain')).toBeNull()
+    })
+
+    it('renders nothing for an empty/whitespace-only selection', () => {
+        const { container } = render(
+            <TerminalSelectionToolbar anchor={anchor} selection={'   '} term={null} aiAvailable={true}
+                onCopy={vi.fn()} onLookup={vi.fn()} onExplain={vi.fn()} onClose={vi.fn()} />)
         expect(container.firstChild).toBeNull()
     })
 
     it('invokes callbacks on click', () => {
+        const onCopy = vi.fn()
         const onExplain = vi.fn()
         const { getByTestId } = render(
             <TerminalSelectionToolbar anchor={anchor} selection="stack trace" term={null} aiAvailable={true}
-                onLookup={vi.fn()} onExplain={onExplain} onClose={vi.fn()} />)
+                onCopy={onCopy} onLookup={vi.fn()} onExplain={onExplain} onClose={vi.fn()} />)
+        getByTestId('seltoolbar-copy').click()
+        expect(onCopy).toHaveBeenCalled()
         getByTestId('seltoolbar-explain').click()
         expect(onExplain).toHaveBeenCalled()
     })

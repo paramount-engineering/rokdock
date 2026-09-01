@@ -16,6 +16,12 @@ import type { BrowserWindow } from 'electron'
 import { DEFAULT_SCREENSHOT_NAMING_FORMAT } from '../../shared/toolbarConstants'
 export type ScreenshotHistoryEntry = { path: string; timestamp: number }
 
+/** Result of push(): whether history actually changed, and the path a caller should show. */
+export interface ScreenshotPushResult {
+    changed: boolean
+    path: string
+}
+
 const SCREENSHOT_HISTORY_MAX = 20
 const SCREENSHOT_HISTORY_MENU_ICON_SIZE = 32
 const SCREENSHOT_HISTORY_INDEX = 'screenshot-history-index.json'
@@ -290,14 +296,18 @@ export class ScreenshotHistoryService {
 
     /**
      * Copies the capture into persisted history unless it is pixel-identical to an existing entry.
-     * @returns true if history was modified (new file and/or prune).
+     * @returns `changed`: true if history was modified (new file and/or prune). `path`: the actual
+     *   destination just saved, or the existing entry's path when the source was a pixel-identical
+     *   duplicate (never a last-entry guess, since the matched entry need not be the newest one).
+     *   Falls back to `sourcePath` if the save itself failed.
      */
-    push(sourcePath: string, extension: string, opts?: { folder?: string; namingFormat?: string }): boolean {
+    push(sourcePath: string, extension: string, opts?: { folder?: string; namingFormat?: string }): ScreenshotPushResult {
         try {
             this.load(opts?.folder)
-            let changed = this.prunePixelDuplicates()
-            if (this.findPixelIdenticalEntry(sourcePath)) {
-                return changed
+            const changed = this.prunePixelDuplicates()
+            const identical = this.findPixelIdenticalEntry(sourcePath)
+            if (identical) {
+                return { changed, path: identical.path }
             }
             const historyDir = getScreenshotHistoryDir(opts?.folder)
             const timestamp = Date.now()
@@ -314,10 +324,10 @@ export class ScreenshotHistoryService {
                 }
             }
             this.save()
-            return true
+            return { changed: true, path: destPath }
         } catch {
             // best-effort: history is optional
-            return false
+            return { changed: false, path: sourcePath }
         }
     }
 

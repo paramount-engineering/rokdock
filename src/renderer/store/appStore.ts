@@ -185,8 +185,14 @@ interface AppState {
     terminalSyntaxThemePreset: TerminalSyntaxThemePreset
     terminalSyntaxThemeCustomColors: Partial<TerminalTokenPalette>
     terminalCommandHistory: string[]
+    terminalFilterHistory: string[]
     remoteKeyBindings: Record<string, string>
     tabLabelMode: TabLabelMode
+    /**
+     * Band the terminal output by app run: alternate a subtle background tint at every
+     * "Running dev ..." marker the Roku console emits at app launch.
+     */
+    terminalHighlightAppLaunchLines: boolean
     /** The user's raw choice, including 'system'. Drives the Settings segmented control. */
     themeMode: ThemeModeSetting
     /**
@@ -208,8 +214,10 @@ interface AppState {
     setTerminalAutoScroll: (enabled: boolean) => void
     setTerminalWordWrap: (enabled: boolean) => void
     addTerminalCommandHistory: (command: string) => void
+    addTerminalFilterHistory: (pattern: string) => void
     setRemoteKeyBindings: (bindings: Record<string, string>) => void
     setTabLabelMode: (mode: TabLabelMode) => void
+    setTerminalHighlightAppLaunchLines: (enabled: boolean) => void
     setThemeMode: (mode: ThemeModeSetting) => void
     setDiscoveryScanIntervalMs: (ms: number) => void
     setDiscoveryRequestTimeoutMs: (ms: number) => void
@@ -394,6 +402,21 @@ let docSymbolsRequested = false
 /** Returns `ids` with `id` removed if present, otherwise appended. Backs the panel toggles. */
 function toggleIdInList(ids: string[], id: string): string[] {
     return ids.includes(id) ? ids.filter(existing => existing !== id) : [...ids, id]
+}
+
+/** How many entries a persisted terminal history list keeps, oldest dropped first. */
+const MAX_HISTORY_ENTRIES = 1000
+
+/**
+ * Returns `history` with `entry` appended as the most recent item. An existing duplicate moves
+ * to the end rather than repeating, and the oldest entries are dropped past
+ * MAX_HISTORY_ENTRIES. Backs the terminal command and live-filter histories.
+ */
+function appendHistoryEntry(history: string[], entry: string): string[] {
+    const withoutDuplicate = history.filter((existing) => existing !== entry)
+    withoutDuplicate.push(entry)
+    if (withoutDuplicate.length <= MAX_HISTORY_ENTRIES) return withoutDuplicate
+    return withoutDuplicate.slice(withoutDuplicate.length - MAX_HISTORY_ENTRIES)
 }
 
 /** Human label for the live tool-activity line. The two tool names are ours. */
@@ -837,8 +860,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     terminalSyntaxThemePreset: 'rokdockDark',
     terminalSyntaxThemeCustomColors: {},
     terminalCommandHistory: [],
+    terminalFilterHistory: [],
     remoteKeyBindings: { ...DEFAULT_REMOTE_KEY_BINDINGS },
     tabLabelMode: 'displayName',
+    terminalHighlightAppLaunchLines: true,
     themeMode: 'dark',
     appliedThemeMode: 'dark',
     tint: { hue: 0, saturation: 1, brightness: 0 },
@@ -855,26 +880,32 @@ export const useAppStore = create<AppState>((set, get) => ({
     setTerminalAutoScroll: (enabled) => set({ terminalAutoScroll: enabled }),
     /** Set the global default word-wrap preference for new terminal tabs. */
     setTerminalWordWrap: (enabled) => set({ terminalWordWrap: enabled }),
-    /**
-     * Append a command to the terminal command history, deduplicating and capping
-     * the list at 1000 entries, then persist it to user preferences.
-     */
+    /** Append a command to the terminal command history (see appendHistoryEntry) and persist it. */
     addTerminalCommandHistory: (command) => {
         const trimmed = command.trim()
         if (!trimmed) return
-        const current = get().terminalCommandHistory
-        const deduped = current.filter((entry) => entry !== trimmed)
-        const pushed = [...deduped, trimmed]
-        const next = pushed.length > 1000 ? pushed.slice(pushed.length - 1000) : pushed
+        const next = appendHistoryEntry(get().terminalCommandHistory, trimmed)
         set({ terminalCommandHistory: next })
         void window.rokdock.store.setPreferences({ terminalCommandHistory: next }).catch((err: unknown) => {
             console.error('Failed to persist terminal command history:', err)
+        })
+    },
+    /** Append a pattern to the terminal live-filter history (see appendHistoryEntry) and persist it. */
+    addTerminalFilterHistory: (pattern) => {
+        const trimmed = pattern.trim()
+        if (!trimmed) return
+        const next = appendHistoryEntry(get().terminalFilterHistory, trimmed)
+        set({ terminalFilterHistory: next })
+        void window.rokdock.store.setPreferences({ terminalFilterHistory: next }).catch((err: unknown) => {
+            console.error('Failed to persist terminal filter history:', err)
         })
     },
     /** Set the remote key binding map, filling missing keys from defaults via normalizeRemoteKeyBindings. */
     setRemoteKeyBindings: (bindings) => set({ remoteKeyBindings: normalizeRemoteKeyBindings(bindings) }),
     /** Set whether tab labels show the device display name or IP address. */
     setTabLabelMode: (mode) => set({ tabLabelMode: mode }),
+    /** Set whether the terminal bands its output by app run. */
+    setTerminalHighlightAppLaunchLines: (enabled) => set({ terminalHighlightAppLaunchLines: enabled }),
     /** Set the interval between automatic device discovery scans (milliseconds). */
     setDiscoveryScanIntervalMs: (ms) => set({ discoveryScanIntervalMs: ms }),
     /** Set the per-request timeout for device discovery probes (milliseconds). */
@@ -953,8 +984,10 @@ export const useAppStore = create<AppState>((set, get) => ({
             terminalSyntaxThemePreset: preferences.terminalSyntaxThemePreset ?? (concreteMode === 'dark' ? 'rokdockDark' : 'rokdockLight'),
             terminalSyntaxThemeCustomColors: preferences.terminalSyntaxThemeCustomColors ?? {},
             terminalCommandHistory: preferences.terminalCommandHistory ?? [],
+            terminalFilterHistory: preferences.terminalFilterHistory ?? [],
             remoteKeyBindings: normalizeRemoteKeyBindings(preferences.remoteKeyBindings),
             tabLabelMode: preferences.tabLabelMode ?? 'displayName',
+            terminalHighlightAppLaunchLines: preferences.terminalHighlightAppLaunchLines ?? true,
             themeMode: storedMode,
             appliedThemeMode: concreteMode,
             tint: preferences.tint ?? { hue: 0, saturation: 1, brightness: 0 },
@@ -1000,6 +1033,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             terminalCommandHistory,
             remoteKeyBindings,
             tabLabelMode,
+            terminalHighlightAppLaunchLines,
             themeMode,
             tint,
             discoveryScanIntervalMs,
@@ -1023,6 +1057,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             terminalCommandHistory,
             remoteKeyBindings,
             tabLabelMode,
+            terminalHighlightAppLaunchLines,
             themeMode,
             tint,
             discoveryScanIntervalMs,

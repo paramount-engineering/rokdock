@@ -802,6 +802,60 @@ describe('round-trip exportRasp -> importRasp', () => {
 })
 
 // ---------------------------------------------------------------------------
+// exportRasp - launch format (Roku shorthand)
+// ---------------------------------------------------------------------------
+
+describe('exportRasp - launch format', () => {
+    it("exports a launch step as Roku's `- launch: <name>` shorthand with the id in params.channels", () => {
+        const { yaml, warnings } = exportRasp(makeScript([
+            { type: 'launch', channelName: 'Paramount Plus', channelId: 31440 }
+        ]))
+        expect(yaml).toContain('- launch: Paramount Plus')
+        expect(yaml).not.toContain('launch: null')
+        expect(yaml).not.toContain('channel_name:')
+        // The name -> id pair lands in params.channels so the shorthand resolves at runtime.
+        expect(yaml).toMatch(/channels:\s*\n\s+Paramount Plus: 31440/)
+        expect(warnings).toHaveLength(0)
+        // Re-imports to the same launch step (id resolved from the channels map).
+        const launch = importRasp(yaml).script.steps[0] as LaunchStep
+        expect(launch.channelName).toBe('Paramount Plus')
+        expect(launch.channelId).toBe(31440)
+    })
+
+    it('coerces a numeric id string so the channels entry serializes unquoted', () => {
+        const { yaml } = exportRasp(makeScript([
+            { type: 'launch', channelName: 'CBS', channelId: '31440' }
+        ]))
+        expect(yaml).toMatch(/CBS: 31440\b/)
+        expect(yaml).not.toContain("CBS: '31440'")
+    })
+
+    it('exports a launch step with only an id as an explicit channel_id', () => {
+        const { yaml } = exportRasp(makeScript([{ type: 'launch', channelId: 12345 }]))
+        expect(yaml).toContain('channel_id: 12345')
+        const launch = importRasp(yaml).script.steps[0] as LaunchStep
+        expect(launch.channelId).toBe(12345)
+    })
+
+    it('exports a bare launch step (no channel) as the `launch` action with no channels map', () => {
+        const { yaml } = exportRasp(makeScript([{ type: 'launch' }]))
+        expect(yaml).toContain('- launch')
+        expect(yaml).not.toContain('channels:')
+        const launch = importRasp(yaml).script.steps[0] as LaunchStep
+        expect(launch.type).toBe('launch')
+        expect(launch.channelName).toBeUndefined()
+    })
+
+    it('collects launch channels from nested loop bodies into params.channels', () => {
+        const { yaml } = exportRasp(makeScript([
+            { type: 'loop', iterations: 1, steps: [{ type: 'launch', channelName: 'Pluto TV', channelId: 74519 }] }
+        ]))
+        expect(yaml).toMatch(/channels:\s*\n\s+Pluto TV: 74519/)
+        expect(yaml).toContain('- launch: Pluto TV')
+    })
+})
+
+// ---------------------------------------------------------------------------
 // importRasp - flat params block quirk
 // ---------------------------------------------------------------------------
 
