@@ -1227,16 +1227,27 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     // unmounting mid-drag.
     const selectAllActiveRef = useRef(false)
     const dragStartLineIndexRef = useRef<number | null>(null)
+    const dragEndLineIndexRef = useRef<number | null>(null)
 
     // The text a copy should place on the clipboard. Falls back from the (virtualization-
     // truncated) DOM selection to the full line buffer. See resolveTerminalCopyText.
     // While a live filter is active, Select All and a drag selection both resolve against
     // the filtered (visible) lines only, not the hidden ones still sitting in the buffer.
+    //
+    // The anchor/focus line index is read from the mousedown/mouseup-captured refs FIRST,
+    // falling back to the live selection.anchorNode/focusNode only when no drag was ever
+    // captured. This is not just a null-safety fallback: a drag that scrolls its own start
+    // row out of the DOM (auto-scroll while dragging toward the bottom of a long buffer)
+    // does not leave the browser's Selection anchored on a removed node returning null, as
+    // you might expect. Chromium silently RE-ANCHORS the selection to a different, still
+    // valid row once the original one is unmounted, so selection.anchorNode keeps resolving
+    // to a real (but wrong) line the whole time. A null-only fallback never catches that;
+    // only preferring the value captured at the actual mousedown/mouseup moment does.
     const getSelectedText = useCallback((): string => {
         const selection = window.getSelection()
         const nativeText = selection?.toString() ?? ''
-        const rawAnchorLineIndex = lineIndexFromNode(selection?.anchorNode ?? null) ?? dragStartLineIndexRef.current
-        const rawFocusLineIndex = lineIndexFromNode(selection?.focusNode ?? null)
+        const rawAnchorLineIndex = dragStartLineIndexRef.current ?? lineIndexFromNode(selection?.anchorNode ?? null)
+        const rawFocusLineIndex = dragEndLineIndexRef.current ?? lineIndexFromNode(selection?.focusNode ?? null)
         const filtered = filteredLineIndicesRef.current
         return resolveTerminalCopyText(
             {
@@ -1254,6 +1265,7 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     const onOutputMouseDown = useCallback((event: React.MouseEvent): void => {
         selectAllActiveRef.current = false
         dragStartLineIndexRef.current = lineIndexFromNode(event.target as Node)
+        dragEndLineIndexRef.current = null
     }, [])
 
     // Override native copy (Cmd/Ctrl+C, the Edit menu copy role, a drag selection) for copies
@@ -1279,7 +1291,8 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
     // user finishes selecting text in the output, so it can sit just above the
     // selection rather than over it. Captures both the full selection (for Explain)
     // and the qualifying short term (for docs lookup, null when not applicable).
-    const onOutputMouseUp = useCallback(() => {
+    const onOutputMouseUp = useCallback((event: React.MouseEvent): void => {
+        dragEndLineIndexRef.current = lineIndexFromNode(event.target as Node)
         const selection = window.getSelection()
         const text = selection?.toString() ?? ''
         if (!text.trim() || !selection || selection.rangeCount === 0) {
