@@ -1838,10 +1838,16 @@ function CustomTerminalView({ tab, isActive }: { tab: TabInfo; isActive: boolean
         })
     }
 
+    // Depend on lines, not linesWithJsonFallback: the latter also gets a new array
+    // reference whenever the background JSON-hover-fallback cache finishes merging (see
+    // jsonFallbackGen above), which has nothing to do with new output arriving. Firing
+    // this effect on that unrelated churn snapped the view to the bottom mid-scroll or
+    // mid-selection, destroying whatever the user was doing the moment that background
+    // merge happened to complete.
     useEffect(() => {
         if (!tab.autoScroll || !viewportRef.current) return
         viewportRef.current.scrollTop = viewportRef.current.scrollHeight
-    }, [linesWithJsonFallback, tab.autoScroll])
+    }, [lines, tab.autoScroll])
 
     useEffect(() => {
         if (isActive) inputRef.current?.focus()
